@@ -4,16 +4,16 @@ import read_vmec
 
 
 def stellarator_torus(vmec, offset = 0.0):
-    """Creates a stellarator helical period as a CadQuery object based on
+    """Creates a stellarator helical torus as a CadQuery object based on
     VMEC data.
 
     Arguments:
         vmec (object): read_vmec.vmec_data class object
-        offset (float): offset of the period relative to the plasma edge
-            (defaults to 0.0)
+        offset (float): offset of the torus relative to the plasma edge
+            (defaults to 0.0) (cm)
 
     Returns:
-        period (object): stellarator period CadQuery object
+        torus (object): stellarator torus CadQuery object
     """
 
     # Define the number of phi geometric cross-sections to make
@@ -36,6 +36,8 @@ def stellarator_torus(vmec, offset = 0.0):
 
             # Determine global coordinates of local origin on magnetic axis
             X, Y, Z = vmec.vmec2xyz(0.0, 0.0, i)
+            # Multiply by 100 to convert from m to cm
+            X, Y, Z = X*100, Y*100, Z*100
             origin = (X, Y, Z)
 
             # Define rotation vector to orient new workplane at the toroidal
@@ -60,10 +62,12 @@ def stellarator_torus(vmec, offset = 0.0):
             # Compute array of points along toroidal profile
             for j in theta:
                 r, p, z = vmec.vmec2rpz(1.0, j, i)
+                # Multiply by 100 to convert from m to cm
+                r, z = r*100, z*100
                 # Transform r, z global coordinates to local coordinates
                 r = r - R
                 z = z - Z
-                # offset r, z point
+                # Offset r, z point
                 pt = (r + offset*np.cos(j), z + offset*np.sin(j))
                 pts += [pt]
 
@@ -96,15 +100,15 @@ def parametric_stellarator(
 
     Arguments:
         plas_eq (str): path to plasma equilibrium NetCDF file
-        sol_thickness (float): radial thickness of scrape-off layer (m).
-        fw_thickness (float): radial thickness of first wall (m).
-        breeder_thickness (float): radial thickness of breeder (m).
-        bw_thickness (float): radial thickness of back wall (m).
-        shield_thickness (float): radial thickness of shield (m).
-        cm_thickness (float): radial thickness of coolant manifold (m).
+        sol_thickness (float): radial thickness of scrape-off layer (cm)
+        fw_thickness (float): radial thickness of first wall (cm)
+        breeder_thickness (float): radial thickness of breeder (cm)
+        bw_thickness (float): radial thickness of back wall (cm)
+        shield_thickness (float): radial thickness of shield (cm)
+        cm_thickness (float): radial thickness of coolant manifold (cm)
         gap_thickness (float): radial thickness of gap between coolant
-            manifold and vacuum vessel (m).
-        vv_thickness (float): radial thickness of vacuum vessel (m).
+            manifold and vacuum vessel (cm)
+        vv_thickness (float): radial thickness of vacuum vessel (cm)
     """
     # Load plasma equilibrium data
     vmec = read_vmec.vmec_data(plas_eq)
@@ -116,7 +120,7 @@ def parametric_stellarator(
     # Generate SOL STEP file
     sol_uncut = stellarator_torus(vmec, offset = sol_thickness)
     sol = sol_uncut - plasma
-    cq.exporters.export(sol, 'SOL.step')
+    cq.exporters.export(sol, 'sol.step')
 
     # Generate first wall STEP file
     fw_offset = sol_thickness + fw_thickness
