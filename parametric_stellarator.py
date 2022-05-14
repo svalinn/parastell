@@ -2,6 +2,7 @@ import cadquery as cq
 import numpy as np
 import read_vmec
 from scipy.optimize import fsolve
+from paramak.utils import export_solids_to_dagmc_h5m
 
 
 def root_problem(zeta):
@@ -159,18 +160,34 @@ def stellarator_torus():
     return torus
 
 
-def parametric_stellarator(plas_eq, radial_build):
-    """Generates STEP files for components of a parametrically-defined
-    stellarator based on user-supplied plasma equilibrium VMEC data
-    using CadQuery. Currently, this package generates STEP files for a
-    user-defined radial build. Each region is of uniform thickness,
-    concentric about the plasma edge.
+def parametric_stellarator(
+    plas_eq, radial_build, exclude = [], step_export = True,
+    h5m_export = True, min_mesh_size = 5.0, max_mesh_size = 20.0,
+    volume_atol = 0.000001, center_atol = 0.000001,
+    bounding_box_atol = 0.000001):
+    """Generates CadQuery workplane objects for components of a
+    parametrically-defined stellarator, based on user-supplied plasma
+    equilibrium VMEC data and a user-defined radial build. Each region is of
+    uniform thickness, concentric about the plasma edge. The user may export
+    .step files for each reactor component and/or a DAGMC-compatible .h5m file
+    for use in neutronics simulations.
 
     Arguments:
         plas_eq (str): path to plasma equilibrium NetCDF file
         radial_build (dict): dictionary listing region name and region
             thickness in the form {'region': thickness (cm)}. Concentric
             layers will be built in the order given.
+        exclude (list of str): names of components not to export.
+        step_export (bool): export component .step fiiles
+        dagmc_export (bool): export DAGMC compatible .h5m file.
+        min_mesh_size (float): minimum mesh element size for Gmsh.
+        max_mesh_size (float): maximum mesh element size for Gmsh.
+        volume_atol (float): absolute volume tolerance to allow when matching
+            parts in intermediate BREP file with CadQuery parts.
+        center_atol (float): absolute center coordinates tolerance to allow
+            when matching parts in intermediate BREP file with CadQuery parts.
+        bounding_box_atol (float): absolute bounding box tolerance  to allow
+            when matching parts in intermediate BREP file with CadQuery parts.
     """
     # Load plasma equilibrium data
     global vmec
@@ -180,9 +197,17 @@ def parametric_stellarator(plas_eq, radial_build):
     global offset
     offset = 0.0
 
+    # Initialize solid and name tag storage lists
+    solids = []
+    tags = []
+
     # Generate plasma STEP file
     plasma = stellarator_torus()
-    cq.exporters.export(plasma, 'plasma.step')
+    
+    # Optionally store plasma
+    if 'plasma' not in exclude:
+        solids += [plasma]
+        tags += ['plasma']
 
     # Initialize volume with which layers are cut
     cutter = plasma
@@ -200,7 +225,37 @@ def parametric_stellarator(plas_eq, radial_build):
         # Generate region
         torus_uncut = stellarator_torus()
         torus = torus_uncut - cutter
-        cq.exporters.export(torus, name + '.step')
 
         # Update cutting volume
         cutter = torus_uncut
+
+        # Store solid and name tag
+        if name not in exclude:
+            solids += [torus]
+            tags += [name]
+
+    if step_export == True:
+        for (solid, tag) in zip(solids, tags):
+            cq.exporters.export(solid, tag + '.step')
+
+    # Optional DAGMC export
+    if h5m_export == True:
+
+        # Determine maximum plasma edge radial position
+        R = vmec.vmec2rpz(1.0, 0.0, 0.0)[0]
+
+        # Define length of graveyard and convert from m to cm
+        L = 2*(R + offset)*1.25*100
+
+        # Create graveyard volume
+        graveyard = cq.Workplane("XY").box(L, L, L).shell(5.0)
+
+        # Append graveyard to storage lists
+        solids += [graveyard]
+        tags += ['Graveyard']
+
+        export_solids_to_dagmc_h5m(
+            solids = solids, tags = tags, filename = 'dagmc.h5m',
+            min_mesh_size = min_mesh_size, max_mesh_size = max_mesh_size,
+            volume_atol = volume_atol, center_atol = center_atol,
+            bounding_box_atol = bounding_box_atol)
