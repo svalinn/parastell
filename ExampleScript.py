@@ -1,5 +1,7 @@
 import parametric_stellarator
 
+
+plas_eq = 'wout_daz.nc'
 radial_build = {
     'sol': 10,
     'first_wall': 5,
@@ -10,7 +12,6 @@ radial_build = {
     'gap': 20,
     'vacuum_vessel': 30
     }
+num_periods = 4
 
-plas_eq = 'wout_daz.nc'
-
-parametric_stellarator.parametric_stellarator(plas_eq, radial_build)
+parametric_stellarator.parametric_stellarator(plas_eq, radial_build, num_periods)
