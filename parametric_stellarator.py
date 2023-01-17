@@ -1,13 +1,16 @@
 import read_vmec
 import cadquery as cq
 import cubit
+import magnet_coils
+import source_mesh
 from paramak.utils import export_solids_to_dagmc_h5m
 import numpy as np
 from scipy.optimize import root_scalar
 import os
 
 
-def cubit_export(solids, h5m_tags, facet_tol, len_tol, norm_tol):
+def cubit_export(solids, h5m_tags, facet_tol, len_tol, norm_tol,
+    include_magnets, magnet_h5m_tag):
     """Export H5M neutronics model via Cubit.
 
     Arguments:
@@ -19,6 +22,9 @@ def cubit_export(solids, h5m_tags, facet_tol, len_tol, norm_tol):
         len_tol (float): maximum length of facet edge for Cubit export.
         norm_tol (float): maximum change in angle between normal vector of
             adjacent facets.
+        include_magnets (bool): generate magnets based on user-supplied coil
+            data.
+        magnet_h5m_tag (str): string to use for material tag in H5M model.
     """
     # Get current working directory
     cwd = os.getcwd()
@@ -26,8 +32,14 @@ def cubit_export(solids, h5m_tags, facet_tol, len_tol, norm_tol):
     # Initialize import command
     impt_cmd = 'import step "' + cwd + '/'
 
-    # Initialize Cubit
-    cubit.init([''])
+    # If not already initialized by generating magnets, initialize Cubit and
+    # volume index
+    if include_magnets == False:
+        cubit.init([''])
+        vol_id = 1
+    # If magnets generated, retrieve index of last volume created
+    else:
+        vol_id = cubit.get_last_id("volume")
 
     # Import solids
     for solid in solids:
@@ -37,8 +49,15 @@ def cubit_export(solids, h5m_tags, facet_tol, len_tol, norm_tol):
     cubit.cmd('imprint volume all')
     cubit.cmd('merge volume all')
 
+    # Conditionally assign magnet material group
+    if include_magnets == True:
+        cubit.cmd(
+            'group "mat:' + magnet_h5m_tag + '" add volume ' + ' '.join(str(i)
+            for i in np.linspace(1, vol_id, num = vol_id))
+        )
+    
     # Assign material groups
-    for i, tag in enumerate(h5m_tags, start = 1):
+    for i, tag in enumerate(h5m_tags, start = vol_id + 1):
         cubit.cmd('group "mat:' + tag + '" add volume ' + str(i))
 
     # Initialize tolerance strings for export statement as empty strings
@@ -55,15 +74,16 @@ def cubit_export(solids, h5m_tags, facet_tol, len_tol, norm_tol):
         norm_tol_str = 'normal_tolerance ' + str(norm_tol) + ' '
     
     # DAGMC export
-    cubit.cmd((
+    cubit.cmd(
         'export dagmc "dagmc.h5m" ' + facet_tol_str + len_tol_str +
         norm_tol_str + 'make_watertight'
-    ))
+    )
 
 
 def export(
-    components, step_export, h5m_export, facet_tol, len_tol, norm_tol,
-    min_mesh_size, max_mesh_size, volume_atol, center_atol, bounding_box_atol):
+    components, step_export, h5m_export, include_magnets, magnet_h5m_tag, 
+    facet_tol, len_tol, norm_tol, min_mesh_size, max_mesh_size, volume_atol,
+    center_atol, bounding_box_atol):
     """Export components.
 
     Arguments:
@@ -76,6 +96,9 @@ def export(
         h5m_export (str): export DAGMC-compatible neutronics H5M file using
             Cubit or Gmsh. Acceptable values are None or a string value of
             'Cubit' or 'Gmsh'. The string is case-sensitive.
+        include_magnets (bool): generate magnets based on user-supplied coil
+            data.
+        magnet_h5m_tag (str): string to use for material tag in H5M model.
         facet_tol (float): maximum distance a facet may be from surface of CAD
             representation for Cubit export.
         len_tol (float): maximum length of facet edge for Cubit export.
@@ -107,13 +130,12 @@ def export(
     if step_export == True:
         for name, solid in zip(names, solids):
             cq.exporters.export(solid, name + '.step')
-
+    
     # Conditinally export h5m file via Cubit
     if h5m_export == 'Cubit':
-        if step_export == False:
-            raise ValueError('h5m export via Cubit requires STEP files')
-
-        cubit_export(names, h5m_tags, facet_tol, len_tol, norm_tol)
+        cubit_export(
+            names, h5m_tags, facet_tol, len_tol, norm_tol, include_magnets,
+            magnet_h5m_tag)
     
     # Conditionally export h5m file via Gmsh
     if h5m_export == 'Gmsh':
@@ -204,7 +226,9 @@ def offset_point(vmec, zeta, theta, offset):
 
 
 def root_problem(zeta, vmec, theta, phi, offset):
-    """Stellarator offset surface root-finding problem. The algorithm finds the point on the plasma surface whose unit normal, multiplied by a factor of offset, reaches the desired point on the toroidal plane defined by phi.
+    """Stellarator offset surface root-finding problem. The algorithm finds the
+    point on the plasma surface whose unit normal, multiplied by a factor of
+    offset, reaches the desired point on the toroidal plane defined by phi.
 
     Arguments:
         zeta (float): toroidal angle being solved for (rad).
@@ -354,8 +378,10 @@ def stellarator_torus(
 def parametric_stellarator(
     plas_eq, num_periods, radial_build, gen_periods, num_phi = 60,
     num_theta = 100, exclude = [], step_export = True, h5m_export = None,
-    plas_h5m_tag = None, include_graveyard = False, facet_tol = None,
-    len_tol = None, norm_tol = None, min_mesh_size = 5.0, max_mesh_size = 20.0,
+    plas_h5m_tag = None, include_graveyard = False, include_magnets = False,
+    magnets = None, magnet_data = None, include_source_mesh = False,
+    source_mesh_params = None, facet_tol = None, len_tol = None,
+    norm_tol = None, min_mesh_size = 5.0, max_mesh_size = 20.0,
     volume_atol = 0.00001, center_atol = 0.00001, bounding_box_atol = 0.00001):
     """Generates CadQuery workplane objects for components of a
     parametrically-defined stellarator, based on user-supplied plasma
@@ -371,7 +397,7 @@ def parametric_stellarator(
             a corresponding dictionary of layer thickness and optional material
             tag to use in H5M neutronics model in the form
             {'component': {'thickness': thickness (float, cm), 'h5m_tag':
-            h5m_tag (string)}}
+            h5m_tag (str)}}
             Concentric layers will be built in the order given. If no alternate
             material tag is supplied for the H5M file, the given component name
             will be used.
@@ -381,30 +407,52 @@ def parametric_stellarator(
         num_theta (int): number of points defining the geometric cross-section
             (defaults to 100).
         exclude (list of str): names of components not to export.
-        step_export (bool): export component STEP files
+        step_export (bool): export component STEP files (defaults to True).
         h5m_export (str): export DAGMC-compatible neutronics H5M file using
             Cubit or Gmsh. Acceptable values are None or a string value of
-            'Cubit' or 'Gmsh'. The string is case-sensitive.
+            'Cubit' or 'Gmsh' (defaults to None). The string is case-sensitive.
+            Note that if magnets are included, 'Cubit' must be used.
         plas_h5m_tag (str): optional alternate material tag to use for plasma.
             If none is supplied and the plasma is not excluded, 'plasma' will
-            be used.
+            be used (defaults to None).
         include_graveyard (bool): generate graveyard volume as additional
-            component.
+            component (defaults to False).
+        include_magnets (bool): generate magnets based on user-supplied coil
+            data (defaults to False).
+        magnets (str): path to magnet coil data file (defaults to None).
+        magnet_data (dict of dict): dictionary for magnet data including magnet
+            name to use for STEP export, width, thickness, material tag to use
+            in H5M neutronics model, starting index for data in data file, and
+            stopping index for data in data file in the form
+            {'name': {'width': width (cm), 'thickness': thickness (cm),
+            'h5m_tag': h5m_tag (str), 'start': start (int), 'stop': stop (int)}}
+            (defaults to None). All values must be provided.
+        include_source_mesh (bool): generate H5M volumetric source mesh based on
+            user-supplied plasma equilibrium VMEC data.
+        source_mesh_params (dict): parameters to use defining source mesh
+            including numbers of closed flux surfaces, poloidal angles, and
+            toroidal angles in the form
+            {'num_s': num_s (int), 'num_theta': num_theta (int),
+            'num_phi': num_phi (int)}
         facet_tol (float): maximum distance a facet may be from surface of CAD
             representation for Cubit export.
-        len_tol (float): maximum length of facet edge for Cubit export.
+        len_tol (float): maximum length of facet edge for Cubit export
+            (defaults to None).
         norm_tol (float): maximum change in angle between normal vector of
-            adjacent facets.
-        min_mesh_size (float): minimum mesh element size for Gmsh export.
-        max_mesh_size (float): maximum mesh element size for Gmsh export.
+            adjacent facets (defaults to None).
+        min_mesh_size (float): minimum mesh element size for Gmsh export
+            (defaults to 5.0).
+        max_mesh_size (float): maximum mesh element size for Gmsh export
+            (defaults to 20.0).
         volume_atol (float): absolute volume tolerance to allow when matching
-            parts in intermediate BREP file with CadQuery parts for Gmsh export.
+            parts in intermediate BREP file with CadQuery parts for Gmsh export
+            (defaults to 0.00001).
         center_atol (float): absolute center coordinates tolerance to allow
             when matching parts in intermediate BREP file with CadQuery parts
-            for Gmsh export.
+            for Gmsh export (defaults to 0.00001).
         bounding_box_atol (float): absolute bounding box tolerance  to allow
             when matching parts in intermediate BREP file with CadQuery parts
-            for Gmsh export.
+            for Gmsh export (defaults to 0.00001).
     """
     # Check if total toroidal extent exceeds 360 degrees
     if gen_periods > num_periods:
@@ -418,6 +466,16 @@ def parametric_stellarator(
         raise ValueError(
             'h5m_export must be None or have a string value of \'Cubit\' or '
             '\'Gmsh\''
+        )
+
+    # Check that Cubit export has STEP files to use
+    if step_export == False and h5m_export == 'Cubit':
+        raise ValueError('H5M export via Cubit requires STEP files')
+
+    # Check that H5M export of magnets uses Cubit
+    if h5m_export == 'Gmsh' and include_magnets == True:
+        raise ValueError(
+            'Inclusion of magnets in H5M model requires Cubit export'
         )
     
     # Load plasma equilibrium data
@@ -470,9 +528,29 @@ def parametric_stellarator(
     if include_graveyard == True:
         components = graveyard(vmec, offset, components)
 
+    # Conditionally build magnet coils
+    if include_magnets == True:
+        # Extract coil data
+        magnet_name = list(magnet_data.keys())[0]
+        coil_width = list(magnet_data.values())[0]['width']
+        coil_thickness = list(magnet_data.values())[0]['thickness']
+        magnet_h5m_tag = list(magnet_data.values())[0]['h5m_tag']
+        start = list(magnet_data.values())[0]['start']
+        stop = list(magnet_data.values())[0]['stop']
+        # Generate magnets
+        magnet_coils.magnet_coils(
+            magnets, coil_width, coil_thickness, start, stop, magnet_name)
+
     # Export components
     export(
-        components, step_export, h5m_export, facet_tol, len_tol, norm_tol,
-        min_mesh_size, max_mesh_size, volume_atol, center_atol,
-        bounding_box_atol
+        components, step_export, h5m_export, include_magnets, magnet_h5m_tag,
+        facet_tol, len_tol, norm_tol, min_mesh_size, max_mesh_size,
+        volume_atol, center_atol, bounding_box_atol
     )
+
+    # Conditionally create source mesh
+    if include_source_mesh == True:
+        num_s = source_mesh_params['num_s']
+        num_theta = source_mesh_params['num_theta']
+        num_phi = source_mesh_params['num_phi']
+        source_mesh.source_mesh(plas_eq, num_s, num_theta, num_phi)
