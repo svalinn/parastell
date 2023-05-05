@@ -2,36 +2,56 @@ import parametric_stellarator
 
 
 # Define plasma equilibrium VMEC file
-plas_eq = 'wout_daz.nc'
+plas_eq = 'plas_eq.nc'
 # Define number of periods in stellarator plasma
 num_periods = 4
 # Define radial build
 radial_build = {
-'sol': {'thickness': 10, 'h5m_tag': 'Vacuum'},
-'first_wall': {'thickness': 5},
-'blanket': {'thickness': 50},
-'back_wall': {'thickness': 5},
-'shield': {'thickness': 30},
-'coolant_manifolds': {'thickness': 30},
-'gap': {'thickness': 20, 'h5m_tag': 'Vacuum'},
-'vacuum_vessel': {'thickness': 30}
+    'sol': {'thickness': 10, 'h5m_tag': 'Vacuum'},
+    'first_wall': {'thickness': 5},
+    'blanket': {'thickness': 5},
+    'back_wall': {'thickness': 5},
+    'shield': {'thickness': 20},
+    'coolant_manifolds': {'thickness': 5},
+    'gap': {'thickness': 5, 'h5m_tag': 'Vacuum'},
+    'vacuum_vessel': {'thickness': 20}
 }
 # Define number of periods to generate
-gen_periods = 4
+gen_periods = 1
+# Define number of toroidal cross-sections to make
+num_phi = 60
+# Define number of poloidal points to include in each toroidal cross-section
+num_theta = 100
 # Define magnet coil parameters
 magnets = {
-        'file': 'coils.wistd_306_best',
-        'cross_section': ['circle', 20],
-        'start': 3,
-        'stop': None,
-        'name': 'magnet_coils',
-        'h5m_tag': 'magnets'
-        }
+    'file': 'coils.txt',
+    'cross_section': ['circle', 20],
+    'start': 3,
+    'stop': None,
+    'name': 'magnet_coils',
+    'h5m_tag': 'magnets'
+}
+# Define export parameters
+export = {
+    'exclude': ['plasma'],
+    'graveyard': False,
+    'step_export': True,
+    'h5m_export': 'Cubit',
+    'plas_h5m_tag': None,
+    # Note the following export parameters are used only for Cubit H5M exports
+    'facet_tol': 1,
+    'len_tol': 5,
+    'norm_tol': None,
+    # Note the following export parameters are used only for Gmsh H5M exports
+    'min_mesh_size': 5.0,
+    'max_mesh_size': 20.0,
+    'volume_atol': 0.00001,
+    'center_atol': 0.00001,
+    'bounding_box_atol': 0.00001
+}
 
 # Create stellarator
 parametric_stellarator.parametric_stellarator(
-    plas_eq, num_periods, radial_build, gen_periods,
-    exclude = ['plasma', 'sol'], plas_h5m_tag = 'Vacuum',
-    include_magnets = True, magnets = magnets,
-    h5m_export = 'cubit', facet_tol = 1, len_tol = 5
+    plas_eq, num_periods, radial_build, gen_periods, num_phi, num_theta,
+    export = export, magnets = magnets
     )

@@ -8,59 +8,100 @@ from scipy.optimize import root_scalar
 import os
 
 
-def cubit_export(
-    solids, h5m_tags, facet_tol, len_tol, norm_tol, include_magnets,
-    magnet_h5m_tag):
+def cubit_export(solids, h5m_tags, export, magnets):
     """Export H5M neutronics model via Cubit.
 
     Arguments:
         solids (list): list of component names used for STEP files.
         h5m_tags (list): list of material tags to be used in H5M neutronics
             model.
-        facet_tol (float): maximum distance a facet may be from surface of CAD
-            representation for Cubit export.
-        len_tol (float): maximum length of facet edge for Cubit export.
-        norm_tol (float): maximum change in angle between normal vector of
-            adjacent facets.
-        include_magnets (bool): generate magnets based on user-supplied coil
-            data.
-        magnet_h5m_tag (str): string to use for material tag in H5M model.
+        export (dict): dictionary of export parameters including
+            {
+                'exclude': names of components not to export (list of str,
+                    defaults to empty),
+                'graveyard': generate graveyard volume as additional component
+                    (bool, defaults to False),
+                'step_export': export component STEP files (bool, defaults to
+                    True),
+                'h5m_export': export DAGMC-compatible neutronics H5M file using
+                    Cubit or Gmsh. Acceptable values are None or a string value
+                    of 'Cubit' or 'Gmsh' (str, defaults to None). The string is
+                    case-sensitive. Note that if magnets are included, 'Cubit'
+                    must be used,
+                'plas_h5m_tag': optional alternate material tag to use for
+                    plasma. If none is supplied and the plasma is not excluded,
+                    'plasma' will be used (str, defaults to None),
+                'facet_tol': maximum distance a facet may be from surface of
+                    CAD representation for Cubit export (float, defaults to
+                    None),
+                'len_tol': maximum length of facet edge for Cubit export
+                    (float, defaults to None),
+                'norm_tol': maximum change in angle between normal vector of
+                    adjacent facets (float, defaults to None),
+                'min_mesh_size': minimum mesh element size for Gmsh export
+                    (float, defaults to 5.0),
+                'max_mesh_size': maximum mesh element size for Gmsh export
+                    (float, defaults to 20.0),
+                'volume_atol': absolute volume tolerance to allow when matching
+                    parts in intermediate BREP file with CadQuery parts for
+                    Gmsh export(float, defaults to 0.00001),
+                'center_atol': absolute center coordinates tolerance to allow
+                    when matching parts in intermediate BREP file with CadQuery
+                    parts for Gmsh export (float, defaults to 0.00001),
+                'bounding_box_atol': absolute bounding box tolerance  to allow
+                    when matching parts in intermediate BREP file with CadQuery
+                    parts for Gmsh export (float, defaults to 0.00001).
+            }
+        magnets (dict): dictionary of magnet parameters including
+            {
+                'file': path to magnet coil point-locus data file (str),
+                'cross_section': coil cross-section definition (list),
+                'start': starting line index for data in file (int),
+                'stop': stopping line index for data in file (int),
+                'name': name to use for STEP export (str),
+                'h5m_tag': material tag to use in H5M neutronics model (str)
+            }
+            For the list defining the coil cross-section, the cross-section
+            shape must be either a circle or rectangle. For a circular
+            cross-section, the list format is
+            ['circle' (str), radius (float, cm)]
+            For a rectangular cross-section, the list format is
+            ['rectangle' (str), width (float, cm), thickness (float, cm)]
     """
+    # Extract Cubit export parameters
+    facet_tol = export['facet_tol']
+    len_tol = export['len_tol']
+    norm_tol = export['norm_tol']
+
     # Get current working directory
     cwd = os.getcwd()
 
     # Initialize import command
-    impt_cmd = 'import step "' + cwd + '/'
+    impt_cmd = f'import step "{cwd}/'
 
-    # If not already initialized by generating magnets, initialize Cubit and
-    # volume index
-    if include_magnets == False:
-        cubit.init([''])
-        vol_id = 1
-    # If magnets generated, retrieve index of last volume created
-    else:
-        vol_id = cubit.get_last_id("volume")
+    # Initialize volume index
+    vol_id = cubit.get_last_id("volume")
 
     # Import solids
     for solid in solids:
-        cubit.cmd(impt_cmd + solid + '.step" heal')
+        cubit.cmd(f'{impt_cmd}{solid}.step" heal')
 
     # Imprint and merge all volumes
     cubit.cmd('imprint volume all')
     cubit.cmd('merge volume all')
 
     # Conditionally assign magnet material group
-    if include_magnets == True:
+    if magnets is not None:
+        magnet_h5m_tag = magnets['h5m_tag']
         cubit.cmd(
-            'group "mat:' + magnet_h5m_tag + '" add volume ' + ' '.join(str(i)
-            for i in np.linspace(1, vol_id, num = vol_id))
+            f'group "mat:{magnet_h5m_tag}" add volume {" ".join(str(i) for i in np.linspace(1, vol_id, num = vol_id))}'
         )
         # Increment volume index for consecutive material tagging
         vol_id += 1
     
     # Assign material groups
     for i, tag in enumerate(h5m_tags, start = vol_id):
-        cubit.cmd('group "mat:' + tag + '" add volume ' + str(i))
+        cubit.cmd(f'group "mat:{tag}" add volume {i}')
 
     # Initialize tolerance strings for export statement as empty strings
     facet_tol_str = ''
@@ -69,53 +110,80 @@ def cubit_export(
 
     # Conditionally fill tolerance strings
     if facet_tol is not None:
-        facet_tol_str = 'faceting_tolerance ' + str(facet_tol) + ' '
+        facet_tol_str = f'faceting_tolerance {facet_tol}'
     if len_tol is not None:
-        len_tol_str = 'length_tolerance ' + str(len_tol) + ' '
+        len_tol_str = f'length_tolerance {len_tol}'
     if norm_tol is not None:
-        norm_tol_str = 'normal_tolerance ' + str(norm_tol) + ' '
+        norm_tol_str = f'normal_tolerance {norm_tol}'
     
     # DAGMC export
     cubit.cmd(
-        'export dagmc "dagmc.h5m" ' + facet_tol_str + len_tol_str +
-        norm_tol_str + 'make_watertight'
+        f'export dagmc "dagmc.h5m" {facet_tol_str} {len_tol_str} {norm_tol_str}'
+        f' make_watertight'
     )
 
 
-def export(
-    components, step_export, h5m_export, include_magnets, magnet_h5m_tag, 
-    facet_tol, len_tol, norm_tol, min_mesh_size, max_mesh_size, volume_atol,
-    center_atol, bounding_box_atol):
+def exports(export, components, magnets):
     """Export components.
 
     Arguments:
+        export (dict): dictionary of export parameters including
+            {
+                'exclude': names of components not to export (list of str,
+                    defaults to empty),
+                'graveyard': generate graveyard volume as additional component
+                    (bool, defaults to False),
+                'step_export': export component STEP files (bool, defaults to
+                    True),
+                'h5m_export': export DAGMC-compatible neutronics H5M file using
+                    Cubit or Gmsh. Acceptable values are None or a string value
+                    of 'Cubit' or 'Gmsh' (str, defaults to None). The string is
+                    case-sensitive. Note that if magnets are included, 'Cubit'
+                    must be used,
+                'plas_h5m_tag': optional alternate material tag to use for
+                    plasma. If none is supplied and the plasma is not excluded,
+                    'plasma' will be used (str, defaults to None),
+                'facet_tol': maximum distance a facet may be from surface of
+                    CAD representation for Cubit export (float, defaults to
+                    None),
+                'len_tol': maximum length of facet edge for Cubit export
+                    (float, defaults to None),
+                'norm_tol': maximum change in angle between normal vector of
+                    adjacent facets (float, defaults to None),
+                'min_mesh_size': minimum mesh element size for Gmsh export
+                    (float, defaults to 5.0),
+                'max_mesh_size': maximum mesh element size for Gmsh export
+                    (float, defaults to 20.0),
+                'volume_atol': absolute volume tolerance to allow when matching
+                    parts in intermediate BREP file with CadQuery parts for
+                    Gmsh export(float, defaults to 0.00001),
+                'center_atol': absolute center coordinates tolerance to allow
+                    when matching parts in intermediate BREP file with CadQuery
+                    parts for Gmsh export (float, defaults to 0.00001),
+                'bounding_box_atol': absolute bounding box tolerance  to allow
+                    when matching parts in intermediate BREP file with CadQuery
+                    parts for Gmsh export (float, defaults to 0.00001).
+            }
         components (dict of dicts): dictionary of component names, each with a
             corresponding dictionary of CadQuery solid and material tag to be
             used in H5M neutronics model in the form
             {'component': {'solid': CadQuery solid (object), 'h5m_tag':
             h5m_tag (string)}}
-        step_export (bool): export component STEP files
-        h5m_export (str): export DAGMC-compatible neutronics H5M file using
-            Cubit or Gmsh. Acceptable values are None or a string value of
-            'Cubit' or 'Gmsh'. The string is case-sensitive.
-        include_magnets (bool): generate magnets based on user-supplied coil
-            data.
-        magnet_h5m_tag (str): string to use for material tag in H5M model.
-        facet_tol (float): maximum distance a facet may be from surface of CAD
-            representation for Cubit export.
-        len_tol (float): maximum length of facet edge for Cubit export.
-        norm_tol (float): maximum change in angle between normal vector of
-            adjacent facets.
-        min_mesh_size (float): minimum mesh element size for Gmsh export.
-        max_mesh_size (float): maximum mesh element size for Gmsh export.
-        volume_atol (float): absolute volume tolerance to allow when matching
-            parts in intermediate BREP file with CadQuery parts for Gmsh export.
-        center_atol (float): absolute center coordinates tolerance to allow
-            when matching parts in intermediate BREP file with CadQuery parts
-            for Gmsh export.
-        bounding_box_atol (float): absolute bounding box tolerance  to allow
-            when matching parts in intermediate BREP file with CadQuery parts
-            for Gmsh export.
+        magnets (dict): dictionary of magnet parameters including
+            {
+                'file': path to magnet coil point-locus data file (str),
+                'cross_section': coil cross-section definition (list),
+                'start': starting line index for data in file (int),
+                'stop': stopping line index for data in file (int),
+                'name': name to use for STEP export (str),
+                'h5m_tag': material tag to use in H5M neutronics model (str)
+            }
+            For the list defining the coil cross-section, the cross-section
+            shape must be either a circle or rectangle. For a circular
+            cross-section, the list format is
+            ['circle' (str), radius (float, cm)]
+            For a rectangular cross-section, the list format is
+            ['rectangle' (str), width (float, cm), thickness (float, cm)]
     """
     # Initialize component name, solid, and tag lists
     names = []
@@ -129,18 +197,24 @@ def export(
         h5m_tags.append(comp_data['h5m_tag'])
 
     # Conditionally export STEP files
-    if step_export == True:
+    if export['step_export']:
         for name, solid in zip(names, solids):
             cq.exporters.export(solid, name + '.step')
     
-    # Conditinally export h5m file via Cubit
-    if h5m_export == 'Cubit':
+    # Conditinally export H5M file via Cubit
+    if export['h5m_export'] == 'Cubit':
         cubit_export(
-            names, h5m_tags, facet_tol, len_tol, norm_tol, include_magnets,
-            magnet_h5m_tag)
+            names, h5m_tags, export, magnets)
     
-    # Conditionally export h5m file via Gmsh
-    if h5m_export == 'Gmsh':
+    # Conditionally export H5M file via Gmsh
+    if export['h5m_export'] == 'Gmsh':
+        # Extract Gmsh export parameters
+        min_mesh_size = export['min_mesh_size']
+        max_mesh_size = export['max_mesh_size']
+        volume_atol = export['volume_atol']
+        center_atol = export['center_atol']
+        bounding_box_atol = export['bounding_box_atol']
+        # Export H5M file via Gmsh
         export_solids_to_dagmc_h5m(
             solids = solids, tags = h5m_tags, filename = 'dagmc.h5m',
             min_mesh_size = min_mesh_size, max_mesh_size = max_mesh_size,
@@ -377,13 +451,27 @@ def stellarator_torus(
     return torus, cutter
 
 
+# Define default export dictionary
+export_def = {
+    'exclude': [],
+    'graveyard': False,
+    'step_export': True,
+    'h5m_export': None,
+    'plas_h5m_tag': None,
+    'facet_tol': None,
+    'len_tol': None,
+    'norm_tol': None,
+    'min_mesh_size': 5.0,
+    'max_mesh_size': 20.0,
+    'volume_atol': 0.00001,
+    'center_atol': 0.00001,
+    'bounding_box_atol': 0.00001
+}
+
+
 def parametric_stellarator(
     plas_eq, num_periods, radial_build, gen_periods, num_phi = 60,
-    num_theta = 100, exclude = [], plas_h5m_tag = None,
-    include_graveyard = False, include_magnets = False, magnets = None,
-    step_export = True, h5m_export = None, facet_tol = None, len_tol = None,
-    norm_tol = None, min_mesh_size = 5.0, max_mesh_size = 20.0,
-    volume_atol = 0.00001, center_atol = 0.00001, bounding_box_atol = 0.00001):
+    num_theta = 100, export = export_def, magnets = None):
     """Generates CadQuery workplane objects for components of a
     parametrically-defined stellarator, based on user-supplied plasma
     equilibrium VMEC data and a user-defined radial build. Each component is
@@ -407,52 +495,58 @@ def parametric_stellarator(
             period (defaults to 60).
         num_theta (int): number of points defining the geometric cross-section
             (defaults to 100).
-        exclude (list of str): names of components not to export.
-        plas_h5m_tag (str): optional alternate material tag to use for plasma.
-            If none is supplied and the plasma is not excluded, 'plasma' will
-            be used (defaults to None).
-        include_graveyard (bool): generate graveyard volume as additional
-            component (defaults to False).
-        include_magnets (bool): generate magnets based on user-supplied coil
-            data (defaults to False).
-        magnets (dict): dictionary of magnet parameters including path to
-            magnet coil point-locus data file, coil cross-section definition,
-            starting index for data in file, stopping index for data in file,
-            magnet name to use for STEP export, and material tag to use in H5M
-            neutronics model. The specific form for the dictionary is
-            {'file': file (str), 'cross_section': cross-section (list),
-            'start': start (int), 'stop': stop (int), 'name': name (str),
-            'h5m_tag': h5m_tag (str)}
+        export (dict): dictionary of export parameters including
+            {
+                'exclude': names of components not to export (list of str,
+                    defaults to empty),
+                'graveyard': generate graveyard volume as additional component
+                    (bool, defaults to False),
+                'step_export': export component STEP files (bool, defaults to
+                    True),
+                'h5m_export': export DAGMC-compatible neutronics H5M file using
+                    Cubit or Gmsh. Acceptable values are None or a string value
+                    of 'Cubit' or 'Gmsh' (str, defaults to None). The string is
+                    case-sensitive. Note that if magnets are included, 'Cubit'
+                    must be used,
+                'plas_h5m_tag': optional alternate material tag to use for
+                    plasma. If none is supplied and the plasma is not excluded,
+                    'plasma' will be used (str, defaults to None),
+                'facet_tol': maximum distance a facet may be from surface of
+                    CAD representation for Cubit export (float, defaults to
+                    None),
+                'len_tol': maximum length of facet edge for Cubit export
+                    (float, defaults to None),
+                'norm_tol': maximum change in angle between normal vector of
+                    adjacent facets (float, defaults to None),
+                'min_mesh_size': minimum mesh element size for Gmsh export
+                    (float, defaults to 5.0),
+                'max_mesh_size': maximum mesh element size for Gmsh export
+                    (float, defaults to 20.0),
+                'volume_atol': absolute volume tolerance to allow when matching
+                    parts in intermediate BREP file with CadQuery parts for
+                    Gmsh export(float, defaults to 0.00001),
+                'center_atol': absolute center coordinates tolerance to allow
+                    when matching parts in intermediate BREP file with CadQuery
+                    parts for Gmsh export (float, defaults to 0.00001),
+                'bounding_box_atol': absolute bounding box tolerance  to allow
+                    when matching parts in intermediate BREP file with CadQuery
+                    parts for Gmsh export (float, defaults to 0.00001).
+            }
+        magnets (dict): dictionary of magnet parameters including
+            {
+                'file': path to magnet coil point-locus data file (str),
+                'cross_section': coil cross-section definition (list),
+                'start': starting line index for data in file (int),
+                'stop': stopping line index for data in file (int),
+                'name': name to use for STEP export (str),
+                'h5m_tag': material tag to use in H5M neutronics model (str)
+            }
             For the list defining the coil cross-section, the cross-section
             shape must be either a circle or rectangle. For a circular
             cross-section, the list format is
             ['circle' (str), radius (float, cm)]
             For a rectangular cross-section, the list format is
             ['rectangle' (str), width (float, cm), thickness (float, cm)]
-        step_export (bool): export component STEP files (defaults to True).
-        h5m_export (str): export DAGMC-compatible neutronics H5M file using
-            Cubit or Gmsh. Acceptable values are None or a string value of
-            'Cubit' or 'Gmsh' (defaults to None). The string is case-sensitive.
-            Note that if magnets are included, 'Cubit' must be used.
-        facet_tol (float): maximum distance a facet may be from surface of CAD
-            representation for Cubit export.
-        len_tol (float): maximum length of facet edge for Cubit export
-            (defaults to None).
-        norm_tol (float): maximum change in angle between normal vector of
-            adjacent facets (defaults to None).
-        min_mesh_size (float): minimum mesh element size for Gmsh export
-            (defaults to 5.0).
-        max_mesh_size (float): maximum mesh element size for Gmsh export
-            (defaults to 20.0).
-        volume_atol (float): absolute volume tolerance to allow when matching
-            parts in intermediate BREP file with CadQuery parts for Gmsh export
-            (defaults to 0.00001).
-        center_atol (float): absolute center coordinates tolerance to allow
-            when matching parts in intermediate BREP file with CadQuery parts
-            for Gmsh export (defaults to 0.00001).
-        bounding_box_atol (float): absolute bounding box tolerance  to allow
-            when matching parts in intermediate BREP file with CadQuery parts
-            for Gmsh export (defaults to 0.00001).
     """
     # Check if total toroidal extent exceeds 360 degrees
     if gen_periods > num_periods:
@@ -462,21 +556,27 @@ def parametric_stellarator(
         )
 
     # Check that h5m_export has an appropriate value
-    if h5m_export != None and h5m_export != 'Cubit' and h5m_export != 'Gmsh':
+    if (export['h5m_export'] != None and
+        export['h5m_export'] != 'Cubit' and
+        export['h5m_export'] != 'Gmsh'):
         raise ValueError(
             'h5m_export must be None or have a string value of \'Cubit\' or '
             '\'Gmsh\''
         )
 
     # Check that Cubit export has STEP files to use
-    if step_export == False and h5m_export == 'Cubit':
+    if export['step_export'] == False and export['h5m_export'] == 'Cubit':
         raise ValueError('H5M export via Cubit requires STEP files')
 
     # Check that H5M export of magnets uses Cubit
-    if h5m_export == 'Gmsh' and include_magnets == True:
+    if export['h5m_export'] == 'Gmsh' and magnets is not None:
         raise ValueError(
             'Inclusion of magnets in H5M model requires Cubit export'
         )
+    
+    # Update export dictionary
+    export_dict = export_def.copy()
+    export_dict.update(export)
     
     # Load plasma equilibrium data
     vmec = read_vmec.vmec_data(plas_eq)
@@ -497,12 +597,12 @@ def parametric_stellarator(
     for name, layer_data in full_radial_build.items():
         
         # Notify which component is being generated
-        print('Generating ' + str(name) + '...')
+        print(f'Generating {name}...')
         
         # Conditionally assign plasma h5m tag
         if name == 'plasma':
-            if plas_h5m_tag is not None:
-                layer_data['h5m_tag'] = plas_h5m_tag
+            if export_dict['plas_h5m_tag'] is not None:
+                layer_data['h5m_tag'] = export_dict['plas_h5m_tag']
         
         # Conditionally populate h5m tag for layer
         if 'h5m_tag' not in layer_data:
@@ -519,33 +619,22 @@ def parametric_stellarator(
         )
 
         # Store solid and name tag
-        if name not in exclude:
+        if name not in export_dict['exclude']:
             components[name] = {}
             components[name]['solid'] = torus
             components[name]['h5m_tag'] = layer_data['h5m_tag']
 
     # Conditionally build graveyard volume
-    if include_graveyard == True:
+    if export_dict['graveyard']:
         components = graveyard(vmec, offset, components)
 
+    # Conditionally initialize Cubit
+    if export_dict['h5m_export'] == 'Cubit':
+        cubit.init([''])
+
     # Conditionally build magnet coils
-    if include_magnets == True:
-        # Extract coil data
-        file = magnets['file']
-        cross_section = magnets['cross_section']
-        start = magnets['start']
-        stop = magnets['stop']
-        magnet_name = magnets['name']
-        magnet_h5m_tag = magnets['h5m_tag']
-        # Generate magnets
-        magnet_coils.magnet_coils(file, cross_section, start, stop, magnet_name)
-    # Otherwise, pass None for magnet's H5M tag
-    else:
-        magnet_h5m_tag = None
+    if magnets is not None:
+        magnet_coils.magnet_coils(magnets)
 
     # Export components
-    export(
-        components, step_export, h5m_export, include_magnets, magnet_h5m_tag,
-        facet_tol, len_tol, norm_tol, min_mesh_size, max_mesh_size,
-        volume_atol, center_atol, bounding_box_atol
-    )
+    exports(export_dict, components, magnets)
