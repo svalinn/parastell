@@ -6,15 +6,40 @@ from paramak.utils import export_solids_to_dagmc_h5m
 import numpy as np
 from scipy.optimize import root_scalar
 import os
+import logging
 
 
-def cubit_export(solids, h5m_tags, export, magnets):
+# Create logger
+logger = logging.getLogger('log')
+# Configure base logger message level
+logger.setLevel(logging.DEBUG)
+# Configure stream handler
+s_handler = logging.StreamHandler()
+s_handler.setLevel(logging.INFO)
+# Configure file handler
+f_handler = logging.FileHandler('stellarator.log')
+f_handler.setLevel(logging.DEBUG)
+# Define and set logging format
+format = logging.Formatter(
+    fmt = '%(asctime)s: %(message)s',
+    datefmt = '%H:%M:%S'
+)
+s_handler.setFormatter(format)
+f_handler.setFormatter(format)
+# Add handlers to logger
+logger.addHandler(s_handler)
+logger.addHandler(f_handler)
+
+
+def cubit_export(components, export, magnets):
     """Export H5M neutronics model via Cubit.
 
     Arguments:
-        solids (list): list of component names used for STEP files.
-        h5m_tags (list): list of material tags to be used in H5M neutronics
-            model.
+        components (dict of dicts): dictionary of component names, each with a
+            corresponding dictionary of CadQuery solid and material tag to be
+            used in H5M neutronics model in the form
+            {'name': {'solid': CadQuery solid (object), 'h5m_tag':
+            h5m_tag (string)}}
         export (dict): dictionary of export parameters including
             {
                 'exclude': names of components not to export (list of str,
@@ -76,15 +101,10 @@ def cubit_export(solids, h5m_tags, export, magnets):
     # Get current working directory
     cwd = os.getcwd()
 
-    # Initialize import command
-    impt_cmd = f'import step "{cwd}/'
-
-    # Initialize volume index
-    vol_id = cubit.get_last_id("volume")
-
     # Import solids
-    for solid in solids:
-        cubit.cmd(f'{impt_cmd}{solid}.step" heal')
+    for name in components.keys():
+        cubit.cmd(f'import step "' + cwd + '/' + name + '.step" heal')
+        components[name]['vol_id'] = cubit.get_last_id("volume")
 
     # Imprint and merge all volumes
     cubit.cmd('imprint volume all')
@@ -94,14 +114,13 @@ def cubit_export(solids, h5m_tags, export, magnets):
     if magnets is not None:
         magnet_h5m_tag = magnets['h5m_tag']
         cubit.cmd(
-            f'group "mat:{magnet_h5m_tag}" add volume {" ".join(str(i) for i in np.linspace(1, vol_id, num = vol_id))}'
+            f'group "mat:{magnet_h5m_tag}" add volume '
+            + " ".join(str(i) for i in magnets['vol_id'])
         )
-        # Increment volume index for consecutive material tagging
-        vol_id += 1
     
     # Assign material groups
-    for i, tag in enumerate(h5m_tags, start = vol_id):
-        cubit.cmd(f'group "mat:{tag}" add volume {i}')
+    for comp in components.values():
+        cubit.cmd(f'group "mat:{comp["h5m_tag"]}" add volume {comp["vol_id"]}')
 
     # Initialize tolerance strings for export statement as empty strings
     facet_tol_str = ''
@@ -167,7 +186,7 @@ def exports(export, components, magnets):
         components (dict of dicts): dictionary of component names, each with a
             corresponding dictionary of CadQuery solid and material tag to be
             used in H5M neutronics model in the form
-            {'component': {'solid': CadQuery solid (object), 'h5m_tag':
+            {'name': {'solid': CadQuery solid (object), 'h5m_tag':
             h5m_tag (string)}}
         magnets (dict): dictionary of magnet parameters including
             {
@@ -185,41 +204,33 @@ def exports(export, components, magnets):
             For a rectangular cross-section, the list format is
             ['rectangle' (str), width (float, cm), thickness (float, cm)]
     """
-    # Initialize component name, solid, and tag lists
-    names = []
-    solids = []
-    h5m_tags = []
-    
-    # Populate name, solid, and tag lists
-    for name, comp_data in components.items():
-        names.append(name)
-        solids.append(comp_data['solid'])
-        h5m_tags.append(comp_data['h5m_tag'])
-
     # Conditionally export STEP files
     if export['step_export']:
-        for name, solid in zip(names, solids):
-            cq.exporters.export(solid, name + '.step')
+        for name, comp in components.items():
+            cq.exporters.export(comp['solid'], name + '.step')
     
     # Conditinally export H5M file via Cubit
     if export['h5m_export'] == 'Cubit':
-        cubit_export(
-            names, h5m_tags, export, magnets)
+        cubit_export(components, export, magnets)
     
     # Conditionally export H5M file via Gmsh
     if export['h5m_export'] == 'Gmsh':
-        # Extract Gmsh export parameters
-        min_mesh_size = export['min_mesh_size']
-        max_mesh_size = export['max_mesh_size']
-        volume_atol = export['volume_atol']
-        center_atol = export['center_atol']
-        bounding_box_atol = export['bounding_box_atol']
+        # Initialize solid and material tag lists
+        solids = []
+        tags = []
+        # Extract component data
+        for comp in components.values():
+            solids.append(comp['solid'])
+            tags.append(comp['h5m_tag'])
         # Export H5M file via Gmsh
         export_solids_to_dagmc_h5m(
-            solids = solids, tags = h5m_tags, filename = 'dagmc.h5m',
-            min_mesh_size = min_mesh_size, max_mesh_size = max_mesh_size,
-            volume_atol = volume_atol, center_atol = center_atol,
-            bounding_box_atol = bounding_box_atol, verbose = False
+            solids = solids, tags = tags, filename = 'dagmc.h5m',
+            min_mesh_size = export['min_mesh_size'],
+            max_mesh_size = export['max_mesh_size'],
+            volume_atol = export['volume_atol'],
+            center_atol = export['center_atol'],
+            bounding_box_atol = export['bounding_box_atol'],
+            verbose = False
         )
 
 
@@ -232,14 +243,14 @@ def graveyard(vmec, offset, components):
         components (dict of dicts): dictionary of component names, each with a
             corresponding dictionary of CadQuery solid and material tag to be
             used in H5M neutronics model in the form
-            {'component': {'solid': CadQuery solid (object), 'h5m_tag':
+            {'name': {'solid': CadQuery solid (object), 'h5m_tag':
             h5m_tag (string)}}
     
     Returns:
         components (dict of dicts): dictionary of component names, each with a
             corresponding dictionary of CadQuery solid and material tag to be
             used in H5M neutronics model in the form
-            {'component': {'solid': CadQuery solid (object), 'h5m_tag':
+            {'name': {'solid': CadQuery solid (object), 'h5m_tag':
             h5m_tag (string)}}
     """
     # Determine maximum plasma edge radial position
@@ -363,6 +374,7 @@ def offset_surface(vmec, theta, phi, offset, period_ext):
         # Compute offset surface point
         r = offset_point(vmec, zeta, theta, offset)
     elif offset < 0:
+        logger.debug('Offset must be greater than or equal to 0')
         raise ValueError('Offset must be greater than or equal to 0')
 
     return r
@@ -548,28 +560,40 @@ def parametric_stellarator(
             For a rectangular cross-section, the list format is
             ['rectangle' (str), width (float, cm), thickness (float, cm)]
     """
+    # Signal new stellarator build
+    logger.info('New stellarator build')
+    
     # Check if total toroidal extent exceeds 360 degrees
     if gen_periods > num_periods:
+        logger.debug(
+            'Number of requested periods to generate exceeds number in '
+            'stellarator geometry')
         raise ValueError(
             'Number of requested periods to generate exceeds number in '
             'stellarator geometry'
         )
 
     # Check that h5m_export has an appropriate value
-    if (export['h5m_export'] != None and
-        export['h5m_export'] != 'Cubit' and
-        export['h5m_export'] != 'Gmsh'):
+    if export['h5m_export'] not in [None, 'Cubit', 'Gmsh']:
+        logger.debug(
+            'h5m_export must be None or have a string value of \'Cubit\' or '
+            '\'Gmsh\''
+        )
         raise ValueError(
             'h5m_export must be None or have a string value of \'Cubit\' or '
             '\'Gmsh\''
         )
 
     # Check that Cubit export has STEP files to use
-    if export['step_export'] == False and export['h5m_export'] == 'Cubit':
+    if export['h5m_export'] == 'Cubit' and not export['step_export']:
+        logger.debug('H5M export via Cubit requires STEP files')
         raise ValueError('H5M export via Cubit requires STEP files')
 
     # Check that H5M export of magnets uses Cubit
     if export['h5m_export'] == 'Gmsh' and magnets is not None:
+        logger.debug(
+            'Inclusion of magnets in H5M model requires Cubit export'
+        )
         raise ValueError(
             'Inclusion of magnets in H5M model requires Cubit export'
         )
@@ -597,7 +621,7 @@ def parametric_stellarator(
     for name, layer_data in full_radial_build.items():
         
         # Notify which component is being generated
-        print(f'Generating {name}...')
+        logger.info(f'Building {name}...')
         
         # Conditionally assign plasma h5m tag
         if name == 'plasma':
@@ -629,12 +653,19 @@ def parametric_stellarator(
         components = graveyard(vmec, offset, components)
 
     # Conditionally initialize Cubit
-    if export_dict['h5m_export'] == 'Cubit':
-        cubit.init([''])
+    if export_dict['h5m_export'] == 'Cubit' or magnets is not None:
+        cubit.init([
+            'cubit',
+            '-nojournal',
+            '-nographics',
+            '-information', 'off',
+            '-warning', 'off'
+        ])
 
-    # Conditionally build magnet coils
+    # Conditionally build magnet coils and store volume indices
     if magnets is not None:
-        magnet_coils.magnet_coils(magnets)
+        logger.info(f'Building {magnets["name"]}...')
+        magnets['vol_id'] = magnet_coils.magnet_coils(magnets)
 
     # Export components
     exports(export_dict, components, magnets)

@@ -14,7 +14,9 @@ radial_build = {
     'shield': {'thickness': 20},
     'coolant_manifolds': {'thickness': 5},
     'gap': {'thickness': 5, 'h5m_tag': 'Vacuum'},
-    'vacuum_vessel': {'thickness': 20}
+    # Note that some neutron transport codes (such as OpenMC) will interpret
+    # materials with "vacuum" in the name as void material
+    'vacuum_vessel': {'thickness': 20, 'h5m_tag': 'vv'}
 }
 # Define number of periods to generate
 gen_periods = 1
