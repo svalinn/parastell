@@ -1,4 +1,5 @@
 import parametric_stellarator
+import logging
 
 
 # Define plasma equilibrium VMEC file
@@ -52,8 +53,29 @@ export = {
     'bounding_box_atol': 0.00001
 }
 
+# Define logger. Note that this is identical to the default logger instatiated
+# by log.py. If no logger is passed to parametric_stellarator, this is the
+# logger that will be used.
+logger = logging.getLogger('log')
+# Configure base logger message level
+logger.setLevel(logging.INFO)
+# Configure stream handler
+s_handler = logging.StreamHandler()
+# Configure file handler
+f_handler = logging.FileHandler('stellarator.log')
+# Define and set logging format
+format = logging.Formatter(
+    fmt = '%(asctime)s: %(message)s',
+    datefmt = '%H:%M:%S'
+)
+s_handler.setFormatter(format)
+f_handler.setFormatter(format)
+# Add handlers to logger
+logger.addHandler(s_handler)
+logger.addHandler(f_handler)
+
 # Create stellarator
 parametric_stellarator.parametric_stellarator(
     plas_eq, num_periods, radial_build, gen_periods, num_phi, num_theta,
-    export = export, magnets = magnets
+    magnets = magnets, export = export, logger = logger
     )

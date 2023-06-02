@@ -1,34 +1,13 @@
+import magnet_coils
+import log
 import read_vmec
 import cadquery as cq
 import cubit
-import magnet_coils
 from paramak.utils import export_solids_to_dagmc_h5m
 import numpy as np
 from scipy.optimize import root_scalar
 import os
-import logging
-
-
-# Create logger
-logger = logging.getLogger('log')
-# Configure base logger message level
-logger.setLevel(logging.DEBUG)
-# Configure stream handler
-s_handler = logging.StreamHandler()
-s_handler.setLevel(logging.INFO)
-# Configure file handler
-f_handler = logging.FileHandler('stellarator.log')
-f_handler.setLevel(logging.DEBUG)
-# Define and set logging format
-format = logging.Formatter(
-    fmt = '%(asctime)s: %(message)s',
-    datefmt = '%H:%M:%S'
-)
-s_handler.setFormatter(format)
-f_handler.setFormatter(format)
-# Add handlers to logger
-logger.addHandler(s_handler)
-logger.addHandler(f_handler)
+import sys
 
 
 def cubit_export(components, export, magnets):
@@ -142,7 +121,7 @@ def cubit_export(components, export, magnets):
     )
 
 
-def exports(export, components, magnets):
+def exports(export, components, magnets, logger):
     """Export components.
 
     Arguments:
@@ -203,18 +182,26 @@ def exports(export, components, magnets):
             ['circle' (str), radius (float, cm)]
             For a rectangular cross-section, the list format is
             ['rectangle' (str), width (float, cm), thickness (float, cm)]
+        logger (object): logger object.
     """
     # Conditionally export STEP files
     if export['step_export']:
+        # Signal STEP export
+        logger.info('Exporting STEP files...')
         for name, comp in components.items():
             cq.exporters.export(comp['solid'], name + '.step')
     
     # Conditinally export H5M file via Cubit
     if export['h5m_export'] == 'Cubit':
+        # Signal H5M export via Cubit
+        logger.info('Exporting neutronics H5M file via Cubit...')
+        # Export H5M file via Cubit
         cubit_export(components, export, magnets)
     
     # Conditionally export H5M file via Gmsh
     if export['h5m_export'] == 'Gmsh':
+        # Signal H5M export via Gmsh
+        logger.info('Exporting neutronics H5M file via Gmsh...')
         # Initialize solid and material tag lists
         solids = []
         tags = []
@@ -234,7 +221,7 @@ def exports(export, components, magnets):
         )
 
 
-def graveyard(vmec, offset, components):
+def graveyard(vmec, offset, components, logger):
     """Creates graveyard component.
 
     Arguments:
@@ -245,6 +232,7 @@ def graveyard(vmec, offset, components):
             used in H5M neutronics model in the form
             {'name': {'solid': CadQuery solid (object), 'h5m_tag':
             h5m_tag (string)}}
+        logger (object): logger object.
     
     Returns:
         components (dict of dicts): dictionary of component names, each with a
@@ -253,6 +241,9 @@ def graveyard(vmec, offset, components):
             {'name': {'solid': CadQuery solid (object), 'h5m_tag':
             h5m_tag (string)}}
     """
+    # Signal graveyard generation
+    logger.info('Building graveyard...')
+    
     # Determine maximum plasma edge radial position
     R = vmec.vmec2rpz(1.0, 0.0, 0.0)[0]
 
@@ -344,7 +335,7 @@ def root_problem(zeta, vmec, theta, phi, offset):
     return diff
 
 
-def offset_surface(vmec, theta, phi, offset, period_ext):
+def offset_surface(vmec, theta, phi, offset, period_ext, logger):
     """Computes offset surface point.
 
     Arguments:
@@ -353,6 +344,7 @@ def offset_surface(vmec, theta, phi, offset, period_ext):
         phi (float): toroidal angle of interest (rad).
         offset (float): total offset of layer from plamsa (m).
         period_ext (float): toroidal extent of each period (rad).
+        logger (object): logger object.
 
     Returns:
         r (array): offset suface point (m).
@@ -374,14 +366,17 @@ def offset_surface(vmec, theta, phi, offset, period_ext):
         # Compute offset surface point
         r = offset_point(vmec, zeta, theta, offset)
     elif offset < 0:
-        logger.debug('Offset must be greater than or equal to 0')
-        raise ValueError('Offset must be greater than or equal to 0')
+        try:
+            raise ValueError('Offset must be greater than or equal to 0')
+        except:
+            logger.error('Exception occured', exc_info = True)
+            sys.exit()
 
     return r
 
 
 def stellarator_torus(
-    vmec, num_periods, offset, cutter, gen_periods, num_phi, num_theta):
+    vmec, num_periods, offset, cutter, gen_periods, num_phi, num_theta, logger):
     """Creates a stellarator helical torus as a CadQuery object.
     
     Arguments:
@@ -393,6 +388,7 @@ def stellarator_torus(
         gen_periods (int): number of stellarator periods to build in model.
         num_phi (int): number of phi geometric cross-sections to make.
         num_theta (int): number of points defining the geometric cross-section.
+        logger (object): logger object.
     
     Returns:
         torus (object): stellarator torus CadQuery solid object.
@@ -427,7 +423,9 @@ def stellarator_torus(
         # Compute array of points along poloidal profile
         for theta in theta_list:
             # Compute offset surface point
-            x, y, z = offset_surface(vmec, theta, phi, offset, period_ext)
+            x, y, z = offset_surface(
+                vmec, theta, phi, offset, period_ext, logger
+            )
             
             # Convert from m to cm
             pt = (x*100, y*100, z*100)
@@ -483,7 +481,7 @@ export_def = {
 
 def parametric_stellarator(
     plas_eq, num_periods, radial_build, gen_periods, num_phi = 60,
-    num_theta = 100, export = export_def, magnets = None):
+    num_theta = 100, magnets = None, export = export_def, logger = None):
     """Generates CadQuery workplane objects for components of a
     parametrically-defined stellarator, based on user-supplied plasma
     equilibrium VMEC data and a user-defined radial build. Each component is
@@ -507,6 +505,21 @@ def parametric_stellarator(
             period (defaults to 60).
         num_theta (int): number of points defining the geometric cross-section
             (defaults to 100).
+        magnets (dict): dictionary of magnet parameters including
+            {
+                'file': path to magnet coil point-locus data file (str),
+                'cross_section': coil cross-section definition (list),
+                'start': starting line index for data in file (int),
+                'stop': stopping line index for data in file (int),
+                'name': name to use for STEP export (str),
+                'h5m_tag': material tag to use in H5M neutronics model (str)
+            }
+            For the list defining the coil cross-section, the cross-section
+            shape must be either a circle or rectangle. For a circular
+            cross-section, the list format is
+            ['circle' (str), radius (float, cm)]
+            For a rectangular cross-section, the list format is
+            ['rectangle' (str), width (float, cm), thickness (float, cm)]
         export (dict): dictionary of export parameters including
             {
                 'exclude': names of components not to export (list of str,
@@ -544,59 +557,55 @@ def parametric_stellarator(
                     when matching parts in intermediate BREP file with CadQuery
                     parts for Gmsh export (float, defaults to 0.00001).
             }
-        magnets (dict): dictionary of magnet parameters including
-            {
-                'file': path to magnet coil point-locus data file (str),
-                'cross_section': coil cross-section definition (list),
-                'start': starting line index for data in file (int),
-                'stop': stopping line index for data in file (int),
-                'name': name to use for STEP export (str),
-                'h5m_tag': material tag to use in H5M neutronics model (str)
-            }
-            For the list defining the coil cross-section, the cross-section
-            shape must be either a circle or rectangle. For a circular
-            cross-section, the list format is
-            ['circle' (str), radius (float, cm)]
-            For a rectangular cross-section, the list format is
-            ['rectangle' (str), width (float, cm), thickness (float, cm)]
+        logger (object): logger object (defaults to None). If no logger is
+            supplied, a default logger will be instantiated.
     """
+    # Conditionally instantiate logger
+    if logger == None or not logger.hasHandlers():
+        logger = log.init()
+    
     # Signal new stellarator build
     logger.info('New stellarator build')
     
     # Check if total toroidal extent exceeds 360 degrees
     if gen_periods > num_periods:
-        logger.debug(
-            'Number of requested periods to generate exceeds number in '
-            'stellarator geometry')
-        raise ValueError(
-            'Number of requested periods to generate exceeds number in '
-            'stellarator geometry'
-        )
+        try:
+            raise ValueError(
+                'Number of requested periods to generate exceeds number in '
+                'stellarator geometry'
+            )
+        except:
+            logger.error('Exception occured', exc_info = True)
+            sys.exit()
 
     # Check that h5m_export has an appropriate value
     if export['h5m_export'] not in [None, 'Cubit', 'Gmsh']:
-        logger.debug(
-            'h5m_export must be None or have a string value of \'Cubit\' or '
-            '\'Gmsh\''
-        )
-        raise ValueError(
-            'h5m_export must be None or have a string value of \'Cubit\' or '
-            '\'Gmsh\''
-        )
+        try:
+            raise ValueError(
+                'h5m_export must be None or have a string value of \'Cubit\' '
+                'or \'Gmsh\''
+            )
+        except:
+            logger.error('Exception occured', exc_info = True)
+            sys.exit()
 
     # Check that Cubit export has STEP files to use
     if export['h5m_export'] == 'Cubit' and not export['step_export']:
-        logger.debug('H5M export via Cubit requires STEP files')
-        raise ValueError('H5M export via Cubit requires STEP files')
+        try:
+            raise ValueError('H5M export via Cubit requires STEP files')
+        except:
+            logger.error('Exception occured', exc_info = True)
+            sys.exit()
 
     # Check that H5M export of magnets uses Cubit
     if export['h5m_export'] == 'Gmsh' and magnets is not None:
-        logger.debug(
-            'Inclusion of magnets in H5M model requires Cubit export'
-        )
-        raise ValueError(
-            'Inclusion of magnets in H5M model requires Cubit export'
-        )
+        try:
+            raise ValueError(
+                'Inclusion of magnets in H5M model requires Cubit export'
+            )
+        except:
+            logger.error('Exception occured', exc_info = True)
+            sys.exit()
     
     # Update export dictionary
     export_dict = export_def.copy()
@@ -639,7 +648,8 @@ def parametric_stellarator(
 
         # Generate component
         torus, cutter = stellarator_torus(
-            vmec, num_periods, offset, cutter, gen_periods, num_phi, num_theta
+            vmec, num_periods, offset, cutter, gen_periods, num_phi, num_theta,
+            logger
         )
 
         # Store solid and name tag
@@ -650,7 +660,7 @@ def parametric_stellarator(
 
     # Conditionally build graveyard volume
     if export_dict['graveyard']:
-        components = graveyard(vmec, offset, components)
+        components = graveyard(vmec, offset, components, logger)
 
     # Conditionally initialize Cubit
     if export_dict['h5m_export'] == 'Cubit' or magnets is not None:
@@ -664,8 +674,7 @@ def parametric_stellarator(
 
     # Conditionally build magnet coils and store volume indices
     if magnets is not None:
-        logger.info(f'Building {magnets["name"]}...')
-        magnets['vol_id'] = magnet_coils.magnet_coils(magnets)
+        magnets['vol_id'] = magnet_coils.magnet_coils(magnets, logger)
 
     # Export components
-    exports(export_dict, components, magnets)
+    exports(export_dict, components, magnets, logger)
