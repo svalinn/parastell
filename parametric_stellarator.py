@@ -3,7 +3,7 @@ import log
 import read_vmec
 import cadquery as cq
 import cubit
-from paramak.utils import export_solids_to_dagmc_h5m
+import cad_to_dagmc
 import numpy as np
 from scipy.optimize import root_scalar
 import os
@@ -184,6 +184,21 @@ def exports(export, components, magnets, logger):
             ['rectangle' (str), width (float, cm), thickness (float, cm)]
         logger (object): logger object.
     """
+    # Check that h5m_export has an appropriate value
+    if export['h5m_export'] not in [None, 'Cubit', 'Gmsh']:
+        raise ValueError(
+            'h5m_export must be None or have a string value of \'Cubit\' or '
+            '\'Gmsh\''
+        )
+    # Check that Cubit export has STEP files to use
+    if export['h5m_export'] == 'Cubit' and not export['step_export']:
+        raise ValueError('H5M export via Cubit requires STEP files')
+    # Check that H5M export of magnets uses Cubit
+    if export['h5m_export'] == 'Gmsh' and magnets is not None:
+        raise ValueError(
+            'Inclusion of magnets in H5M model requires Cubit export'
+        )
+    
     # Conditionally export STEP files
     if export['step_export']:
         # Signal STEP export
@@ -202,23 +217,17 @@ def exports(export, components, magnets, logger):
     if export['h5m_export'] == 'Gmsh':
         # Signal H5M export via Gmsh
         logger.info('Exporting neutronics H5M file via Gmsh...')
-        # Initialize solid and material tag lists
-        solids = []
-        tags = []
+        # Initialize H5M model
+        model = cad_to_dagmc.CadToDagmc()
         # Extract component data
         for comp in components.values():
-            solids.append(comp['solid'])
-            tags.append(comp['h5m_tag'])
+            print(comp['h5m_tag'])
+            model.add_cadquery_object(
+                comp['solid'],
+                material_tags = [comp['h5m_tag']]
+            )
         # Export H5M file via Gmsh
-        export_solids_to_dagmc_h5m(
-            solids = solids, tags = tags, filename = 'dagmc.h5m',
-            min_mesh_size = export['min_mesh_size'],
-            max_mesh_size = export['max_mesh_size'],
-            volume_atol = export['volume_atol'],
-            center_atol = export['center_atol'],
-            bounding_box_atol = export['bounding_box_atol'],
-            verbose = False
-        )
+        model.export_dagmc_h5m_file()
 
 
 def graveyard(vmec, offset, components, logger):
@@ -365,12 +374,6 @@ def offset_surface(vmec, theta, phi, offset, period_ext, logger):
 
         # Compute offset surface point
         r = offset_point(vmec, zeta, theta, offset)
-    elif offset < 0:
-        try:
-            raise ValueError('Offset must be greater than or equal to 0')
-        except:
-            logger.error('Exception occured', exc_info = True)
-            sys.exit()
 
     return r
 
@@ -394,6 +397,10 @@ def stellarator_torus(
         torus (object): stellarator torus CadQuery solid object.
         cutter (object): updated cutting volume CadQuery solid object.
     """
+    # Check if offset distance is negative
+    if offset < 0:
+        raise ValueError('Offset must be greater than or equal to 0')
+    
     # Determine toroidal extent of each period in radians
     period_ext = 2*np.pi/num_periods
     
@@ -560,52 +567,21 @@ def parametric_stellarator(
         logger (object): logger object (defaults to None). If no logger is
             supplied, a default logger will be instantiated.
     """
+    # Check if total toroidal extent exceeds 360 degrees
+    try:
+        assert gen_periods <= num_periods, \
+            'Number of requested periods to generate exceeds number in ' \
+            'stellarator geometry'
+    except AssertionError as e:
+        logger.error(e.args[0])
+        raise e
+    
     # Conditionally instantiate logger
     if logger == None or not logger.hasHandlers():
         logger = log.init()
     
     # Signal new stellarator build
     logger.info('New stellarator build')
-    
-    # Check if total toroidal extent exceeds 360 degrees
-    if gen_periods > num_periods:
-        try:
-            raise ValueError(
-                'Number of requested periods to generate exceeds number in '
-                'stellarator geometry'
-            )
-        except:
-            logger.error('Exception occured', exc_info = True)
-            sys.exit()
-
-    # Check that h5m_export has an appropriate value
-    if export['h5m_export'] not in [None, 'Cubit', 'Gmsh']:
-        try:
-            raise ValueError(
-                'h5m_export must be None or have a string value of \'Cubit\' '
-                'or \'Gmsh\''
-            )
-        except:
-            logger.error('Exception occured', exc_info = True)
-            sys.exit()
-
-    # Check that Cubit export has STEP files to use
-    if export['h5m_export'] == 'Cubit' and not export['step_export']:
-        try:
-            raise ValueError('H5M export via Cubit requires STEP files')
-        except:
-            logger.error('Exception occured', exc_info = True)
-            sys.exit()
-
-    # Check that H5M export of magnets uses Cubit
-    if export['h5m_export'] == 'Gmsh' and magnets is not None:
-        try:
-            raise ValueError(
-                'Inclusion of magnets in H5M model requires Cubit export'
-            )
-        except:
-            logger.error('Exception occured', exc_info = True)
-            sys.exit()
     
     # Update export dictionary
     export_dict = export_def.copy()
@@ -647,10 +623,14 @@ def parametric_stellarator(
         offset += thickness/100
 
         # Generate component
-        torus, cutter = stellarator_torus(
-            vmec, num_periods, offset, cutter, gen_periods, num_phi, num_theta,
-            logger
-        )
+        try:
+            torus, cutter = stellarator_torus(
+                vmec, num_periods, offset, cutter, gen_periods, num_phi,
+                num_theta, logger
+            )
+        except ValueError as e:
+            logger.error(e.args[0])
+            raise e
 
         # Store solid and name tag
         if name not in export_dict['exclude']:
@@ -677,4 +657,8 @@ def parametric_stellarator(
         magnets['vol_id'] = magnet_coils.magnet_coils(magnets, logger)
 
     # Export components
-    exports(export_dict, components, magnets, logger)
+    try:
+        exports(export_dict, components, magnets, logger)
+    except ValueError as e:
+        logger.error(e.args[0])
+        raise e

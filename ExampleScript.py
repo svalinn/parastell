@@ -28,7 +28,7 @@ num_theta = 100
 # Define magnet coil parameters
 magnets = {
     'file': 'coils.txt',
-    'cross_section': ['circle', 20],
+    'cross_section': ['rectangle', 20],
     'start': 3,
     'stop': None,
     'name': 'magnet_coils',
@@ -77,5 +77,6 @@ logger.addHandler(f_handler)
 # Create stellarator
 parametric_stellarator.parametric_stellarator(
     plas_eq, num_periods, radial_build, gen_periods, num_phi, num_theta,
-    magnets = magnets, export = export, logger = logger
+    magnets = magnets,
+    export = export, logger = logger
     )

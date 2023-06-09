@@ -96,54 +96,50 @@ def extract_cs(cross_section, logger):
     
     # Conditionally extract parameters for circular cross-section
     if shape == 'circle':
-        if len(cross_section) != 2:
-            try:
-                raise ValueError(
-                    'Format of list defining circular cross-section must be\n'
-                    '[\'circle\' (str), radius (float, cm)]'
-                )
-            except:
-                logger.error('Exception occured', exc_info = True)
-                sys.exit()
+        # Check that list format is correct
+        if len(cross_section) == 1:
+            raise ValueError(
+                'Format of list defining circular cross-section must be\n'
+                '[\'circle\' (str), radius (float, cm)]'
+            )
+        elif len(cross_section) > 2:
+            logger.warning(
+                'More than one length dimension has been defined for '
+                'cross_section. Interpreting the first as the circle\'s radius;'
+                ' did you mean to use \'rectangle\'?'
+            )
+        # Extract parameters
         radius = cross_section[1]
         # Define string to pass to Cubit for cross-section generation
         shape_str = f'{shape} radius {radius}'
     # Conditinally extract parameters for rectangular cross-section
     elif shape == 'rectangle':
+        # Check that list format is correct
         if len(cross_section) != 3:
-            try:
-                raise ValueError(
-                    'Format of list defining rectangular cross-section must be'
-                    '\n[\'rectangle\' (str), width (float, cm), thickness '
-                    '(float, cm)]'
-                )
-            except:
-                logger.error('Exception occured', exc_info = True)
-                sys.exit()
+            raise ValueError(
+                'Format of list defining rectangular cross-section must be\n'
+                '[\'rectangle\' (str), width (float, cm), thickness '
+                '(float, cm)]'
+            )
+        # Extract parameters
         width = cross_section[1]
         thickness = cross_section[2]
         # Define string to pass to Cubit for cross-section generation
         shape_str = f'{shape} width {thickness} height {width}'
-    # Otherwise, if input string is neither 'circle' or 'rectangle', raise an
+    # Otherwise, if input string is neither 'circle' nor 'rectangle', raise an
     # exception
     else:
-        try:
-            raise ValueError(
-                'Magnet cross-section must be either a circle or rectangle. '
-                'The first entry of the list defining the cross-section must '
-                'be the shape, with the following entries defining the shape '
-                'parameters.\n'
-                '\n'
-                'For a circular cross-section, the list format is\n'
-                '[\'circle\' (str), radius (float, cm)]\n'
-                '\n'
-                'For a rectangular cross-section, the list format is\n'
-                '[\'rectangle\' (str), width (float, cm), thickness '
-                '(float, cm)]'
-            )
-        except:
-                logger.error('Exception occured', exc_info = True)
-                sys.exit()
+        raise ValueError(
+            'Magnet cross-section must be either a circle or rectangle. The '
+            'first entry of the list defining the cross-section must be the '
+            'shape, with the following entries defining the shape parameters.\n'
+            '\n'
+            'For a circular cross-section, the list format is\n'
+            '[\'circle\' (str), radius (float, cm)]\n'
+            '\n'
+            'For a rectangular cross-section, the list format is\n'
+            '[\'rectangle\' (str), width (float, cm), thickness (float, cm)]'
+        )
 
     return shape_str
 
@@ -167,7 +163,11 @@ def create_magnets(filaments, cross_section, logger):
         vol_ids (list of int): indices for magnet volumes.
     """
     # Extract cross-section parameters
-    shape_str = extract_cs(cross_section, logger)
+    try:
+        shape_str = extract_cs(cross_section, logger)
+    except ValueError as e:
+        logger.error(e.args[0])
+        raise e
 
     # Cross-section inititally populated with thickness vector
     # oriented along x axis
