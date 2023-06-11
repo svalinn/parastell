@@ -28,7 +28,7 @@ num_theta = 100
 # Define magnet coil parameters
 magnets = {
     'file': 'coils.txt',
-    'cross_section': ['rectangle', 20],
+    'cross_section': ['circle', 20],
     'start': 3,
     'stop': None,
     'name': 'magnet_coils',
