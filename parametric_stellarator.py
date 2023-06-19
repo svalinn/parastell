@@ -567,15 +567,6 @@ def parametric_stellarator(
         logger (object): logger object (defaults to None). If no logger is
             supplied, a default logger will be instantiated.
     """
-    # Check if total toroidal extent exceeds 360 degrees
-    try:
-        assert gen_periods <= num_periods, \
-            'Number of requested periods to generate exceeds number in ' \
-            'stellarator geometry'
-    except AssertionError as e:
-        logger.error(e.args[0])
-        raise e
-    
     # Conditionally instantiate logger
     if logger == None or not logger.hasHandlers():
         logger = log.init()
@@ -586,6 +577,15 @@ def parametric_stellarator(
     # Update export dictionary
     export_dict = export_def.copy()
     export_dict.update(export)
+
+    # Check if total toroidal extent exceeds 360 degrees
+    try:
+        assert gen_periods <= num_periods, \
+            'Number of requested periods to generate exceeds number in ' \
+            'stellarator geometry'
+    except AssertionError as e:
+        logger.error(e.args[0])
+        raise e
     
     # Load plasma equilibrium data
     vmec = read_vmec.vmec_data(plas_eq)
