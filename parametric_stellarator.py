@@ -222,7 +222,6 @@ def exports(export, components, magnets, logger):
         model = cad_to_dagmc.CadToDagmc()
         # Extract component data
         for comp in components.values():
-            print(comp['h5m_tag'])
             model.add_cadquery_object(
                 comp['solid'],
                 material_tags = [comp['h5m_tag']]
