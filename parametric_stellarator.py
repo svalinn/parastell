@@ -378,7 +378,7 @@ def offset_surface(vmec, theta, phi, offset, period_ext):
 
 
 def stellarator_torus(
-    vmec, num_periods, offset, cutter, gen_periods, num_phi, num_theta, logger):
+    vmec, num_periods, offset, cutter, gen_periods, num_phi, num_theta):
     """Creates a stellarator helical torus as a CadQuery object.
     
     Arguments:
@@ -634,7 +634,7 @@ def parametric_stellarator(
         try:
             torus, cutter = stellarator_torus(
                 vmec, num_periods, offset, cutter, gen_periods, num_phi,
-                num_theta, logger
+                num_theta
             )
         except ValueError as e:
             logger.error(e.args[0])
