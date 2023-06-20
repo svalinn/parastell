@@ -344,7 +344,7 @@ def root_problem(zeta, vmec, theta, phi, offset):
     return diff
 
 
-def offset_surface(vmec, theta, phi, offset, period_ext, logger):
+def offset_surface(vmec, theta, phi, offset, period_ext):
     """Computes offset surface point.
 
     Arguments:
@@ -353,7 +353,6 @@ def offset_surface(vmec, theta, phi, offset, period_ext, logger):
         phi (float): toroidal angle of interest (rad).
         offset (float): total offset of layer from plamsa (m).
         period_ext (float): toroidal extent of each period (rad).
-        logger (object): logger object.
 
     Returns:
         r (array): offset suface point (m).
@@ -430,9 +429,7 @@ def stellarator_torus(
         # Compute array of points along poloidal profile
         for theta in theta_list:
             # Compute offset surface point
-            x, y, z = offset_surface(
-                vmec, theta, phi, offset, period_ext, logger
-            )
+            x, y, z = offset_surface(vmec, theta, phi, offset, period_ext)
             
             # Convert from m to cm
             pt = (x*100, y*100, z*100)
