@@ -574,6 +574,7 @@ def parametric_stellarator(
 
     Returns:
         strengths (list): list of source strengths for each tetrahedron (1/s).
+            Only returned if source mesh is generated
     """
     # Conditionally instantiate logger
     if logger == None or not logger.hasHandlers():
@@ -674,5 +675,4 @@ def parametric_stellarator(
     # Conditionally create source mesh
     if source is not None:
         strengths = source_mesh.source_mesh(vmec, source, logger = logger)
-
-    return strengths
+        return strengths
