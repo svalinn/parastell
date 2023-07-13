@@ -316,14 +316,14 @@ def create_vertices(vmec, mbc, s_list, theta_list, phi_list):
         # Determine vertex at magnetic axis, converting to cm
         vertex = np.array(vmec.vmec2xyz(s_list[0], theta_list[0], phi)) * m2cm
         # Append vertex to list
-        verts += [list(vertex)]
+        verts += [vertex]
         # Store s for vertex
         verts_s += [s_list[0]]
         for s in s_list[1:]:
             for theta in theta_list:
                 # Detemine vertices beyond magnetic axis in same toroidal angle
                 vertex = np.array(vmec.vmec2xyz(s, theta, phi)) * m2cm
-                verts += [list(vertex)]
+                verts += [vertex]
                 # Store s for vertex
                 verts_s += [s]
 
