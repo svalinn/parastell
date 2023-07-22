@@ -1,4 +1,5 @@
 import magnet_coils
+import source_mesh
 import log
 import read_vmec
 import cadquery as cq
@@ -221,7 +222,6 @@ def exports(export, components, magnets, logger):
         model = cad_to_dagmc.CadToDagmc()
         # Extract component data
         for comp in components.values():
-            print(comp['h5m_tag'])
             model.add_cadquery_object(
                 comp['solid'],
                 material_tags = [comp['h5m_tag']]
@@ -344,7 +344,7 @@ def root_problem(zeta, vmec, theta, phi, offset):
     return diff
 
 
-def offset_surface(vmec, theta, phi, offset, period_ext, logger):
+def offset_surface(vmec, theta, phi, offset, period_ext):
     """Computes offset surface point.
 
     Arguments:
@@ -353,7 +353,6 @@ def offset_surface(vmec, theta, phi, offset, period_ext, logger):
         phi (float): toroidal angle of interest (rad).
         offset (float): total offset of layer from plamsa (m).
         period_ext (float): toroidal extent of each period (rad).
-        logger (object): logger object.
 
     Returns:
         r (array): offset suface point (m).
@@ -379,7 +378,7 @@ def offset_surface(vmec, theta, phi, offset, period_ext, logger):
 
 
 def stellarator_torus(
-    vmec, num_periods, offset, cutter, gen_periods, num_phi, num_theta, logger):
+    vmec, num_periods, offset, cutter, gen_periods, num_phi, num_theta):
     """Creates a stellarator helical torus as a CadQuery object.
     
     Arguments:
@@ -430,9 +429,7 @@ def stellarator_torus(
         # Compute array of points along poloidal profile
         for theta in theta_list:
             # Compute offset surface point
-            x, y, z = offset_surface(
-                vmec, theta, phi, offset, period_ext, logger
-            )
+            x, y, z = offset_surface(vmec, theta, phi, offset, period_ext)
             
             # Convert from m to cm
             pt = (x*100, y*100, z*100)
@@ -488,7 +485,8 @@ export_def = {
 
 def parametric_stellarator(
     plas_eq, num_periods, radial_build, gen_periods, num_phi = 60,
-    num_theta = 100, magnets = None, export = export_def, logger = None):
+    num_theta = 100, magnets = None, source = None, export = export_def,
+    logger = None):
     """Generates CadQuery workplane objects for components of a
     parametrically-defined stellarator, based on user-supplied plasma
     equilibrium VMEC data and a user-defined radial build. Each component is
@@ -527,6 +525,13 @@ def parametric_stellarator(
             ['circle' (str), radius (float, cm)]
             For a rectangular cross-section, the list format is
             ['rectangle' (str), width (float, cm), thickness (float, cm)]
+        source (dict): dictionary of source mesh parameters including
+            {
+                'num_s': number of closed magnetic flux surfaces defining mesh
+                    (int),
+                'num_theta': number of poloidal angles defining mesh (int),
+                'num_phi': number of toroidal angles defining mesh (int)
+            }
         export (dict): dictionary of export parameters including
             {
                 'exclude': names of components not to export (list of str,
@@ -566,6 +571,10 @@ def parametric_stellarator(
             }
         logger (object): logger object (defaults to None). If no logger is
             supplied, a default logger will be instantiated.
+
+    Returns:
+        strengths (list): list of source strengths for each tetrahedron (1/s).
+            Only returned if source mesh is generated
     """
     # Conditionally instantiate logger
     if logger == None or not logger.hasHandlers():
@@ -626,7 +635,7 @@ def parametric_stellarator(
         try:
             torus, cutter = stellarator_torus(
                 vmec, num_periods, offset, cutter, gen_periods, num_phi,
-                num_theta, logger
+                num_theta
             )
         except ValueError as e:
             logger.error(e.args[0])
@@ -654,7 +663,7 @@ def parametric_stellarator(
 
     # Conditionally build magnet coils and store volume indices
     if magnets is not None:
-        magnets['vol_id'] = magnet_coils.magnet_coils(magnets, logger)
+        magnets['vol_id'] = magnet_coils.magnet_coils(magnets, logger = logger)
 
     # Export components
     try:
@@ -662,3 +671,8 @@ def parametric_stellarator(
     except ValueError as e:
         logger.error(e.args[0])
         raise e
+    
+    # Conditionally create source mesh
+    if source is not None:
+        strengths = source_mesh.source_mesh(vmec, source, logger = logger)
+        return strengths

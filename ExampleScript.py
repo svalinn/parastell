@@ -34,6 +34,12 @@ magnets = {
     'name': 'magnet_coils',
     'h5m_tag': 'magnets'
 }
+# Define source mesh parameters
+source = {
+    'num_s': 11,
+    'num_theta': 81,
+    'num_phi': 241
+}
 # Define export parameters
 export = {
     'exclude': ['plasma'],
@@ -77,6 +83,6 @@ logger.addHandler(f_handler)
 # Create stellarator
 parametric_stellarator.parametric_stellarator(
     plas_eq, num_periods, radial_build, gen_periods, num_phi, num_theta,
-    magnets = magnets,
+    magnets = magnets, source = source,
     export = export, logger = logger
     )
