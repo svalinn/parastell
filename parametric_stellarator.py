@@ -376,9 +376,12 @@ def offset_surface(vmec, theta, phi, offset, period_ext):
         r (array): offset suface point (m).
     """
     # Conditionally offset poloidal profile
+    # Use VMEC plasma edge value for offset of 0
     if offset == 0:
         # Compute plasma edge point
         r = vmec.vmec2xyz(1.0, theta, phi)
+    
+    # Compute offset greater than zero
     elif offset > 0:
         # Root-solve for the toroidal angle at which the plasma
         # surface normal points to the toroidal angle of interest
@@ -391,43 +394,106 @@ def offset_surface(vmec, theta, phi, offset, period_ext):
 
         # Compute offset surface point
         r = offset_point(vmec, zeta, theta, offset)
+    
+    # Raise error for negative offset values
+    elif offset < 0:
+        raise ValueError(
+            'Offset must be greater than or equal to 0. Check thickness inputs '
+            'for negative values'
+        )
 
     return r
 
 
+def expand_offset(offset_vals, ang_list, ang_list_exp, num_ang_list):
+    """Expands offset list or matrix by linearly interpolating offset values
+    according to given list of angles.
+
+    Arguments:
+        offset_vals (list or list of list of float): offset values to
+            interpolate between (cm).
+        ang_list (list of float): user-supplied list of angles (deg).
+        ang_list_exp (list of float): interpolated list of angles (deg).
+        num_ang_list (list of int): number of angles interpolated between
+            user-supplied list.
+
+    Returns:
+        offset_vals_exp (list of list of float): interpolated matrix of offset
+            values (cm).
+    """
+    # Initialize expanded list or matrix of offsets
+    offset_vals_exp = []
+    # Initialize previous number of offset values interpolated
+    num_offset_prev = 0
+
+    # Loop over supplied offset values
+    for i, offset in enumerate(offset_vals[:-1]):
+        # Extract number of offset values to interpolate
+        num_offset = num_ang_list[i]
+        # Extract next offset value or list in original list or matrix
+        offset_next = offset_vals[i + 1]
+        # Compute difference between next and current offset values
+        offset_diff = offset_next - offset
+
+        # Extract angle for current index
+        ang = ang_list[i]
+        # Extract angle for next index
+        next_ang = ang_list[i + 1]
+        # Compute difference between next and current angles
+        ang_diff = next_ang - ang
+
+        # Compute ratio of offset and angle differences
+        diff_ratio = offset_diff/ang_diff
+
+        # Interpolate between supplied offset values
+        for j in range(num_offset):
+            # Extract angle from interpolated list
+            ang_int = ang_list_exp[num_offset_prev + j]
+            # Interpolate offset
+            offset_int = offset + diff_ratio*(ang_int - ang)
+            # Append interpolated offset to storage list
+            offset_vals_exp.append(offset_int)
+
+        # Update number of offset values previously interpolated
+        num_offset_prev += num_offset
+
+    # Append final offset value to expanded list
+    offset_vals_exp.append(offset_vals[-1])
+    
+    return offset_vals_exp
+
+
 def stellarator_torus(
-    vmec, num_periods, offset, cutter, gen_periods, num_phi, num_theta):
+    vmec, num_periods, offset_mat, cutter, gen_periods, phi_list, phi_list_exp,
+    num_phi_list, theta_list, theta_list_exp, num_theta_list):
     """Creates a stellarator helical torus as a CadQuery object.
     
     Arguments:
         vmec (object): plasma equilibrium object.
         num_periods (int): number of periods in stellarator geometry.
-        offset (float): total offset of layer from plamsa (cm).
+        offset_mat (list of list of float): matrix of (poloidal angle, toroidal
+            angle) pairs of total offsets of layer from plamsa (cm).
         cutter (object): CadQuery solid object used to cut period of
             stellarator torus.
         gen_periods (int): number of stellarator periods to build in model.
-        num_phi (int): number of phi geometric cross-sections to make.
-        num_theta (int): number of points defining the geometric cross-section.
-        logger (object): logger object.
+        phi_list (list of float): user-suppied list of toroidal angles (deg).
+        phi_list_exp (list of float): interpolated list of toroidal angles
+            (deg).
+        num_phi_list (list of int): number of toroidal angles interpolated
+            between user-supplied list.
+        theta_list (list of float): user-suppied list of poloidal angles (deg).
+        theta_list_exp (list of float): interpolated list of poloidal angles
+            (deg).
+        num_theta_list (list of int): number of poloidal angles interpolated
+            between user-supplied list.
     
     Returns:
         torus (object): stellarator torus CadQuery solid object.
         cutter (object): updated cutting volume CadQuery solid object.
     """
-    # Check if offset distance is negative
-    if offset < 0:
-        raise ValueError('Offset must be greater than or equal to 0')
+    # Determine toroidal extent of each period in degrees
+    period_ext = 360.0/num_periods
     
-    # Determine toroidal extent of each period in radians
-    period_ext = 2*np.pi/num_periods
-    
-    # Define toroidal (phi) and poloidal (theta) arrays
-    phi_list = np.linspace(0, period_ext, num = num_phi + 1)
-    theta_list = np.linspace(0, 2*np.pi, num = num_theta + 1)[:-1]
-
-    # Convert toroidal extent of period to degrees
-    period_ext = np.rad2deg(period_ext)
-
     # Define initial angles defining each period needed
     initial_angles = np.linspace(
         period_ext, period_ext*(gen_periods - 1), num = gen_periods - 1
@@ -436,19 +502,36 @@ def stellarator_torus(
     # Convert toroidal extent of period to radians
     period_ext = np.deg2rad(period_ext)
 
+    # Linearly interpolate offsets according to toroidal angle to expand offset
+    # matrix
+    offset_mat_exp = expand_offset(
+        offset_mat, phi_list, phi_list_exp, num_phi_list
+    )
+
     # Initialize construction
     period = cq.Workplane("XY")
 
     # Generate poloidal profiles
-    for phi in phi_list:
+    for phi, offset_list in zip(phi_list_exp, offset_mat_exp):
         # Initialize points in poloidal profile
         pts = []
+
+        # Convert toroidal (phi) angle from degrees to radians
+        phi = np.deg2rad(phi)
         
+        # Linearly interpolate offsets according to poloidal angle to expand
+        # list of offsets
+        offset_list_exp = expand_offset(
+            offset_list, theta_list, theta_list_exp, num_theta_list
+        )
+
         # Compute array of points along poloidal profile
-        for theta in theta_list:
+        for theta, offset in zip(theta_list_exp[:-1], offset_list_exp[:-1]):
+            # Convert poloidal (theta) angle from degrees to radians
+            theta = np.deg2rad(theta)
+
             # Compute offset surface point
             x, y, z = offset_surface(vmec, theta, phi, offset, period_ext)
-            
             # Convert from m to cm
             pt = (x*100, y*100, z*100)
             # Append point to poloidal profile
@@ -483,6 +566,57 @@ def stellarator_torus(
     return torus, cutter
 
 
+def expand_ang(ang_list, num_ang):
+    """Expands list of angles by linearly interpolating according to specified
+    number to include in stellarator build.
+
+    Arguments:
+        ang_list (list of float): user-supplied list of toroidal or poloidal
+            angles (deg).
+        num_ang (int): number of angles to include in stellarator build.
+    
+    Returns:
+        ang_list_exp (list of float): interpolated list of angles (deg).
+        num_ang_list (list of int): number of angles interpolated between
+            user-supplied list.
+    """
+    # Initialize interpolated list of angles
+    ang_list_exp = []
+    # Initialize list of number of angles interpolated between user-supplied
+    # list
+    num_ang_list = []
+
+    # Compute total angular extent of supplied list
+    ang_ext = ang_list[-1] - ang_list[0]
+    
+    # Loop over supplied angles
+    for i, ang in enumerate(ang_list[:-1]):
+        # Compute difference between current and next angles
+        ang_diff = ang_list[i + 1] - ang
+        # Compute ratio of angular difference and total angular extent
+        ratio = ang_diff/ang_ext
+        
+        # Compute number of angles to interpolate
+        n_ang = round(ratio*num_ang)
+        # Append number of angles to interpolate to storage list
+        num_ang_list.append(n_ang)
+        
+        # Compute angular difference between consecutive interpolated angles
+        delta_ang = ang_diff/n_ang
+        
+        # Interpolate angles
+        for j in range(n_ang):
+            # Compute interpolated angle
+            ang_int = ang + j*delta_ang
+            # Append interpolated angle to storage list
+            ang_list_exp.append(ang_int)
+
+    # Append final specified angle to storage list
+    ang_list_exp.append(ang_list[-1])
+
+    return ang_list_exp, num_ang_list
+
+
 # Define default export dictionary
 export_def = {
     'exclude': [],
@@ -502,7 +636,7 @@ export_def = {
 
 
 def parametric_stellarator(
-    plas_eq, num_periods, radial_build, gen_periods, num_phi = 60,
+    plas_eq, num_periods, build, gen_periods, num_phi = 60,
     num_theta = 100, magnets = None, source = None, export = export_def,
     logger = None):
     """Generates CadQuery workplane objects for components of a
@@ -515,14 +649,24 @@ def parametric_stellarator(
     Arguments:
         plas_eq (str): path to plasma equilibrium NetCDF file.
         num_periods (int): number of periods in stellarator geometry.
-        radial_build (dict of dicts): dictionary of component names, each with
-            a corresponding dictionary of layer thickness and optional material
-            tag to use in H5M neutronics model in the form
-            {'component': {'thickness': thickness (float, cm), 'h5m_tag':
-            h5m_tag (str)}}
-            Concentric layers will be built in the order given. If no alternate
-            material tag is supplied for the H5M file, the given component name
-            will be used.
+        build (dict): dictionary of list of toroidal and poloidal angles, as
+            well as dictionary of component names with corresponding thickness
+            matrix and optional material tag to use in H5M neutronics model.
+            The thickness matrix specifies component thickness at specified
+            (polidal angle, toroidal angle) pairs. This dictionary takes the
+            form
+            {
+                'phi_list': list of float (deg),
+                'theta_list': list of float (deg),
+                'radial_build': {
+                    'component': {
+                        'thickness_matrix': list of list of float (cm),
+                        'h5m_tag': h5m_tag (str)
+                    }
+                }
+            }
+            If no alternate material tag is supplied for the H5M file, the
+            given component name will be used.
         gen_periods (int): number of stellarator periods to build in model.
         num_phi (int): number of phi geometric cross-sections to make for each
             period (defaults to 60).
@@ -593,7 +737,7 @@ def parametric_stellarator(
 
     Returns:
         strengths (list): list of source strengths for each tetrahedron (1/s).
-            Only returned if source mesh is generated
+            Returned only if source mesh is generated.
     """
     # Conditionally instantiate logger
     if logger == None or not logger.hasHandlers():
@@ -621,18 +765,34 @@ def parametric_stellarator(
     # Initialize component storage dictionary
     components = {}
     
+    # Extract toroidal (phi) and poloidal (theta) arrays
+    phi_list = build['phi_list']
+    theta_list = build['theta_list']
+    # Extract radial build
+    radial_build = build['radial_build']
+
+    # Extract array dimensions
+    n_phi = len(phi_list)
+    n_theta = len(theta_list)
+
     # Prepend plasma to radial build
-    full_radial_build = {'plasma': {'thickness': 0}, **radial_build}
-    
-    # Initialize offset value
-    offset = 0.0
+    plas_thickness_mat = np.zeros((n_phi, n_theta))
+    full_radial_build = {
+        'plasma': {'thickness_matrix': plas_thickness_mat}, **radial_build
+    }
 
     # Initialize volume used to cut periods
     cutter = None
+
+    # Linearly interpolate angles to expand phi and theta lists
+    phi_list_exp, num_phi_list = expand_ang(phi_list, num_phi)
+    theta_list_exp, num_theta_list = expand_ang(theta_list, num_theta)
+
+    # Initialize offset matrix
+    offset_mat = np.zeros((n_phi, n_theta))
     
     # Generate components in radial build
     for name, layer_data in full_radial_build.items():
-        
         # Notify which component is being generated
         logger.info(f'Building {name}...')
         
@@ -645,16 +805,18 @@ def parametric_stellarator(
         if 'h5m_tag' not in layer_data:
             layer_data['h5m_tag'] = name
 
-        # Extract layer thickness
-        thickness = layer_data['thickness']
-        # Compute offset, converting from cm to m
-        offset += thickness/100
+        # Extract layer thickness matrix
+        thickness_mat = layer_data['thickness_matrix']
+        # Compute offset list, converting from cm to m
+        offset_mat += np.array(thickness_mat)/100
 
         # Generate component
         try:
             torus, cutter = stellarator_torus(
-                vmec, num_periods, offset, cutter, gen_periods, num_phi,
-                num_theta
+                vmec, num_periods,
+                offset_mat, cutter, gen_periods,
+                phi_list, phi_list_exp, num_phi_list,
+                theta_list, theta_list_exp, num_theta_list
             )
         except ValueError as e:
             logger.error(e.args[0])
@@ -668,6 +830,9 @@ def parametric_stellarator(
 
     # Conditionally build graveyard volume
     if export_dict['graveyard']:
+        # Extract maximum offset
+        offset = 2*max(max(offset_mat))
+        # Build graveyard
         components = graveyard(vmec, offset, components, logger)
 
     # Conditionally initialize Cubit
