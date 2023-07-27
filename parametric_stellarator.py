@@ -8,6 +8,7 @@ import numpy as np
 from scipy.optimize import root_scalar
 import os
 import sys
+import subprocess
 
 
 def cubit_export(components, export, magnets):
@@ -175,6 +176,7 @@ def exports(export, components, magnets, logger):
                 'stop': stopping line index for data in file (int),
                 'name': name to use for STEP export (str),
                 'h5m_tag': material tag to use in H5M neutronics model (str)
+                'meshing': setting for tetrahedral mesh generation (bool)
             }
             For the list defining the coil cross-section, the cross-section
             shape must be either a circle or rectangle. For a circular
@@ -206,6 +208,16 @@ def exports(export, components, magnets, logger):
         for name, comp in components.items():
             cq.exporters.export(comp['solid'], name + '.step')
     
+    if magnets['meshing']:
+        # Get current working directory
+        cwd = os.getcwd()      
+        # Exodus export
+        exo_path = f'{cwd}/coil_mesh.exo'
+        cubit.cmd(f'export mesh "{exo_path}"')
+        # h5m conversion
+        h5m_path = f'{cwd}/coil_mesh.h5m'
+        h5m_conversion = subprocess.run(f'mbconvert {exo_path} {h5m_path}', shell = True)
+
     # Conditinally export H5M file via Cubit
     if export['h5m_export'] == 'Cubit':
         # Signal H5M export via Cubit
@@ -520,6 +532,7 @@ def parametric_stellarator(
                 'stop': stopping line index for data in file (int),
                 'name': name to use for STEP export (str),
                 'h5m_tag': material tag to use in H5M neutronics model (str)
+                'meshing': setting for tetrahedral mesh generation (bool)
             }
             For the list defining the coil cross-section, the cross-section
             shape must be either a circle or rectangle. For a circular
