@@ -190,7 +190,6 @@ def coils_tet_mesh(coils_path, total_coil_count, log_general_path,
         
         # Create the mesh
         cubit.cmd(f'volume {coil_num} scheme tetmesh')
-        cubit.cmd(f'volume {coil_num} scheme tetmesh')
         cubit.cmd(f'mesh volume {coil_num}')
 
         # Set log file path and initiate logging
