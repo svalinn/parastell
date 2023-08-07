@@ -32,8 +32,7 @@ magnets = {
     'start': 3,
     'stop': None,
     'name': 'magnet_coils',
-    'h5m_tag': 'magnets',
-    'meshing': True
+    'h5m_tag': 'magnets'
 }
 # Define export parameters
 export = {
