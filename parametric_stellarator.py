@@ -210,21 +210,18 @@ def exports(export, components, magnets, logger):
             
         # Conditionally export tetrahedral meshing
         if magnets['meshing']:
-            # Assign desired directory
+            # Assign export paths
             file_path = os.getcwd()
-            # Define the base name of the file
             base_name = 'coil_mesh'
+            general_export_path = f"{cwd}/{base_name}"
+            exo_path = f'{general_export_path}.exo'
+            h5m_path = f'{general_export_path}.h5m'
             # Exodus export
-            exo_path = f'{file_path}/{base_name}.exo'
             cubit.cmd(f'export mesh "{exo_path}"')
-            # Initialize the MOAB core instance
+            # Convert EXODUS to .h5m
             mb = core.Core()
-            # Load the EXODUS file
             exodus_set = mb.create_meshset()
             mb.load_file(exo_path, exodus_set)
-            # Set .h5m path
-            h5m_path = f'{file_path}/{base_name}.h5m'
-            # Write the current coil's meshset to an individual .h5m file
             mb.write_file(h5m_path, [exodus_set])
     
     # Conditinally export H5M file via Cubit
