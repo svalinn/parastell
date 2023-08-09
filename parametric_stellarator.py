@@ -213,7 +213,7 @@ def exports(export, components, magnets, logger):
             # Assign desired directory
             file_path = os.getcwd()
             # Define the base name of the file
-            base_name = 'coil_mesh
+            base_name = 'coil_mesh'
             # Exodus export
             exo_path = f'{file_path}/{base_name}.exo'
             cubit.cmd(f'export mesh "{exo_path}"')
