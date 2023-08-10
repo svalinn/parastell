@@ -4,6 +4,7 @@ import cubit
 from pymoab import core, types
 import os
 import sys
+import argparse
 
 
 def extract_tabular_data(text):
@@ -380,7 +381,26 @@ def coils_tet_mesh(coils_path, total_coil_count, cwd_option,
         csv_exporter(top_results_df, cwd_option, general_export_path, csv_path)
         print("CSV exported")
 
+
+# Create an argument parser
+parser = argparse.ArgumentParser(description="Magnet Coils Tetrahedral Mesh Script")
+
+# Define command-line arguments
+parser.add_argument("coils_path", type=str, help="Path to the coils .step file")
+parser.add_argument("total_coil_count", type=int, help="Number of coils")
+parser.add_argument("--cwd", action="store_true", help="Export outputs to current working directory")
+parser.add_argument("--mesh-export", action="store_true", help="Export meshes as .exo and .h5m files")
+parser.add_argument("--log-path", type=str, help="Path to .log file prefix")
+parser.add_argument("--exo-path", type=str, help="Path to .exo file")
+parser.add_argument("--h5m-path", type=str, help="Path to .h5m file")
+parser.add_argument("--csv-export", action="store_true", help="Export data as a .csv file")
+parser.add_argument("--csv-path", type=str, help="Path to .csv file")
+
+# Parse the command-line arguments
+args = parser.parse_args()
+
 # Enable command-line execution
 if __name__ == "__main__":
-    arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9 = sys.argv[1:10]
-    coils_tet_mesh(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9)
+    coils_tet_mesh(args.coils_path, args.total_coil_count, args.cwd,
+                   args.mesh_export, args.log_path, args.exo_path,
+                   args.h5m_path, args.csv_export, args.csv_path)
