@@ -9,6 +9,7 @@ import numpy as np
 from scipy.optimize import root_scalar
 import os
 import sys
+from pymoab import core, types
 
 
 def cubit_export(components, export, magnets):
@@ -176,6 +177,7 @@ def exports(export, components, magnets, logger):
                 'stop': stopping line index for data in file (int),
                 'name': name to use for STEP export (str),
                 'h5m_tag': material tag to use in H5M neutronics model (str)
+                'meshing': setting for tetrahedral mesh generation (bool)
             }
             For the list defining the coil cross-section, the cross-section
             shape must be either a circle or rectangle. For a circular
@@ -206,6 +208,22 @@ def exports(export, components, magnets, logger):
         logger.info('Exporting STEP files...')
         for name, comp in components.items():
             cq.exporters.export(comp['solid'], name + '.step')
+            
+        # Conditionally export tetrahedral meshing
+        if magnets['meshing']:
+            # Assign export paths
+            file_path = os.getcwd()
+            base_name = 'coil_mesh'
+            general_export_path = f"{cwd}/{base_name}"
+            exo_path = f'{general_export_path}.exo'
+            h5m_path = f'{general_export_path}.h5m'
+            # Exodus export
+            cubit.cmd(f'export mesh "{exo_path}"')
+            # Convert EXODUS to .h5m
+            mb = core.Core()
+            exodus_set = mb.create_meshset()
+            mb.load_file(exo_path, exodus_set)
+            mb.write_file(h5m_path, [exodus_set])
     
     # Conditinally export H5M file via Cubit
     if export['h5m_export'] == 'Cubit':
@@ -518,6 +536,7 @@ def parametric_stellarator(
                 'stop': stopping line index for data in file (int),
                 'name': name to use for STEP export (str),
                 'h5m_tag': material tag to use in H5M neutronics model (str)
+                'meshing': setting for tetrahedral mesh generation (bool)
             }
             For the list defining the coil cross-section, the cross-section
             shape must be either a circle or rectangle. For a circular

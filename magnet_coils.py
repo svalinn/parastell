@@ -144,7 +144,7 @@ def extract_cs(cross_section, logger):
     return shape_str
 
 
-def create_magnets(filaments, cross_section, logger):
+def create_magnets(filaments, cross_section, meshing, logger):
     """Creates magnet coil solids.
     
     Arguments:
@@ -157,6 +157,7 @@ def create_magnets(filaments, cross_section, logger):
             ['circle' (str), radius (float, cm)]
             For a rectangular cross-section, the list format is
             ['rectangle' (str), width (float, cm), thickness (float, cm)]
+        meshing (bool): setting for tetrahedral mesh generation
         logger (object): logger object.
 
     Returns:
@@ -255,10 +256,17 @@ def create_magnets(filaments, cross_section, logger):
             f'individual'
         )
         # Store volume index
-        vol_ids.append(cubit.get_last_id("volume"))
+        volume_id = cubit.get_last_id("volume")
+        vol_ids.append(volume_id)
         # Delete extraneous curves and vertices
         cubit.cmd(f'delete curve {curve_id}')
         cubit.cmd('delete vertex all')
+
+        # Optional tetrahedral mesh functionality
+        if meshing:
+            # Create scheme and meshes
+            cubit.cmd(f'volume {volume_id} scheme tetmesh')
+            cubit.cmd(f'mesh volume {volume_id}')
 
         # Reinitialize path list
         path = []
@@ -365,7 +373,7 @@ def magnet_coils(magnets, logger = None):
     )
 
     # Generate magnet coil solids
-    vol_ids = create_magnets(filaments, magnets['cross_section'], logger)
+    vol_ids = create_magnets(filaments, magnets['cross_section'], magnets['meshing'], logger)
     
     # Export magnet coils
     cubit.cmd(f'export step "{magnets["name"]}.step"  overwrite')
