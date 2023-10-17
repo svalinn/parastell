@@ -1,7 +1,6 @@
 import log
 import cubit
 import numpy as np
-import sys
 
 
 def unit_vector(vec):
@@ -301,7 +300,7 @@ def extract_filaments(file, start, stop):
     coords = []
 
     # Extract magnet coil data
-    for line in data:
+    for i, line in enumerate(data):
         # Parse line in magnet coil data
         columns = line.strip().split()
 
@@ -317,10 +316,13 @@ def extract_filaments(file, start, stop):
         s = float(columns[3])
 
         # Coil current of zero signals end of filament
-        # If current is not zero, store coordinate in filament list
+        # If current is not zero, conditionally store coordinate in filament
+        # list
         if s != 0:
-            # Append coordinates to list
-            coords.append([x, y, z])
+            # Only store every five points
+            if i % 5 == 0:
+                # Append coordinates to list
+                coords.append([x, y, z])
         # Otherwise, store filament coordinates but do not append final
         # filament point. In Cubit, continuous curves are created by setting
         # the initial and final vertex indices equal. This is handled in the

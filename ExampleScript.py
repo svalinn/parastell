@@ -1,4 +1,4 @@
-import parametric_stellarator
+import parastell
 import logging
 
 
@@ -8,17 +8,8 @@ plas_eq = 'plas_eq.nc'
 build = {
     'phi_list': [0.0, 22.5, 45.0, 67.5, 90.0],
     'theta_list': [0.0, 5.0, 90.0, 175.0, 180.0, 185.0, 270.0, 355.0, 360.0],
+    'wall_s': 1.2,
     'radial_build': {
-        'sol': {
-            'thickness_matrix': [
-                [5,  5,  40, 5,  5,  5,  40, 5,  5 ],
-                [15, 15, 5,  15, 15, 15, 15, 15, 15],
-                [10, 10, 10, 10, 10, 10, 10, 10, 10],
-                [15, 15, 15, 15, 15, 15, 5,  15, 15],
-                [5,  5,  40, 5,  5,  5,  40, 5,  5 ]
-            ],
-            'h5m_tag': 'Vacuum'
-        },
         'first_wall': {
             'thickness_matrix': [
                 [5, 5, 5, 5, 5, 5, 5, 5, 5],
@@ -114,11 +105,12 @@ source = {
 }
 # Define export parameters
 export = {
-    'exclude': None,
+    'exclude': ['plasma'],
     'graveyard': False,
     'step_export': True,
     'h5m_export': 'Cubit',
     'plas_h5m_tag': 'Vacuum',
+    'sol_h5m_tag': 'Vacuum',
     # Note the following export parameters are used only for Cubit H5M exports
     'facet_tol': 1,
     'len_tol': 5,
@@ -153,8 +145,8 @@ logger.addHandler(s_handler)
 logger.addHandler(f_handler)
 
 # Create stellarator
-parametric_stellarator.parametric_stellarator(
+parastell.parastell(
     plas_eq, num_periods, build, gen_periods, num_phi, num_theta,
     magnets = magnets, source = source,
     export = export, logger = logger
-    )
+)
