@@ -514,16 +514,14 @@ def expand_ang(ang_list, num_ang):
 
     # Compute total angular extent of supplied list
     ang_ext = ang_list[-1] - ang_list[0]
+
+    # Compute average distance between angles to include in stellarator build
+    ang_diff_avg = ang_ext/num_ang
     
     # Loop over supplied angles
     for ang, next_ang in zip(ang_list[:-1], ang_list[1:]):
-        # Compute difference between current and next angles
-        ang_diff = next_ang - ang
-        # Compute ratio of angular difference and total angular extent
-        ratio = ang_diff/ang_ext
-        
         # Compute number of angles to interpolate
-        n_ang = round(ratio*num_ang)
+        n_ang = int(np.ceil((next_ang - ang)/ang_diff_avg))
 
         # Interpolate angles and append to storage list
         ang_list_exp = np.append(
@@ -600,6 +598,9 @@ def parastell(
                 'cross_section': coil cross-section definition (list),
                 'start': starting line index for data in file (int),
                 'stop': stopping line index for data in file (int),
+                'sample': sampling modifier for filament points (int). For a
+                    user-supplied value of n, sample every n points in list of
+                    points in each filament,
                 'name': name to use for STEP export (str),
                 'h5m_tag': material tag to use in H5M neutronics model (str)
                 'meshing': setting for tetrahedral mesh generation (bool)

@@ -276,7 +276,7 @@ def create_magnets(filaments, cross_section, meshing, logger):
     return vol_ids
 
 
-def extract_filaments(file, start, stop):
+def extract_filaments(file, start, stop, sample):
     """Extracts filament data from magnet coil data file.
     
     Arguments:
@@ -284,6 +284,7 @@ def extract_filaments(file, start, stop):
         start (int): index for line in data file where coil data begins.
         stop (int): index for line in data file where coil data ends (defaults
             to None).
+        sample (int): sampling modifier for filament points.
 
     Returns:
         filaments (list of list of list of float): list filament coordinates.
@@ -320,7 +321,7 @@ def extract_filaments(file, start, stop):
         # list
         if s != 0:
             # Only store every five points
-            if i % 5 == 0:
+            if i % sample == 0:
                 # Append coordinates to list
                 coords.append([x, y, z])
         # Otherwise, store filament coordinates but do not append final
@@ -347,6 +348,9 @@ def magnet_coils(magnets, logger = None):
                 'cross_section': coil cross-section definition (list),
                 'start': starting line index for data in file (int),
                 'stop': stopping line index for data in file (int),
+                'sample': sampling modifier for filament points (int). For a
+                    user-supplied value of n, sample every n points in list of
+                    points in each filament,
                 'name': name to use for STEP export (str),
                 'h5m_tag': material tag to use in H5M neutronics model (str)
             }
@@ -371,7 +375,7 @@ def magnet_coils(magnets, logger = None):
     
     # Extract filament data
     filaments = extract_filaments(
-        magnets['file'], magnets['start'], magnets['stop']
+        magnets['file'], magnets['start'], magnets['stop'], magnets['sample']
     )
 
     # Generate magnet coil solids

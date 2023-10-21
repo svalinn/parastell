@@ -182,13 +182,14 @@ def create_tets_from_wedge(
         )
 
 
-def get_vertex_id(vert_ids, num_s, num_theta):
+def get_vertex_id(vert_ids, num_phi, num_s, num_theta):
     """Computes vertex index in row-major order as stored by MOAB from three-dimensional n x 3 matrix indices.
 
     Arguments:
         vert_ids (list of int): list of vertex indices expressed in n x 3
             matrix order. The list format is:
             [toroidal angle index, flux surface index, poloidal angle index]
+        num_phi (int): number of toroidal angles defining mesh.
         num_s (int): number of closed magnetic flux surfaces defining mesh.
         num_theta (int): number of poloidal angles defining mesh.
     
@@ -196,11 +197,23 @@ def get_vertex_id(vert_ids, num_s, num_theta):
         id (int): vertex index in row-major order as stored by MOAB
     """
     # Compute index offset from magnetic axis
-    ma_offset = vert_ids[0] * (1 + ((num_s - 1) * num_theta))
+    if vert_ids[0] == num_phi - 1:
+        # Ensure logical connectivity at final toroidal angle
+        ma_offset = 0
+    else:
+        # Otherwise, compute index of magnetic axis
+        ma_offset = vert_ids[0] * (1 + ((num_s - 1) * (num_theta - 1)))
     # Compute index offset from closed flux surface
-    s_offset = vert_ids[1] * num_theta
+    s_offset = vert_ids[1] * (num_theta - 1)
+    # Compute index offset from poloidal angle
+    if vert_ids[2] == num_theta:
+        # Ensure logical connectivity at final poloidal angle
+        theta_offset = 1
+    else:
+        # Otherwise, compute index of poloidal angle
+        theta_offset = vert_ids[2]
     # Compute vertex index
-    id = ma_offset + s_offset + vert_ids[2]
+    id = ma_offset + s_offset + theta_offset
 
     return id
 
@@ -236,10 +249,10 @@ def create_mesh(
     # Create tetrahedra, looping through vertices
     for i in range(num_phi - 1):
         # Create tetrahedra for wedges at center of plasma
-        for k in range(num_theta - 1):
+        for k in range(1, num_theta):
             # Define six wedge vertex indices in matrix format as well as index
             # offset accounting for magnetic axis vertex in the form
-            # [toroidal index, flux surface index, poloidal index, offset]
+            # [toroidal index, flux surface index, poloidal index]
             wedge_id_data = [
                 [i,     0, 0,   ],
                 [i,     0, k,   ],
@@ -252,7 +265,7 @@ def create_mesh(
             ids_wedge = []
             # Define vertex indices in row-major order for wedges
             for vertex in wedge_id_data:
-                ids_wedge += [get_vertex_id(vertex, num_s, num_theta)]
+                ids_wedge += [get_vertex_id(vertex, num_phi, num_s, num_theta)]
             # Create tetrahedra from wedge
             create_tets_from_wedge(
                 mbc, tag_handle, tet_set, mbc_verts, verts, verts_s, ids_wedge,
@@ -262,11 +275,11 @@ def create_mesh(
         # Create tetrahedra for hexahedra beyond center of plasma
         for j in range(num_s - 2):
             # Create tetrahedra for current hexahedron
-            for k in range(num_theta - 1):
+            for k in range(1, num_theta):
                 # Define eight hexahedron vertex indices in matrix format as
                 # well as index offset accounting for magnetic axis vertex in
                 # the form
-                # [toroidal index, flux surface index, poloidal index, offset]
+                # [toroidal index, flux surface index, poloidal index]
                 hex_id_data = [
                     [i,     j,     k    ],
                     [i,     j + 1, k,   ],
@@ -281,7 +294,9 @@ def create_mesh(
                 ids_hex = []
                 # Define vertex indices in row-major order for hexahedra
                 for vertex in hex_id_data:
-                    ids_hex += [get_vertex_id(vertex, num_s, num_theta)]
+                    ids_hex += [
+                        get_vertex_id(vertex, num_phi, num_s, num_theta)
+                    ]
                 # Create tetrahedra from hexahedron
                 create_tets_from_hex(
                     mbc, tag_handle, tet_set, mbc_verts, verts, verts_s,
@@ -309,8 +324,8 @@ def create_vertices(vmec, mbc, num_s, num_theta, num_phi):
             vertex.
     """
     # Compute total number of vertices
-    num_verts = num_phi * (1 + ((num_s - 1) * num_theta))
-    # Initialize n x 3 array of verticex coordinates
+    num_verts = (num_phi - 1) * (1 + ((num_s - 1) * (num_theta - 1)))
+    # Initialize n x 3 array of vertex coordinates
     verts = np.zeros((num_verts, 3))
     # Initialize array of vertex closed flux surface indices
     verts_s = np.zeros(num_verts)
@@ -331,7 +346,7 @@ def create_vertices(vmec, mbc, num_s, num_theta, num_phi):
     # Initialize vertex index
     i_vert = 0
     # Compute vertices in Cartesian space
-    for i_phi in range(num_phi):
+    for i_phi in range(num_phi - 1):
         # Compute toroidal angle for vertex
         phi = i_phi * delta_phi
         # Determine vertex at magnetic axis, convertic to cm
@@ -346,7 +361,8 @@ def create_vertices(vmec, mbc, num_s, num_theta, num_phi):
             # Compute closed flux surface index for vertex
             s = i_s * delta_s
 
-            for i_theta in range(num_theta):
+            # Exclude final poloidal angle as the final and initial are the same
+            for i_theta in range(num_theta - 1):
                 # Compute poloidal angle for vertex
                 theta = i_theta * delta_theta
                 # Determine vertex at specified toroidal angle, closed flux
