@@ -57,7 +57,7 @@ Install ParaStell dependencies available on conda-forge.
 mamba install -c conda-forge cadquery moab
 ```
 
-Install read_vmec dependencies available on conda-forge.
+Install pystell_uw dependencies available on conda-forge.
 
 ```
 mamba install -c conda-forge matplotlib
