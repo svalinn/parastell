@@ -1,7 +1,6 @@
 import log
 import cubit
 import numpy as np
-import sys
 
 
 def unit_vector(vec):
@@ -277,7 +276,7 @@ def create_magnets(filaments, cross_section, meshing, logger):
     return vol_ids
 
 
-def extract_filaments(file, start, stop):
+def extract_filaments(file, start, stop, sample):
     """Extracts filament data from magnet coil data file.
     
     Arguments:
@@ -285,6 +284,7 @@ def extract_filaments(file, start, stop):
         start (int): index for line in data file where coil data begins.
         stop (int): index for line in data file where coil data ends (defaults
             to None).
+        sample (int): sampling modifier for filament points.
 
     Returns:
         filaments (list of list of list of float): list filament coordinates.
@@ -301,7 +301,7 @@ def extract_filaments(file, start, stop):
     coords = []
 
     # Extract magnet coil data
-    for line in data:
+    for i, line in enumerate(data):
         # Parse line in magnet coil data
         columns = line.strip().split()
 
@@ -317,10 +317,13 @@ def extract_filaments(file, start, stop):
         s = float(columns[3])
 
         # Coil current of zero signals end of filament
-        # If current is not zero, store coordinate in filament list
+        # If current is not zero, conditionally store coordinate in filament
+        # list
         if s != 0:
-            # Append coordinates to list
-            coords.append([x, y, z])
+            # Only store every five points
+            if i % sample == 0:
+                # Append coordinates to list
+                coords.append([x, y, z])
         # Otherwise, store filament coordinates but do not append final
         # filament point. In Cubit, continuous curves are created by setting
         # the initial and final vertex indices equal. This is handled in the
@@ -345,6 +348,9 @@ def magnet_coils(magnets, logger = None):
                 'cross_section': coil cross-section definition (list),
                 'start': starting line index for data in file (int),
                 'stop': stopping line index for data in file (int),
+                'sample': sampling modifier for filament points (int). For a
+                    user-supplied value of n, sample every n points in list of
+                    points in each filament,
                 'name': name to use for STEP export (str),
                 'h5m_tag': material tag to use in H5M neutronics model (str)
             }
@@ -369,7 +375,7 @@ def magnet_coils(magnets, logger = None):
     
     # Extract filament data
     filaments = extract_filaments(
-        magnets['file'], magnets['start'], magnets['stop']
+        magnets['file'], magnets['start'], magnets['stop'], magnets['sample']
     )
 
     # Generate magnet coil solids
