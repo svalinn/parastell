@@ -11,44 +11,21 @@ This tool depends on:
 - [cad-to-dagmc](https://pypi.org/project/cad-to-dagmc/)
 - [Gmsh](https://pypi.org/project/gmsh/)
 
-## Install with Cubit 2023.11
+## Install with Mamba
 
-### Parastell
-Download and extract repository for parastell using
+This guide will use the mamba package manager to install dependencies in a conda environment. Conda allows for easily installing and switching between different versions of software packages through the use of [environments](https://conda.io/projects/conda/en/latest/user-guide/concepts/environments.html).
 
-```
-git clone git@github.com:svalinn/parastell.git
-```
+If you have not already installed conda, you can use one of the following installers to do so: [Miniconda](https://docs.conda.io/en/latest/miniconda.html), [Anaconda](https://www.anaconda.com/), or [Miniforge](https://github.com/conda-forge/miniforge).
 
-or download the zip from the repository home page. Once extracted, add the directory to the `PYTHONPATH` by adding a line to the .bashrc file like the following:
+Mamba is available through conda with `conda install -c conda-forge mamba`. Begin by creating a new conda environment with mamba installed.
 
 ```
-export PYTHONPATH=$PYTHONPATH:$HOME/parastell/
+conda create -n parastell_env
+conda activate parastell_env
+conda install -c conda-forge mamba
 ```
 
-Replace $HOME with the path to the parastell directory on your system. Additional information about adding modules to the `PYTHONPATH` can be found [here](https://www.tutorialspoint.com/How-to-set-python-environment-variable-PYTHONPATH-on-Linux).
-
-### VMEC Tools
-Download and extract the repository for pystell_uw using
-
-```
-git clone https://github.com/aaroncbader/pystell_uw.git
-```
-
-or download the and extract the zip from [pystell_uw](https://github.com/aaroncbader/pystell_uw). Once extracted, add the directory to the `PYTHONPATH`.
-
-### Coreform Cubit
-Download and install version 2023.11 from [Coreform's Website](https://coreform.com/products/downloads/), then add the /Coreform-Cubit-2023.11/bin/ directory to the `PYTHONPATH`.
-
-If you do not have a Cubit license, you may be able to get one through [Cubit Learn](https://coreform.com/products/coreform-cubit/free-meshing-software/) at no cost.
-
-### Create a Conda Environment for ParaStell
-This guide uses the mamba package manager. If the mamba package manager is not available, using conda in place of mamba in the following commands should also work.
-
-```
-mamba create -n parastell_env
-mamba activate parastell_env
-``````
+The subsequent mamba and pip install commands should be run with this environment activated.
 
 ### Install Dependencies using Mamba and Pip
 Install ParaStell dependencies available on conda-forge.
@@ -57,10 +34,10 @@ Install ParaStell dependencies available on conda-forge.
 mamba install -c conda-forge cadquery moab
 ```
 
-Install pystell_uw dependencies available on conda-forge.
+Install pystell_uw dependencies.
 
 ```
-mamba install -c conda-forge matplotlib
+mamba install matplotlib
 ```
 
 Pip install remaining pystell_uw dependency.
@@ -75,3 +52,35 @@ Pip install remaining ParaStell dependencies.
 pip install cad-to-dagmc
 pip install gmsh
 ```
+
+### Coreform Cubit
+Download and install version 2023.11 from [Coreform's Website](https://coreform.com/products/downloads/), then add the /Coreform-Cubit-2023.11/bin/ directory to the `PYTHONPATH` by adding a line to the .bashrc file like the following:
+
+```
+export PYTHONPATH=$PYTHONPATH:$HOME/Coreform-Cubit-2023.11/bin/
+```
+
+Replace $HOME with the path to the Cubit directory on your system. Additional information about adding modules to the `PYTHONPATH` can be found [here](https://www.tutorialspoint.com/How-to-set-python-environment-variable-PYTHONPATH-on-Linux).
+While it is possible to use ParaStell with older versions of Cubit, additional steps not in this guide may be required.
+
+If you do not have a Cubit license, you may be able to get one through [Cubit Learn](https://coreform.com/products/coreform-cubit/free-meshing-software/) at no cost.
+
+### VMEC Tools
+Download and extract the repository for pystell_uw using
+
+```
+git clone https://github.com/aaroncbader/pystell_uw.git
+```
+
+or download the and extract the zip from [pystell_uw](https://github.com/aaroncbader/pystell_uw). Once extracted, add the directory to the `PYTHONPATH`.
+
+### Parastell
+Download and extract the repository for parastell using
+
+```
+git clone git@github.com:svalinn/parastell.git
+```
+
+or download the zip from the repository home page. Once extracted, add the directory to the `PYTHONPATH`.
+
+
