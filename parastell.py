@@ -829,7 +829,7 @@ def parastell(
     # Conditionally build magnet coils and store volume indices
     if magnets is not None:
         magnets['vol_id'] = magnet_coils.magnet_coils(
-            magnets, tor_ext, logger = logger
+            magnets, (repeat + 1) * tor_ext, logger = logger
         )
 
     # Export components
