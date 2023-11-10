@@ -355,10 +355,13 @@ def clean_mag_data(filaments, tor_ext):
             y = coords[1]
             # Compute toroidal angle of point
             phi = np.arctan2(y, x)
+            # Conditionally rotate toroidal angle such that it is positive
+            if phi < 0:
+                phi = phi + 2*np.pi
             # Conditionally iterate counter
             if (
-                phi < np.deg2rad(tor_ext) + tol and
-                phi > 0 - tol
+                phi < np.deg2rad(tor_ext) + tol or
+                phi > 2*np.pi - tol
             ):
                 counter += 1
             
