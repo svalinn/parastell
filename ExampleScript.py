@@ -96,7 +96,7 @@ magnets = {
     'sample': 6,
     'name': 'magnet_coils',
     'h5m_tag': 'magnets',
-    'meshing': True
+    'meshing': False
 }
 # Define source mesh parameters
 source = {

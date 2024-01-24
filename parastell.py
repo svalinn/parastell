@@ -1,5 +1,5 @@
-import source_mesh
 import magnet_coils
+import source_mesh
 import log
 import read_vmec
 import cadquery as cq
@@ -11,6 +11,7 @@ from scipy.interpolate import RegularGridInterpolator
 import os
 import sys
 from pymoab import core, types
+import inspect
 
 
 def cubit_export(components, export, magnets):
@@ -213,7 +214,7 @@ def exports(export, components, magnets, logger):
         # Conditionally export tetrahedral meshing
         if magnets['meshing']:
             # Assign export paths
-            file_path = os.getcwd()
+            cwd = os.getcwd()
             base_name = 'coil_mesh'
             general_export_path = f"{cwd}/{base_name}"
             exo_path = f'{general_export_path}.exo'
@@ -786,12 +787,19 @@ def parastell(
 
     # Conditionally initialize Cubit
     if export_dict['h5m_export'] == 'Cubit' or magnets is not None:
+        # Retrieve Cubit module directory
+        cubit_dir = os.path.dirname(inspect.getfile(cubit))
+        # Append plugins directory to Cubit module directory
+        cubit_dir = cubit_dir + '/plugins/'
+        # Initialize Cubit
         cubit.init([
             'cubit',
             '-nojournal',
             '-nographics',
             '-information', 'off',
-            '-warning', 'off'
+            '-warning', 'off',
+            '-commandplugindir',
+            cubit_dir
         ])
 
     # Conditionally build magnet coils and store volume indices
