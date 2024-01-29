@@ -3,6 +3,55 @@ import cubit
 import numpy as np
 
 
+def mesh_magnets(vol_ids):
+    """Creates tetrahedral mesh of magnet volumes.
+
+    Arguments:
+        vol_ids (list of int): indices for magnet volumes.
+    """
+    # Loop over magnet indices
+    for vol in vol_ids:
+        # Create scheme and meshes
+        cubit.cmd(f'volume {vol} scheme tetmesh')
+        cubit.cmd(f'mesh volume {vol}')
+
+
+def cut_mags(tor_ext, vol_ids):
+    """Cuts magnet volumes such that only the specified toroidal extent is
+    included.
+    
+    Arguments:
+        tor_ext (float): toroidal extent to model (deg).
+        vol_ids (list of int): indices for magnet volumes.
+    
+    Returns:
+        vol_ids (list of int): updated indices for magnet volumes.
+    """
+    # Create surface
+    cubit.cmd('create surface rectangle width 4000 yplane')
+    # Extract surface index
+    surf_id = cubit.get_last_id("surface")
+    # Move surface
+    cubit.cmd(f'move Surface {surf_id} x 2000')
+    # Sweep surface
+    cubit.cmd(f'sweep surface {surf_id} zaxis angle {tor_ext}')
+    # Extract volume index
+    sweep_id = cubit.get_last_id("volume")
+
+    # Intersect magnet volumes with sweep volume
+    cubit.cmd(
+        'intersect volume ' + ' '.join(str(i) for i in vol_ids)
+        + f' {sweep_id}'
+    )
+
+    # Extract index of most recently created volume
+    last_id = cubit.get_last_id("volume")
+    # Compute magnet volume indices
+    vol_ids = range(sweep_id + 1, last_id + 1)
+
+    return vol_ids
+
+
 def unit_vector(vec):
     """Normalizes given vector.
 
@@ -147,7 +196,7 @@ def create_magnets(filaments, cross_section, meshing, logger):
     """Creates magnet coil solids.
     
     Arguments:
-        filaments (list of list of list of float): list filament coordinates.
+        filaments (list of list of list of float): list of filament coordinates.
             Each filament is a list of coordinates.
         cross_section (list or tuple of str, float, float): coil cross-section
             definition. Note that the cross-section shape must be either a
@@ -261,12 +310,6 @@ def create_magnets(filaments, cross_section, meshing, logger):
         cubit.cmd(f'delete curve {curve_id}')
         cubit.cmd('delete vertex all')
 
-        # Optional tetrahedral mesh functionality
-        if meshing:
-            # Create scheme and meshes
-            cubit.cmd(f'volume {volume_id} scheme tetmesh')
-            cubit.cmd(f'mesh volume {volume_id}')
-
         # Reinitialize path list
         path = []
     
@@ -274,6 +317,80 @@ def create_magnets(filaments, cross_section, meshing, logger):
     cubit.cmd(f'delete surface {cs_id}')
 
     return vol_ids
+
+
+def clean_mag_data(filaments, tor_ext):
+    """Cleans filament data such that only filaments within the toroidal extent
+    of the model are included and filaments are sorted by toroidal angle.
+
+    Arguments:
+        filaments (list of list of list of float): list of filament coordinates.
+            Each filament is a list of coordinates.
+        tor_ext (float): toroidal extent to model (deg).
+    
+    Returns:
+        sorted_fils (list of list of list of float): sorted list of filament
+            coordinates.
+    """
+    # Initialize data for filaments within toroidal extent of model
+    reduced_fils = []
+    # Initialize list of toroidal angles of filament centers of mass
+    phi_list = []
+
+    # Define tolerance of toroidal extent (accounts for width of coils)
+    tol = np.deg2rad(5)
+
+    # Loop over filaments
+    for fil in filaments:
+        # Initialize counter of number of points within toroidal extent
+        counter = 0
+        # Initialize center of mass
+        com = np.array([0, 0, 0])
+        
+        # Loop over filament points
+        for coords in fil:
+            # Extract x coordinate
+            x = coords[0]
+            # Extract y coordinate
+            y = coords[1]
+            # Compute toroidal angle of point
+            phi = np.arctan2(y, x)
+            # Conditionally iterate counter
+            if (
+                phi < np.deg2rad(tor_ext) + tol and
+                phi > 0 - tol
+            ):
+                counter += 1
+            
+            # Cumulatively sum center of mass
+            com = com + np.array(coords)
+
+        # Average center of mass coordinates
+        com = com/len(fil)
+
+        # If no points within toroidal extent, exclude filament by continuing
+        # to next iteration of loop
+        if counter == 0 and tor_ext < 360.0:
+            continue
+        # Otherwise, append filament to storage list
+        reduced_fils.append(fil)
+
+        # Extract x coordinate of center of mass
+        x = com[0]
+        # Extract y coordinate of center of mass
+        y = com[1]
+        # Compute toroidal angle of center of mass
+        phi = np.arctan2(y, x)
+        # Conditionally rotate toroidal angle such that it is positive
+        if phi < 0:
+            phi = phi + 2*np.pi
+        # Append toroidal angle to storage list
+        phi_list.append(phi)
+
+    # Sort filaments by toroidal angle
+    sorted_fils = [x for _,x in sorted(zip(phi_list, reduced_fils))]
+
+    return sorted_fils
 
 
 def extract_filaments(file, start, stop, sample):
@@ -287,7 +404,7 @@ def extract_filaments(file, start, stop, sample):
         sample (int): sampling modifier for filament points.
 
     Returns:
-        filaments (list of list of list of float): list filament coordinates.
+        filaments (list of list of list of float): list of filament coordinates.
             Each filament is a list of coordinates.
     """
     # Initialize list of filaments
@@ -337,7 +454,7 @@ def extract_filaments(file, start, stop, sample):
     return filaments
 
 
-def magnet_coils(magnets, logger = None):
+def magnet_coils(magnets, tor_ext, logger = None):
     """Generates STEP file using Cubit for stellarator magnet coils based on
     user-supplied coil data. The coils have rectangular cross-section.
 
@@ -360,6 +477,7 @@ def magnet_coils(magnets, logger = None):
             ['circle' (str), radius (float, cm)]
             For a rectangular cross-section, the list format is
             ['rectangle' (str), width (float, cm), thickness (float, cm)]
+        tor_ext (float): toroidal extent to model (deg).
         logger (object): logger object (defaults to None). If no logger is
             supplied, a default logger will be instantiated.
 
@@ -378,10 +496,23 @@ def magnet_coils(magnets, logger = None):
         magnets['file'], magnets['start'], magnets['stop'], magnets['sample']
     )
 
+    # Clean magnet data
+    sorted_fils = clean_mag_data(filaments, tor_ext)
+
     # Generate magnet coil solids
-    vol_ids = create_magnets(filaments, magnets['cross_section'], magnets['meshing'], logger)
+    vol_ids = create_magnets(
+        sorted_fils, magnets['cross_section'], magnets['meshing'], logger
+    )
+
+    # Conditionally cut magnets according to toroidal extent
+    if tor_ext < 360.0:
+        vol_ids = cut_mags(tor_ext, vol_ids)
     
     # Export magnet coils
     cubit.cmd(f'export step "{magnets["name"]}.step"  overwrite')
+
+    # Optional tetrahedral mesh functionality
+    if magnets['meshing']:
+        mesh_magnets(vol_ids)
 
     return vol_ids

@@ -6,10 +6,9 @@ import cadquery as cq
 import cubit
 import cad_to_dagmc
 import numpy as np
-from scipy.optimize import root_scalar
+import math
 from scipy.interpolate import RegularGridInterpolator
 import os
-import sys
 from pymoab import core, types
 import inspect
 
@@ -211,21 +210,23 @@ def exports(export, components, magnets, logger):
         for name, comp in components.items():
             cq.exporters.export(comp['solid'], name + '.step')
             
-        # Conditionally export tetrahedral meshing
-        if magnets['meshing']:
-            # Assign export paths
-            cwd = os.getcwd()
-            base_name = 'coil_mesh'
-            general_export_path = f"{cwd}/{base_name}"
-            exo_path = f'{general_export_path}.exo'
-            h5m_path = f'{general_export_path}.h5m'
-            # Exodus export
-            cubit.cmd(f'export mesh "{exo_path}"')
-            # Convert EXODUS to .h5m
-            mb = core.Core()
-            exodus_set = mb.create_meshset()
-            mb.load_file(exo_path, exodus_set)
-            mb.write_file(h5m_path, [exodus_set])
+    # Conditionally export tetrahedral mesh
+    if magnets is not None and magnets['meshing']:
+        # Signal STEP export
+        logger.info('Exporting coil mesh...')
+        # Assign export paths
+        cwd = os.getcwd()
+        base_name = 'coil_mesh'
+        general_export_path = f"{cwd}/{base_name}"
+        exo_path = f'{general_export_path}.exo'
+        h5m_path = f'{general_export_path}.h5m'
+        # EXODUS export
+        cubit.cmd(f'export mesh "{exo_path}"')
+        # Convert EXODUS to H5M
+        mb = core.Core()
+        exodus_set = mb.create_meshset()
+        mb.load_file(exo_path, exodus_set)
+        mb.write_file(h5m_path, [exodus_set])
     
     # Conditinally export H5M file via Cubit
     if export['h5m_export'] == 'Cubit':
@@ -277,7 +278,7 @@ def graveyard(vmec, offset, components, logger):
     R = vmec.vmec2rpz(1.0, 0.0, 0.0)[0]
 
     # Define length of graveyard and convert from m to cm
-    L = 2*(R + offset)*1.25*100
+    L = 4*(R + offset)*100
 
     # Create graveyard volume
     graveyard = cq.Workplane("XY").box(L, L, L).shell(5.0,
@@ -293,80 +294,43 @@ def graveyard(vmec, offset, components, logger):
     return components
 
 
-def offset_point(vmec, s, zeta, theta, offset):
+def offset_point(vmec, s, phi, theta, offset, plane_norm):
     """Stellarator offset surface root-finding problem.
 
     Arguments:
         vmec (object): plasma equilibrium object.
         s (float): normalized magnetic closed flux surface value.
-        zeta (float): toroidal angle being solved for (rad).
+        phi (float): toroidal angle being solved for (rad).
         theta (float): poloidal angle of interest (rad).
         offset (float): total offset of layer from plamsa (m).
+        plane_norm (array of float): normal direction of toroidal plane.
     
     Returns:
         pt (tuple): (x, y, z) tuple defining Cartesian point offset from
             stellarator plasma (m).
     """
-    # Compute (x, y, z) point at edge of plasma for toroidal and poloidal
-    # angles of interest
-    r = np.array(vmec.vmec2xyz(s, theta, zeta))
-    
-    # Define small number
-    eta = 0.000001
+    # Define small value
+    eps = 0.000001
 
-    # Vary poloidal and toroidal angles by small amount
-    r_phi = np.array(vmec.vmec2xyz(s, theta, zeta + eta))
-    r_theta = np.array(vmec.vmec2xyz(s, theta + eta, zeta))
+    # Compute Cartesian coordinates of reference point
+    ref_pt = np.array(vmec.vmec2xyz(s, theta, phi))
+    # Vary poloidal angle by small amount
+    next_pt = np.array(vmec.vmec2xyz(s, theta + eps, phi))
     
-    # Take difference from plasma edge point
-    delta_phi = r_phi - r
-    delta_theta = r_theta - r
+    # Take difference from reference point to approximate tangent
+    tang = next_pt - ref_pt
 
-    # Compute surface normal
-    norm = np.cross(delta_phi, delta_theta)
-    norm_mag = np.sqrt(sum(k**2 for k in norm))
-    n = norm/norm_mag
+    # Compute normal of poloidal profile
+    norm = np.cross(tang, plane_norm)
+    norm = norm/np.linalg.norm(norm)
 
     # Define offset point
-    pt = r + offset*n
+    pt = ref_pt + offset*norm
 
     return pt
 
 
-def root_problem(zeta, vmec, s, theta, phi, offset):
-    """Stellarator offset surface root-finding problem. The algorithm finds the
-    point on the plasma surface whose unit normal, multiplied by a factor of
-    offset, reaches the desired point on the toroidal plane defined by phi.
-
-    Arguments:
-        zeta (float): toroidal angle being solved for (rad).
-        vmec (object): plasma equilibrium object.
-        s (float): normalized magnetic closed flux surface value.
-        theta (float): poloidal angle of interest (rad).
-        phi (float): toroidal angle of interest (rad).
-        offset (float): total offset of layer from plasma (m).
-
-    Returns:
-        diff (float): difference between computed toroidal angle and toroidal
-            angle of interest (root-finding problem definition).
-    """
-    # Define offset surface
-    x, y, z = offset_point(vmec, s, zeta, theta, offset)
-
-    # Compute solved toroidal angle
-    offset_phi = np.arctan2(y, x)
-
-    # If solved toroidal angle is negative, convert to positive angle
-    if offset_phi < phi - np.pi:
-        offset_phi += 2*np.pi
-
-    # Compute difference between solved and defined toroidal angles
-    diff = offset_phi - phi
-
-    return diff
-
-
-def offset_surface(vmec, s, theta, phi, offset, period_ext):
+def offset_surface(vmec, s, theta, phi, offset, plane_norm):
     """Computes offset surface point.
 
     Arguments:
@@ -375,7 +339,7 @@ def offset_surface(vmec, s, theta, phi, offset, period_ext):
         theta (float): poloidal angle of interest (rad).
         phi (float): toroidal angle of interest (rad).
         offset (float): total offset of layer from plamsa (m).
-        period_ext (float): toroidal extent of each period (rad).
+        plane_norm (array of float): normal direction of toroidal plane.
 
     Returns:
         r (array): offset suface point (m).
@@ -384,21 +348,12 @@ def offset_surface(vmec, s, theta, phi, offset, period_ext):
     # Use VMEC plasma edge value for offset of 0
     if offset == 0:
         # Compute plasma edge point
-        r = vmec.vmec2xyz(s, theta, phi)
+        r = np.array(vmec.vmec2xyz(s, theta, phi))
     
     # Compute offset greater than zero
     elif offset > 0:
-        # Root-solve for the toroidal angle at which the plasma
-        # surface normal points to the toroidal angle of interest
-        zeta = root_scalar(
-            root_problem, args = (vmec, s, theta, phi, offset), x0 = phi,
-            method = 'bisect',
-            bracket = [phi - period_ext/2, phi + period_ext/2]
-        )
-        zeta = zeta.root
-
         # Compute offset surface point
-        r = offset_point(vmec, s, zeta, theta, offset)
+        r = offset_point(vmec, s, phi, theta, offset, plane_norm)
     
     # Raise error for negative offset values
     elif offset < 0:
@@ -411,37 +366,31 @@ def offset_surface(vmec, s, theta, phi, offset, period_ext):
 
 
 def stellarator_torus(
-    vmec, num_periods, s, cutter, gen_periods, phi_list_exp, theta_list_exp,
-    interpolator):
+    vmec, s, tor_ext, repeat, phi_list_exp, theta_list_exp, interpolator,
+    cutter):
     """Creates a stellarator helical torus as a CadQuery object.
     
     Arguments:
         vmec (object): plasma equilibrium object.
-        num_periods (int): number of periods in stellarator geometry.
         s (float): normalized magnetic closed flux surface value.
-        cutter (object): CadQuery solid object used to cut period of
-            stellarator torus.
-        gen_periods (int): number of stellarator periods to build in model.
+        tor_ext (float): toroidal extent of build (deg).
+        repeat (int): number of times to repeat build.
         phi_list_exp (list of float): interpolated list of toroidal angles
             (deg).
         theta_list_exp (list of float): interpolated list of poloidal angles
             (deg).
         interpolator (object): scipy.interpolate.RegularGridInterpolator object.
+        cutter (object): CadQuery solid object used to cut each segment of
+            stellarator torus.
     
     Returns:
         torus (object): stellarator torus CadQuery solid object.
         cutter (object): updated cutting volume CadQuery solid object.
     """
-    # Determine toroidal extent of each period in degrees
-    period_ext = 360.0/num_periods
-    
-    # Define initial angles defining each period needed
+    # Define initial angles defining segment of build
     initial_angles = np.linspace(
-        period_ext, period_ext*(gen_periods - 1), num = gen_periods - 1
+        tor_ext, tor_ext * repeat, num = repeat
     )
-
-    # Convert toroidal extent of period to radians
-    period_ext = np.deg2rad(period_ext)
 
     # Initialize construction
     period = cq.Workplane("XY")
@@ -454,6 +403,14 @@ def stellarator_torus(
         # Convert toroidal (phi) angle from degrees to radians
         phi = np.deg2rad(phi)
 
+        # Compute radial direction of poloidal profile
+        x = np.cos(phi)
+        y = np.sin(phi)
+        dir = np.array([x, y, 0])
+        # Compute norm of poloidal profile
+        plane_norm = np.cross(dir, np.array([0, 0, 1]))
+        plane_norm = plane_norm/np.linalg.norm(plane_norm)
+
         # Compute array of points along poloidal profile
         for theta in theta_list_exp[:-1]:
             # Convert poloidal (theta) angle from degrees to radians
@@ -463,7 +420,7 @@ def stellarator_torus(
             offset = interpolator([np.rad2deg(phi), np.rad2deg(theta)])[0]
 
             # Compute offset surface point
-            x, y, z = offset_surface(vmec, s, theta, phi, offset, period_ext)
+            x, y, z = offset_surface(vmec, s, theta, phi, offset, plane_norm)
             # Convert from m to cm
             pt = (x*100, y*100, z*100)
             # Append point to poloidal profile
@@ -517,13 +474,12 @@ def expand_ang(ang_list, num_ang):
     ang_ext = ang_list[-1] - ang_list[0]
 
     # Compute average distance between angles to include in stellarator build
-    ang_diff_avg = ang_ext/num_ang
+    ang_diff_avg = ang_ext/(num_ang - 1)
     
     # Loop over supplied angles
     for ang, next_ang in zip(ang_list[:-1], ang_list[1:]):
         # Compute number of angles to interpolate
-        n_ang = int(np.ceil((next_ang - ang)/ang_diff_avg))
-
+        n_ang = math.ceil((next_ang - ang)/ang_diff_avg)
         # Interpolate angles and append to storage list
         ang_list_exp = np.append(
             ang_list_exp,
@@ -556,9 +512,8 @@ export_def = {
 
 
 def parastell(
-    plas_eq, num_periods, build, gen_periods, num_phi = 60,
-    num_theta = 100, magnets = None, source = None, export = export_def,
-    logger = None):
+    plas_eq, build, repeat, num_phi = 61, num_theta = 61, magnets = None,
+    source = None, export = export_def, logger = None):
     """Generates CadQuery workplane objects for components of a
     parametrically-defined stellarator, based on user-supplied plasma
     equilibrium VMEC data and a user-defined radial build. Each component is
@@ -568,7 +523,6 @@ def parastell(
 
     Arguments:
         plas_eq (str): path to plasma equilibrium NetCDF file.
-        num_periods (int): number of periods in stellarator geometry.
         build (dict): dictionary of list of toroidal and poloidal angles, as
             well as dictionary of component names with corresponding thickness
             matrix and optional material tag to use in H5M neutronics model.
@@ -588,9 +542,9 @@ def parastell(
             }
             If no alternate material tag is supplied for the H5M file, the
             given component name will be used.
-        gen_periods (int): number of stellarator periods to build in model.
+        repeat (int): number of times to repeat build.
         num_phi (int): number of phi geometric cross-sections to make for each
-            period (defaults to 60).
+            build segment (defaults to 61).
         num_theta (int): number of points defining the geometric cross-section
             (defaults to 100).
         magnets (dict): dictionary of magnet parameters including
@@ -677,15 +631,6 @@ def parastell(
     # Update export dictionary
     export_dict = export_def.copy()
     export_dict.update(export)
-
-    # Check if total toroidal extent exceeds 360 degrees
-    try:
-        assert gen_periods <= num_periods, \
-            'Number of requested periods to generate exceeds number in ' \
-            'stellarator geometry'
-    except AssertionError as e:
-        logger.error(e.args[0])
-        raise e
     
     # Load plasma equilibrium data
     vmec = read_vmec.vmec_data(plas_eq)
@@ -700,10 +645,21 @@ def parastell(
     wall_s = build['wall_s']
     # Extract radial build
     radial_build = build['radial_build']
-
     # Extract array dimensions
     n_phi = len(phi_list)
     n_theta = len(theta_list)
+
+    # Compute toroidal extent of build in degrees
+    tor_ext = phi_list[-1] - phi_list[0]
+
+    # Check if total toroidal extent exceeds 360 degrees
+    try:
+        assert repeat*tor_ext <= 360.0, \
+            'Total toroidal extent requested with repeated geometry exceeds ' \
+            '360 degrees'
+    except AssertionError as e:
+        logger.error(e.args[0])
+        raise e
 
     # Conditionally prepend scrape-off layer to radial build
     if wall_s != 1.0:
@@ -720,7 +676,7 @@ def parastell(
             **radial_build
         }
 
-    # Initialize volume used to cut periods
+    # Initialize volume used to cut segments
     cutter = None
 
     # Linearly interpolate angles to expand phi and theta lists
@@ -763,10 +719,8 @@ def parastell(
         # Generate component
         try:
             torus, cutter = stellarator_torus(
-                vmec, num_periods, s,
-                cutter, gen_periods,
-                phi_list_exp, theta_list_exp,
-                interp
+                vmec, s, tor_ext, repeat, phi_list_exp, theta_list_exp, interp,
+                cutter
             )
         except ValueError as e:
             logger.error(e.args[0])
@@ -781,7 +735,7 @@ def parastell(
     # Conditionally build graveyard volume
     if export_dict['graveyard']:
         # Extract maximum offset
-        offset = 2*max(max(offset_mat))
+        offset = max(max(offset_mat))
         # Build graveyard
         components = graveyard(vmec, offset, components, logger)
 
@@ -804,7 +758,9 @@ def parastell(
 
     # Conditionally build magnet coils and store volume indices
     if magnets is not None:
-        magnets['vol_id'] = magnet_coils.magnet_coils(magnets, logger = logger)
+        magnets['vol_id'] = magnet_coils.magnet_coils(
+            magnets, tor_ext, logger = logger
+        )
 
     # Export components
     try:

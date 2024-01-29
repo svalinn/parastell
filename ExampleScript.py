@@ -1,5 +1,4 @@
 import parastell
-import logging
 
 
 # Define plasma equilibrium VMEC file
@@ -79,14 +78,12 @@ build = {
         }
     }
 }
-# Define number of periods in stellarator plasma
-num_periods = 4
-# Define number of periods to generate
-gen_periods = 1
+# Define number of times to repeat build
+repeat = 0
 # Define number of toroidal cross-sections to make
-num_phi = 60
+num_phi = 61
 # Define number of poloidal points to include in each toroidal cross-section
-num_theta = 60
+num_theta = 61
 # Define magnet coil parameters
 magnets = {
     'file': 'coils.txt',
@@ -102,7 +99,8 @@ magnets = {
 source = {
     'num_s': 11,
     'num_theta': 81,
-    'num_phi': 241
+    'num_phi': 61,
+    'tor_ext': 90.0
 }
 # Define export parameters
 export = {
@@ -124,30 +122,8 @@ export = {
     'bounding_box_atol': 0.00001
 }
 
-# Define logger. Note that this is identical to the default logger instatiated
-# by log.py. If no logger is passed to parametric_stellarator, this is the
-# logger that will be used.
-logger = logging.getLogger('log')
-# Configure base logger message level
-logger.setLevel(logging.INFO)
-# Configure stream handler
-s_handler = logging.StreamHandler()
-# Configure file handler
-f_handler = logging.FileHandler('stellarator.log')
-# Define and set logging format
-format = logging.Formatter(
-    fmt = '%(asctime)s: %(message)s',
-    datefmt = '%H:%M:%S'
-)
-s_handler.setFormatter(format)
-f_handler.setFormatter(format)
-# Add handlers to logger
-logger.addHandler(s_handler)
-logger.addHandler(f_handler)
-
 # Create stellarator
 parastell.parastell(
-    plas_eq, num_periods, build, gen_periods, num_phi, num_theta,
-    magnets = magnets, source = source,
-    export = export, logger = logger
+    plas_eq, build, repeat, num_phi, num_theta,
+    magnets = magnets, source = source, export = export
 )
