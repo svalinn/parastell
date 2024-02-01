@@ -1,6 +1,5 @@
 import log
 import cubit
-from pymoab import core, types
 import numpy as np
 from sklearn.preprocessing import normalize
 import os
@@ -23,17 +22,10 @@ def mesh_magnets(vol_ids, logger):
     cwd = os.getcwd()
     base_name = 'coil_mesh'
     general_export_path = f"{cwd}/{base_name}"
-    exo_path = f'{general_export_path}.exo'
     h5m_path = f'{general_export_path}.h5m'
     
-    # EXODUS export
-    cubit.cmd(f'export mesh "{exo_path}"')
-    
-    # Convert EXODUS to H5M
-    mb = core.Core()
-    exodus_set = mb.create_meshset()
-    mb.load_file(exo_path, exodus_set)
-    mb.write_file(h5m_path, [exodus_set])
+    # H5M export
+    cubit.cmd(f'export cf_dagmc "{h5m_path}" overwrite')
 
 
 def cut_mags(tor_ext, vol_ids, r_avg):
@@ -459,6 +451,7 @@ def extract_filaments(file, start, stop, sample):
             if i % sample == 0:
                 # Append coordinates to list
                 coords.append([x, y, z])
+                
         # Otherwise, store filament coordinates but do not append final
         # filament point. In Cubit, continuous curves are created by setting
         # the initial and final vertex indices equal. This is handled in the
