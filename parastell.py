@@ -92,11 +92,11 @@ def cubit_export(components, export, magnets):
         components[name]['vol_id'] = cubit.get_last_id("volume")
 
     # Imprint and merge all volumes
-    #cubit.cmd('imprint volume all')
-    #cubit.cmd('merge volume all')
+    cubit.cmd('imprint volume all')
+    cubit.cmd('merge volume all')
 
     if export['native_meshing']: #export using native cubit meshing capabilities v2023.11+
-        print('native meshing')
+
         #extract Cubit export parameters
         anisotropic_ratio = export['anisotropic_ratio']
         deviation_angle = export['deviation_angle']
@@ -134,8 +134,7 @@ def cubit_export(components, export, magnets):
             block_number = min(magnets['vol_id'])
             for vol in magnets['vol_id']:
                 cubit.cmd('set duplicate block elements off')
-                cubit.cmd('list vol')
-                cubit.cmd(f'block "{block_number}" add volume "{vol}"')
+                cubit.cmd("block " + str(block_number) + " add volume " + str(vol))
             
             # assign magnet material to block
             cubit.cmd("block " + str(block_number) + " material " + ''.join(("\'",magnet_h5m_tag,"\'")))
@@ -149,7 +148,7 @@ def cubit_export(components, export, magnets):
         cubit.cmd(f'export cf_dagmc "{cwd + "/dagmc.h5m"}" overwrite')
 
     else:
-        print('legacy meshing')
+
         # Extract Cubit export parameters
         facet_tol = export['facet_tol']
         len_tol = export['len_tol']
