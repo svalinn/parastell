@@ -46,6 +46,13 @@ def cubit_export(components, export, magnets):
                     (float, defaults to None),
                 'norm_tol': maximum change in angle between normal vector of
                     adjacent facets (float, defaults to None),
+                'native_meshing': choose native or legacy faceting for DAGMC export
+                    (bool, defaults to True),
+                'anisotropic_ratio': controls edge length ratio of elements
+                    (float, defaults to 100.0),
+                'deviation_angle': controls deviation angle of facet from surface, i.e.
+                    lower deviation angle => more elements in areas with higher curvature
+                    (float, defaults to 5.0),
                 'min_mesh_size': minimum mesh element size for Gmsh export
                     (float, defaults to 5.0),
                 'max_mesh_size': maximum mesh element size for Gmsh export
@@ -76,11 +83,6 @@ def cubit_export(components, export, magnets):
             For a rectangular cross-section, the list format is
             ['rectangle' (str), width (float, cm), thickness (float, cm)]
     """
-    # Extract Cubit export parameters
-    facet_tol = export['facet_tol']
-    len_tol = export['len_tol']
-    norm_tol = export['norm_tol']
-
     # Get current working directory
     cwd = os.getcwd()
 
@@ -90,39 +92,98 @@ def cubit_export(components, export, magnets):
         components[name]['vol_id'] = cubit.get_last_id("volume")
 
     # Imprint and merge all volumes
-    cubit.cmd('imprint volume all')
-    cubit.cmd('merge volume all')
+    #cubit.cmd('imprint volume all')
+    #cubit.cmd('merge volume all')
 
-    # Conditionally assign magnet material group
-    if magnets is not None:
-        magnet_h5m_tag = magnets['h5m_tag']
+    if export['native_meshing']: #export using native cubit meshing capabilities v2023.11+
+        print('native meshing')
+        #extract Cubit export parameters
+        anisotropic_ratio = export['anisotropic_ratio']
+        deviation_angle = export['deviation_angle']
+
+        #conditionally populate strings
+        if anisotropic_ratio is None:
+            anisotropic_ratio = 100
+        
+        if deviation_angle is None:
+            deviation_angle = 5
+
+
+        # create materials for native cubit meshing
+        for comp in components.values():
+            cubit.cmd(f'create material "{comp["h5m_tag"]}" property_group "CUBIT-ABAQUS"')
+
+        # assign components to blocks
+        for comp in components.values():
+            cubit.cmd('set duplicate block elements off')
+            cubit.cmd("block " + str(comp['vol_id']) + " add volume " + str(comp['vol_id']))
+        
+        # assign materials to blocks
+        for comp in components.values():
+            cubit.cmd("block " + str(comp['vol_id']) + " material " + ''.join(("\'",comp['h5m_tag'],"\'")))
+            
+
+        if magnets is not None: #conditionally assign material to magnets
+            
+            magnet_h5m_tag = magnets['h5m_tag']
+            
+            # create magnet material
+            cubit.cmd(f'create material "{magnet_h5m_tag}" property_group "CUBIT-ABAQUS')
+
+            # assign magnets to block
+            block_number = min(magnets['vol_id'])
+            for vol in magnets['vol_id']:
+                cubit.cmd('set duplicate block elements off')
+                cubit.cmd('list vol')
+                cubit.cmd(f'block "{block_number}" add volume "{vol}"')
+            
+            # assign magnet material to block
+            cubit.cmd("block " + str(block_number) + " material " + ''.join(("\'",magnet_h5m_tag,"\'")))
+        
+        #mesh the model
+        cubit.cmd("set trimesher coarse on ratio " + str(anisotropic_ratio) + " angle " + str(deviation_angle))
+        cubit.cmd("surface all scheme trimesh")
+        cubit.cmd("mesh surface all")
+
+        #export dagmc file
+        cubit.cmd(f'export cf_dagmc "{cwd + "/dagmc.h5m"}" overwrite')
+
+    else:
+        print('legacy meshing')
+        # Extract Cubit export parameters
+        facet_tol = export['facet_tol']
+        len_tol = export['len_tol']
+        norm_tol = export['norm_tol']
+        # Conditionally assign magnet material group
+        if magnets is not None:
+            magnet_h5m_tag = magnets['h5m_tag']
+            cubit.cmd(
+                f'group "mat:{magnet_h5m_tag}" add volume '
+                + " ".join(str(i) for i in magnets['vol_id'])
+            )
+        
+        # Assign material groups
+        for comp in components.values():
+            cubit.cmd(f'group "mat:{comp["h5m_tag"]}" add volume {comp["vol_id"]}')
+
+        # Initialize tolerance strings for export statement as empty strings
+        facet_tol_str = ''
+        len_tol_str = ''
+        norm_tol_str = ''
+
+        # Conditionally fill tolerance strings
+        if facet_tol is not None:
+            facet_tol_str = f'faceting_tolerance {facet_tol}'
+        if len_tol is not None:
+            len_tol_str = f'length_tolerance {len_tol}'
+        if norm_tol is not None:
+            norm_tol_str = f'normal_tolerance {norm_tol}'
+        
+        # DAGMC export
         cubit.cmd(
-            f'group "mat:{magnet_h5m_tag}" add volume '
-            + " ".join(str(i) for i in magnets['vol_id'])
+            f'export dagmc "dagmc.h5m" {facet_tol_str} {len_tol_str} {norm_tol_str}'
+            f' make_watertight'
         )
-    
-    # Assign material groups
-    for comp in components.values():
-        cubit.cmd(f'group "mat:{comp["h5m_tag"]}" add volume {comp["vol_id"]}')
-
-    # Initialize tolerance strings for export statement as empty strings
-    facet_tol_str = ''
-    len_tol_str = ''
-    norm_tol_str = ''
-
-    # Conditionally fill tolerance strings
-    if facet_tol is not None:
-        facet_tol_str = f'faceting_tolerance {facet_tol}'
-    if len_tol is not None:
-        len_tol_str = f'length_tolerance {len_tol}'
-    if norm_tol is not None:
-        norm_tol_str = f'normal_tolerance {norm_tol}'
-    
-    # DAGMC export
-    cubit.cmd(
-        f'export dagmc "dagmc.h5m" {facet_tol_str} {len_tol_str} {norm_tol_str}'
-        f' make_watertight'
-    )
 
 
 def exports(export, components, magnets, logger):
@@ -212,7 +273,7 @@ def exports(export, components, magnets, logger):
             cq.exporters.export(comp['solid'], name + '.step')
             
         # Conditionally export tetrahedral meshing
-        if magnets['meshing']:
+        if magnets is not None and magnets['meshing']:
             # Assign export paths
             cwd = os.getcwd()
             base_name = 'coil_mesh'
@@ -547,6 +608,9 @@ export_def = {
     'facet_tol': None,
     'len_tol': None,
     'norm_tol': None,
+    'native_meshing': True,
+    'anisotropic_ratio': 100,
+    'deviation_angle': 5,
     'min_mesh_size': 5.0,
     'max_mesh_size': 20.0,
     'volume_atol': 0.00001,
@@ -646,6 +710,13 @@ def parastell(
                     (float, defaults to None),
                 'norm_tol': maximum change in angle between normal vector of
                     adjacent facets (float, defaults to None),
+                'native_meshing': choose native or legacy faceting for DAGMC export
+                    (bool, defaults to True),
+                'anisotropic_ratio': controls edge length ratio of elements
+                    (float, defaults to 100.0),
+                'deviation_angle': controls deviation angle of facet from surface, i.e.
+                    lower deviation angle => more elements in areas with higher curvature
+                    (float, defaults to 5.0),
                 'min_mesh_size': minimum mesh element size for Gmsh export
                     (float, defaults to 5.0),
                 'max_mesh_size': maximum mesh element size for Gmsh export
