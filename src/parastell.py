@@ -8,6 +8,19 @@ class Stellarator(object):
         pass
 
 class StellaratorSurface(object):
+    '''
+    An object that represents a surface formed by lofting across a number of
+    "ribs" located at different toroidal plans and offset from a reference surface.
+
+    Args:
+        vmec : a vmec object from pystell_uw
+        s (float) : the flux surface coordinate defining the point of reference for offset
+        offset (np.array(double)) : for each poloidal angle and toroidal, an offset in [cm] from the 
+            surface defined by s
+        theta (np.array(double)) : the set of poloidal angles in [rad]
+        phi (np.array(double)) : the set of toroidal angles for this rib in [rad]
+        scale (double) : a scaling factor between the units of vmec and [cm] (default: m2cm = 100)
+    '''
     def __init__(
             self,
             vmec_,
