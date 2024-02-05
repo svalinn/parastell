@@ -7,6 +7,22 @@ class Stellarator(object):
     def __init__():
         pass
 
+class StellaratorMagnetSet():
+    def __init__():
+        pass
+    
+class StellaratorMagnetCoil():
+    def __init__():
+        pass
+
+class StellaratorMagnetFilament(object);
+    def __init__():
+        pass
+
+class StellaratorInvesselComponent(object):
+    def __init__():
+        pass
+
 class StellaratorSurface(object):
     '''
     An object that represents a surface formed by lofting across a number of
