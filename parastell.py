@@ -83,31 +83,48 @@ def cubit_export(components, export, magnets):
             For a rectangular cross-section, the list format is
             ['rectangle' (str), width (float, cm), thickness (float, cm)]
     """
-    # Get current working directory
-    cwd = os.getcwd()
+    def legacy_export():
 
-    # Import solids
-    for name in components.keys():
-        cubit.cmd(f'import step "' + cwd + '/' + name + '.step" heal')
-        components[name]['vol_id'] = cubit.get_last_id("volume")
+        # Conditionally assign magnet material group
+        if magnets is not None:
+            magnet_h5m_tag = magnets['h5m_tag']
+            cubit.cmd(
+                f'group "mat:{magnet_h5m_tag}" add volume '
+                + " ".join(str(i) for i in magnets['vol_id'])
+            )
+        
+        # Assign material groups
+        for comp in components.values():
+            cubit.cmd(f'group "mat:{comp["h5m_tag"]}" add volume {comp["vol_id"]}')
 
-    # Imprint and merge all volumes
-    cubit.cmd('imprint volume all')
-    cubit.cmd('merge volume all')
+        # Extract Cubit export parameters
+        facet_tol = export['facet_tol']
+        len_tol = export['len_tol']
+        norm_tol = export['norm_tol']
 
-    if export['native_meshing']: #export using native cubit meshing capabilities v2023.11+
+        # Initialize tolerance strings for export statement as empty strings
+        facet_tol_str = ''
+        len_tol_str = ''
+        norm_tol_str = ''
 
+        # Conditionally fill tolerance strings
+        if facet_tol is not None:
+            facet_tol_str = f'faceting_tolerance {facet_tol}'
+        if len_tol is not None:
+            len_tol_str = f'length_tolerance {len_tol}'
+        if norm_tol is not None:
+            norm_tol_str = f'normal_tolerance {norm_tol}'
+        
+        # DAGMC export
+        cubit.cmd(
+            f'export dagmc "dagmc.h5m" {facet_tol_str} {len_tol_str} {norm_tol_str}'
+            f' make_watertight'
+        )
+
+    def native_export():
         #extract Cubit export parameters
         anisotropic_ratio = export['anisotropic_ratio']
         deviation_angle = export['deviation_angle']
-
-        #conditionally populate strings
-        if anisotropic_ratio is None:
-            anisotropic_ratio = 100
-        
-        if deviation_angle is None:
-            deviation_angle = 5
-
 
         # create materials for native cubit meshing
         for comp in components.values():
@@ -147,42 +164,25 @@ def cubit_export(components, export, magnets):
         #export dagmc file
         cubit.cmd(f'export cf_dagmc "{cwd + "/dagmc.h5m"}" overwrite')
 
-    else:
+    # Get current working directory
+    cwd = os.getcwd()
 
-        # Extract Cubit export parameters
-        facet_tol = export['facet_tol']
-        len_tol = export['len_tol']
-        norm_tol = export['norm_tol']
-        # Conditionally assign magnet material group
-        if magnets is not None:
-            magnet_h5m_tag = magnets['h5m_tag']
-            cubit.cmd(
-                f'group "mat:{magnet_h5m_tag}" add volume '
-                + " ".join(str(i) for i in magnets['vol_id'])
-            )
-        
-        # Assign material groups
-        for comp in components.values():
-            cubit.cmd(f'group "mat:{comp["h5m_tag"]}" add volume {comp["vol_id"]}')
+    # Import solids
+    for name in components.keys():
+        cubit.cmd(f'import step "' + cwd + '/' + name + '.step" heal')
+        components[name]['vol_id'] = cubit.get_last_id("volume")
 
-        # Initialize tolerance strings for export statement as empty strings
-        facet_tol_str = ''
-        len_tol_str = ''
-        norm_tol_str = ''
+    # Imprint and merge all volumes
+    cubit.cmd('imprint volume all')
+    cubit.cmd('merge volume all')
 
-        # Conditionally fill tolerance strings
-        if facet_tol is not None:
-            facet_tol_str = f'faceting_tolerance {facet_tol}'
-        if len_tol is not None:
-            len_tol_str = f'length_tolerance {len_tol}'
-        if norm_tol is not None:
-            norm_tol_str = f'normal_tolerance {norm_tol}'
-        
-        # DAGMC export
-        cubit.cmd(
-            f'export dagmc "dagmc.h5m" {facet_tol_str} {len_tol_str} {norm_tol_str}'
-            f' make_watertight'
-        )
+    if export['native_meshing']: #export using native cubit meshing capabilities v2023.11+
+        native_export()
+
+    else: #export with legacy dagmc workflow
+        legacy_export()
+
+       
 
 
 def exports(export, components, magnets, logger):
