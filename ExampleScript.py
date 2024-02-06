@@ -78,6 +78,7 @@ build = {
             'h5m_tag': 'vac_vessel'
     }
 }
+}
 # Define number of periods in stellarator plasma
 num_periods = 4
 # Define number of periods to generate
