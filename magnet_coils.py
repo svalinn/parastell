@@ -290,12 +290,11 @@ def clean_mag_data(filaments, tor_ext, r_avg, mag_len):
         com = np.average(fil, axis = 0)
         # Compute toroidal angle of each point in filament
         phi_pts = np.arctan2(fil[:,1], fil[:,0])
+        # Ensure angles are positive
+        phi_pts = (phi_pts + 2*np.pi) % (2*np.pi)
         # Compute bounds of toroidal extent of filament
         min_phi = np.min(phi_pts)
         max_phi = np.max(phi_pts)
-        # Ensure angles are positive
-        min_phi = (min_phi + 2*np.pi) % (2*np.pi)
-        max_phi = (max_phi + 2*np.pi) % (2*np.pi)
 
         # Determine if filament toroidal extent overlaps with that of model
         if (
@@ -310,6 +309,7 @@ def clean_mag_data(filaments, tor_ext, r_avg, mag_len):
 
     # Compute toroidal angles of filament centers of mass
     phi_arr = np.arctan2(com_list[:,1], com_list[:,0])
+    phi_arr = (phi_arr + 2*np.pi) % (2*np.pi)
 
     # Sort filaments by toroidal angle
     sorted_fils = [x for _,x in sorted(zip(phi_arr, reduced_fils))]
