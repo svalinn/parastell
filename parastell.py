@@ -8,8 +8,8 @@ import cad_to_dagmc
 import numpy as np
 import math
 from scipy.interpolate import RegularGridInterpolator
+from sklearn.preprocessing import normalize
 import os
-from pymoab import core, types
 import inspect
 
 
@@ -45,13 +45,13 @@ def cubit_export(components, export, magnets):
                     (float, defaults to None),
                 'norm_tol': maximum change in angle between normal vector of
                     adjacent facets (float, defaults to None),
-                'native_meshing': choose native or legacy faceting for DAGMC export
-                    (bool, defaults to True),
+                'native_meshing': choose native or legacy faceting for DAGMC
+                    export (bool, defaults to False),
                 'anisotropic_ratio': controls edge length ratio of elements
                     (float, defaults to 100.0),
-                'deviation_angle': controls deviation angle of facet from surface, i.e.
-                    lower deviation angle => more elements in areas with higher curvature
-                    (float, defaults to 5.0),
+                'deviation_angle': controls deviation angle of facet from
+                    surface, i.e. lower deviation angle => more elements in
+                    areas with higher curvature (float, defaults to 5.0),
                 'min_mesh_size': minimum mesh element size for Gmsh export
                     (float, defaults to 5.0),
                 'max_mesh_size': maximum mesh element size for Gmsh export
@@ -83,7 +83,8 @@ def cubit_export(components, export, magnets):
             ['rectangle' (str), width (float, cm), thickness (float, cm)]
     """
     def legacy_export():
-
+        """Exports neutronics H5M file via legacy plug-in faceting method.
+        """
         # Conditionally assign magnet material group
         if magnets is not None:
             magnet_h5m_tag = magnets['h5m_tag']
@@ -94,7 +95,9 @@ def cubit_export(components, export, magnets):
         
         # Assign material groups
         for comp in components.values():
-            cubit.cmd(f'group "mat:{comp["h5m_tag"]}" add volume {comp["vol_id"]}')
+            cubit.cmd(
+                f'group "mat:{comp["h5m_tag"]}" add volume {comp["vol_id"]}'
+            )
 
         # Extract Cubit export parameters
         facet_tol = export['facet_tol']
@@ -116,51 +119,71 @@ def cubit_export(components, export, magnets):
         
         # DAGMC export
         cubit.cmd(
-            f'export dagmc "dagmc.h5m" {facet_tol_str} {len_tol_str} {norm_tol_str}'
-            f' make_watertight'
+            f'export dagmc "dagmc.h5m" {facet_tol_str} {len_tol_str} '
+            f'{norm_tol_str} make_watertight'
         )
 
     def native_export():
+        """Exports neutronics H5M file via native Cubit faceting method.
+        """
         #extract Cubit export parameters
         anisotropic_ratio = export['anisotropic_ratio']
         deviation_angle = export['deviation_angle']
 
         # create materials for native cubit meshing
         for comp in components.values():
-            cubit.cmd(f'create material "{comp["h5m_tag"]}" property_group "CUBIT-ABAQUS"')
+            cubit.cmd(
+                f'create material "{comp["h5m_tag"]}" property_group '
+                + '"CUBIT-ABAQUS"'
+            )
 
         # assign components to blocks
         for comp in components.values():
             cubit.cmd('set duplicate block elements off')
-            cubit.cmd("block " + str(comp['vol_id']) + " add volume " + str(comp['vol_id']))
+            cubit.cmd(
+                "block " + str(comp['vol_id']) + " add volume "
+                + str(comp['vol_id'])
+            )
         
         # assign materials to blocks
         for comp in components.values():
-            cubit.cmd("block " + str(comp['vol_id']) + " material " + ''.join(("\'",comp['h5m_tag'],"\'")))
+            cubit.cmd(
+                "block " + str(comp['vol_id']) + " material "
+                + ''.join(("\'",comp['h5m_tag'],"\'"))
+            )
             
-
-        if magnets is not None: #conditionally assign material to magnets
-            
+        if magnets is not None:
             magnet_h5m_tag = magnets['h5m_tag']
             
-            # create magnet material
-            cubit.cmd(f'create material "{magnet_h5m_tag}" property_group "CUBIT-ABAQUS')
+            # Create magnet material
+            cubit.cmd(
+                f'create material "{magnet_h5m_tag}" property_group '
+                + '"CUBIT-ABAQUS"'
+            )
 
-            # assign magnets to block
+            # Assign magnets to block
             block_number = min(magnets['vol_id'])
             for vol in magnets['vol_id']:
                 cubit.cmd('set duplicate block elements off')
-                cubit.cmd("block " + str(block_number) + " add volume " + str(vol))
+                cubit.cmd(
+                    "block " + str(block_number) + " add volume " + str(vol)
+                )
             
-            # assign magnet material to block
-            cubit.cmd("block " + str(block_number) + " material " + ''.join(("\'",magnet_h5m_tag,"\'")))
+            # Assign magnet material to block
+            cubit.cmd(
+                "block " + str(block_number) + " material "
+                + ''.join(("\'",magnet_h5m_tag,"\'"))
+            )
         
-        #mesh the model
-        cubit.cmd("set trimesher coarse on ratio " + str(anisotropic_ratio) + " angle " + str(deviation_angle))
+        # Mesh the model
+        cubit.cmd(
+            "set trimesher coarse on ratio " + str(anisotropic_ratio)
+            + " angle " + str(deviation_angle)
+        )
         cubit.cmd("surface all scheme trimesh")
         cubit.cmd("mesh surface all")
 
-        #export dagmc file
+        # Export DAGMC file
         cubit.cmd(f'export cf_dagmc "{cwd + "/dagmc.h5m"}" overwrite')
 
     # Get current working directory
@@ -175,14 +198,11 @@ def cubit_export(components, export, magnets):
     cubit.cmd('imprint volume all')
     cubit.cmd('merge volume all')
 
-    if export['native_meshing']: #export using native cubit meshing capabilities v2023.11+
+    if export['native_meshing']:
         native_export()
-
-    else: #export with legacy dagmc workflow
+    else:
         legacy_export()
-
        
-
 
 def exports(export, components, magnets, logger):
     """Export components.
@@ -248,66 +268,35 @@ def exports(export, components, magnets, logger):
             ['rectangle' (str), width (float, cm), thickness (float, cm)]
         logger (object): logger object.
     """
-    # Check that h5m_export has an appropriate value
     if export['h5m_export'] not in [None, 'Cubit', 'Gmsh']:
         raise ValueError(
             'h5m_export must be None or have a string value of \'Cubit\' or '
             '\'Gmsh\''
         )
-    # Check that Cubit export has STEP files to use
     if export['h5m_export'] == 'Cubit' and not export['step_export']:
         raise ValueError('H5M export via Cubit requires STEP files')
-    # Check that H5M export of magnets uses Cubit
     if export['h5m_export'] == 'Gmsh' and magnets is not None:
         raise ValueError(
             'Inclusion of magnets in H5M model requires Cubit export'
         )
     
-    # Conditionally export STEP files
     if export['step_export']:
-        # Signal STEP export
         logger.info('Exporting STEP files...')
         for name, comp in components.items():
             cq.exporters.export(comp['solid'], name + '.step')
-            
-    # Conditionally export tetrahedral mesh
-    if magnets is not None and magnets['meshing']:
-        # Signal STEP export
-        logger.info('Exporting coil mesh...')
-        # Assign export paths
-        cwd = os.getcwd()
-        base_name = 'coil_mesh'
-        general_export_path = f"{cwd}/{base_name}"
-        exo_path = f'{general_export_path}.exo'
-        h5m_path = f'{general_export_path}.h5m'
-        # EXODUS export
-        cubit.cmd(f'export mesh "{exo_path}"')
-        # Convert EXODUS to H5M
-        mb = core.Core()
-        exodus_set = mb.create_meshset()
-        mb.load_file(exo_path, exodus_set)
-        mb.write_file(h5m_path, [exodus_set])
     
-    # Conditinally export H5M file via Cubit
     if export['h5m_export'] == 'Cubit':
-        # Signal H5M export via Cubit
         logger.info('Exporting neutronics H5M file via Cubit...')
-        # Export H5M file via Cubit
         cubit_export(components, export, magnets)
     
-    # Conditionally export H5M file via Gmsh
     if export['h5m_export'] == 'Gmsh':
-        # Signal H5M export via Gmsh
         logger.info('Exporting neutronics H5M file via Gmsh...')
-        # Initialize H5M model
         model = cad_to_dagmc.CadToDagmc()
-        # Extract component data
         for comp in components.values():
             model.add_cadquery_object(
                 comp['solid'],
                 material_tags = [comp['h5m_tag']]
             )
-        # Export H5M file via Gmsh
         model.export_dagmc_h5m_file()
 
 
@@ -331,14 +320,18 @@ def graveyard(vmec, offset, components, logger):
             {'name': {'solid': CadQuery solid (object), 'h5m_tag':
             h5m_tag (string)}}
     """
-    # Signal graveyard generation
     logger.info('Building graveyard...')
     
+    # Define constant to convert from m to cm
+    m2cm = 100
+
     # Determine maximum plasma edge radial position
     R = vmec.vmec2rpz(1.0, 0.0, 0.0)[0]
 
     # Define length of graveyard and convert from m to cm
-    L = 4*(R + offset)*100
+    # Double to cover full geometry
+    # Mutiply by factor of 2 to be conservative
+    L = 2*2*(R + offset)*m2cm
 
     # Create graveyard volume
     graveyard = cq.Workplane("XY").box(L, L, L).shell(5.0,
@@ -354,7 +347,7 @@ def graveyard(vmec, offset, components, logger):
     return components
 
 
-def offset_point(vmec, s, phi, theta, offset, plane_norm):
+def surf_norm(vmec, s, phi, theta, ref_pt, plane_norm):
     """Stellarator offset surface root-finding problem.
 
     Arguments:
@@ -362,35 +355,27 @@ def offset_point(vmec, s, phi, theta, offset, plane_norm):
         s (float): normalized magnetic closed flux surface value.
         phi (float): toroidal angle being solved for (rad).
         theta (float): poloidal angle of interest (rad).
-        offset (float): total offset of layer from plamsa (m).
+        ref_pt (array of float): Cartesian coordinates of plasma edge or
+            scrape-off-layer location (m).
         plane_norm (array of float): normal direction of toroidal plane.
     
     Returns:
-        pt (tuple): (x, y, z) tuple defining Cartesian point offset from
-            stellarator plasma (m).
+        norm (array of float): surface normal direction (m).
     """
-    # Define small value
-    eps = 0.000001
-
-    # Compute Cartesian coordinates of reference point
-    ref_pt = np.array(vmec.vmec2xyz(s, theta, phi))
     # Vary poloidal angle by small amount
+    eps = 0.000001
     next_pt = np.array(vmec.vmec2xyz(s, theta + eps, phi))
     
-    # Take difference from reference point to approximate tangent
-    tang = next_pt - ref_pt
+    tangent = next_pt - ref_pt
 
-    # Compute normal of poloidal profile
-    norm = np.cross(tang, plane_norm)
-    norm = norm/np.linalg.norm(norm)
+    norm = np.cross(plane_norm, tangent)
+    norm = normalize(norm.reshape(-1, 1), axis = 0).ravel()
+    norm = np.array(norm)
 
-    # Define offset point
-    pt = ref_pt + offset*norm
-
-    return pt
+    return norm
 
 
-def offset_surface(vmec, s, theta, phi, offset, plane_norm):
+def offset_point(vmec, s, theta, phi, offset, plane_norm):
     """Computes offset surface point.
 
     Arguments:
@@ -404,18 +389,14 @@ def offset_surface(vmec, s, theta, phi, offset, plane_norm):
     Returns:
         r (array): offset suface point (m).
     """
-    # Conditionally offset poloidal profile
-    # Use VMEC plasma edge value for offset of 0
     if offset == 0:
-        # Compute plasma edge point
         r = np.array(vmec.vmec2xyz(s, theta, phi))
     
-    # Compute offset greater than zero
     elif offset > 0:
-        # Compute offset surface point
-        r = offset_point(vmec, s, phi, theta, offset, plane_norm)
+        ref_pt = np.array(vmec.vmec2xyz(s, theta, phi))
+        norm = surf_norm(vmec, s, phi, theta, ref_pt, plane_norm)
+        r = ref_pt + offset*norm
     
-    # Raise error for negative offset values
     elif offset < 0:
         raise ValueError(
             'Offset must be greater than or equal to 0. Check thickness inputs '
@@ -433,12 +414,12 @@ def stellarator_torus(
     Arguments:
         vmec (object): plasma equilibrium object.
         s (float): normalized magnetic closed flux surface value.
-        tor_ext (float): toroidal extent of build (deg).
+        tor_ext (float): toroidal extent of build (rad).
         repeat (int): number of times to repeat build.
         phi_list_exp (list of float): interpolated list of toroidal angles
-            (deg).
+            (rad).
         theta_list_exp (list of float): interpolated list of poloidal angles
-            (deg).
+            (rad).
         interpolator (object): scipy.interpolate.RegularGridInterpolator object.
         cutter (object): CadQuery solid object used to cut each segment of
             stellarator torus.
@@ -447,70 +428,55 @@ def stellarator_torus(
         torus (object): stellarator torus CadQuery solid object.
         cutter (object): updated cutting volume CadQuery solid object.
     """
-    # Define initial angles defining segment of build
+    # Define initial angles defining segments of build
     initial_angles = np.linspace(
-        tor_ext, tor_ext * repeat, num = repeat
+        np.rad2deg(tor_ext), np.rad2deg(repeat * tor_ext), num = repeat
     )
 
     # Initialize construction
-    period = cq.Workplane("XY")
+    segment = cq.Workplane("XY")
 
-    # Generate poloidal profiles
+    # Define constant to convert from m to cm
+    m2cm = 100
+
     for phi in phi_list_exp:
         # Initialize points in poloidal profile
         pts = []
 
-        # Convert toroidal (phi) angle from degrees to radians
-        phi = np.deg2rad(phi)
-
-        # Compute radial direction of poloidal profile
-        x = np.cos(phi)
-        y = np.sin(phi)
-        dir = np.array([x, y, 0])
         # Compute norm of poloidal profile
-        plane_norm = np.cross(dir, np.array([0, 0, 1]))
-        plane_norm = plane_norm/np.linalg.norm(plane_norm)
+        plane_norm = np.array([-np.sin(phi), np.cos(phi), 0])
 
-        # Compute array of points along poloidal profile
         for theta in theta_list_exp[:-1]:
-            # Convert poloidal (theta) angle from degrees to radians
-            theta = np.deg2rad(theta)
-
-            # Interpolate offset according to toroidal and poloidal angles
-            offset = interpolator([np.rad2deg(phi), np.rad2deg(theta)])[0]
-
-            # Compute offset surface point
-            x, y, z = offset_surface(vmec, s, theta, phi, offset, plane_norm)
-            # Convert from m to cm
-            pt = (x*100, y*100, z*100)
-            # Append point to poloidal profile
+            offset = interpolator([phi, theta])[0]
+            x, y, z = m2cm*offset_point(vmec, s, theta, phi, offset, plane_norm)
+            pt = (x, y, z)
             pts += [pt]
         
         # Ensure final point is same as initial
         pts += [pts[0]]
 
         # Generate poloidal profile
-        period = period.spline(pts).close()
+        segment = segment.spline(pts).close()
     
-    # Loft along poloidal profiles to generate period
-    period = period.loft()
+    # Loft along poloidal profiles to generate segment
+    segment = segment.loft()
 
-    # Conditionally cut period if not plasma volume
+    # Conditionally cut segment if not plasma volume
     if cutter is not None:
-        period_cut = period - cutter
+        segment_cut = segment - cutter
     else:
-        period_cut = period
+        segment_cut = segment
 
     # Update cutting volume
-    cutter = period
+    cutter = segment
 
-    # Initialize torus with conditionally cut period
-    torus = period_cut
+    # Initialize torus with segment
+    torus = segment_cut
 
     # Generate additional profiles
     for angle in initial_angles:
-        period = period_cut.rotate((0, 0, 0), (0, 0, 1), angle)
-        torus = torus.union(period)
+        segment = segment_cut.rotate((0, 0, 0), (0, 0, 1), angle)
+        torus = torus.union(segment)
 
     return torus, cutter
 
@@ -521,22 +487,22 @@ def expand_ang(ang_list, num_ang):
 
     Arguments:
         ang_list (list of float): user-supplied list of toroidal or poloidal
-            angles (deg).
+            angles (rad).
         num_ang (int): number of angles to include in stellarator build.
     
     Returns:
-        ang_list_exp (list of float): interpolated list of angles (deg).
+        ang_list_exp (list of float): interpolated list of angles (rad).
     """
     # Initialize interpolated list of angles
     ang_list_exp = []
 
-    # Compute total angular extent of supplied list
-    ang_ext = ang_list[-1] - ang_list[0]
+    init_ang = ang_list[0]
+    final_ang = ang_list[-1]
+    ang_extent = final_ang - init_ang
 
     # Compute average distance between angles to include in stellarator build
-    ang_diff_avg = ang_ext/(num_ang - 1)
+    ang_diff_avg = ang_extent/(num_ang - 1)
     
-    # Loop over supplied angles
     for ang, next_ang in zip(ang_list[:-1], ang_list[1:]):
         # Compute number of angles to interpolate
         n_ang = math.ceil((next_ang - ang)/ang_diff_avg)
@@ -554,6 +520,7 @@ def expand_ang(ang_list, num_ang):
 
 # Define default export dictionary
 export_def = {
+    'dir': '',
     'exclude': [],
     'graveyard': False,
     'step_export': True,
@@ -563,7 +530,7 @@ export_def = {
     'facet_tol': None,
     'len_tol': None,
     'norm_tol': None,
-    'native_meshing': True,
+    'native_meshing': False,
     'anisotropic_ratio': 100,
     'deviation_angle': 5,
     'min_mesh_size': 5.0,
@@ -593,8 +560,14 @@ def parastell(
             (polidal angle, toroidal angle) pairs. This dictionary takes the
             form
             {
-                'phi_list': list of float (deg),
-                'theta_list': list of float (deg),
+                'phi_list': toroidal angles at which radial build is specified.
+                    This list should always begin at 0.0 and it is advised not
+                    to extend past one stellarator period. To build a geometry
+                    that extends beyond one period, make use of the 'repeat'
+                    parameter (list of float, deg).
+                'theta_list': poloidal angles at which radial build is
+                    specified. This list should always span 360 degrees (list
+                    of float, deg).
                 'wall_s': closed flux index extrapolation at wall (float),
                 'radial_build': {
                     'component': {
@@ -663,13 +636,13 @@ def parastell(
                     (float, defaults to None),
                 'norm_tol': maximum change in angle between normal vector of
                     adjacent facets (float, defaults to None),
-                'native_meshing': choose native or legacy faceting for DAGMC export
-                    (bool, defaults to True),
+                'native_meshing': choose native or legacy faceting for DAGMC
+                    export (bool, defaults to False),
                 'anisotropic_ratio': controls edge length ratio of elements
                     (float, defaults to 100.0),
-                'deviation_angle': controls deviation angle of facet from surface, i.e.
-                    lower deviation angle => more elements in areas with higher curvature
-                    (float, defaults to 5.0),
+                'deviation_angle': controls deviation angle of facet from
+                    surface, i.e. lower deviation angle => more elements in
+                    areas with higher curvature (float, defaults to 5.0),
                 'min_mesh_size': minimum mesh element size for Gmsh export
                     (float, defaults to 5.0),
                 'max_mesh_size': maximum mesh element size for Gmsh export
@@ -691,42 +664,67 @@ def parastell(
         strengths (list): list of source strengths for each tetrahedron (1/s).
             Returned only if source mesh is generated.
     """
-    # Conditionally instantiate logger
+    export_dict = export_def.copy()
+    export_dict.update(export)
+    
+    if export_dict['h5m_export'] == 'Cubit' or magnets is not None:
+        cubit_dir = os.path.dirname(inspect.getfile(cubit))
+        cubit_dir = cubit_dir + '/plugins/'
+        cubit.init([
+            'cubit',
+            '-nojournal',
+            '-nographics',
+            '-information', 'off',
+            '-warning', 'off',
+            '-commandplugindir',
+            cubit_dir
+        ])
+    
     if logger == None or not logger.hasHandlers():
         logger = log.init()
     
-    # Signal new stellarator build
     logger.info('New stellarator build')
-    
-    # Update export dictionary
-    export_dict = export_def.copy()
-    export_dict.update(export)
     
     # Load plasma equilibrium data
     vmec = read_vmec.vmec_data(plas_eq)
 
-    # Initialize component storage dictionary
     components = {}
     
-    # Extract toroidal (phi) and poloidal (theta) arrays
     phi_list = build['phi_list']
+    phi_list = np.deg2rad(phi_list)
+
+    try:
+        assert phi_list[0] == 0.0, \
+            'Initial toroidal angle not equal to 0. Please redefine ' \
+            'phi_list, beginning at 0.'
+    except AssertionError as e:
+        logger.error(e.args[0])
+        raise e
+    
     theta_list = build['theta_list']
-    # Extract closed flux surface index extrapolation at wall
+    theta_list = np.deg2rad(theta_list)
+
+    try:
+        assert theta_list[-1] - theta_list[0] == 2*np.pi, \
+            'Poloidal extent is not 360 degrees. Please ensure poloidal ' \
+            'angles are specified for one full revolution.'
+    except AssertionError as e:
+        logger.error(e.args[0])
+        raise e
+
     wall_s = build['wall_s']
-    # Extract radial build
     radial_build = build['radial_build']
-    # Extract array dimensions
+    
     n_phi = len(phi_list)
     n_theta = len(theta_list)
 
-    # Compute toroidal extent of build in degrees
+    # Extract toroidal extent of build
     tor_ext = phi_list[-1] - phi_list[0]
 
-    # Check if total toroidal extent exceeds 360 degrees
     try:
-        assert repeat*tor_ext <= 360.0, \
+        assert (repeat + 1)*tor_ext <= 2*np.pi, \
             'Total toroidal extent requested with repeated geometry exceeds ' \
-            '360 degrees'
+            '360 degrees. Please examine phi_list and the repeat parameter.'
     except AssertionError as e:
         logger.error(e.args[0])
         raise e
@@ -758,10 +756,8 @@ def parastell(
     
     # Generate components in radial build
     for name, layer_data in radial_build.items():
-        # Notify which component is being generated
         logger.info(f'Building {name}...')
         
-        # Conditionally assign plasma h5m tag and reference closed flux surface
         if name == 'plasma':
             if export_dict['plas_h5m_tag'] is not None:
                 layer_data['h5m_tag'] = export_dict['plas_h5m_tag']
@@ -769,22 +765,21 @@ def parastell(
         else:
             s = wall_s
 
-        # Conditionally assign scrape-off layer h5m tag
         if name == 'sol':
             if export_dict['sol_h5m_tag'] is not None:
                 layer_data['h5m_tag'] = export_dict['sol_h5m_tag']
         
-        # Conditionally populate h5m tag for layer
         if 'h5m_tag' not in layer_data:
             layer_data['h5m_tag'] = name
 
-        # Extract layer thickness matrix
         thickness_mat = layer_data['thickness_matrix']
-        # Compute offset list, converting from cm to m
+        
+        # Compute total offset matrix, converting from cm to m
         offset_mat += np.array(thickness_mat)/100
 
-        # Build offset interpolator
-        interp = RegularGridInterpolator((phi_list, theta_list), offset_mat)
+        interp = RegularGridInterpolator(
+            (phi_list, theta_list), offset_mat, method = 'cubic'
+        )
         
         # Generate component
         try:
@@ -796,50 +791,26 @@ def parastell(
             logger.error(e.args[0])
             raise e
 
-        # Store solid and name tag
         if name not in export_dict['exclude']:
             components[name] = {}
             components[name]['solid'] = torus
             components[name]['h5m_tag'] = layer_data['h5m_tag']
 
-    # Conditionally build graveyard volume
     if export_dict['graveyard']:
-        # Extract maximum offset
-        offset = max(max(offset_mat))
-        # Build graveyard
-        components = graveyard(vmec, offset, components, logger)
+        max_offset = np.max(offset_mat)
+        components = graveyard(vmec, max_offset, components, logger)
 
-    # Conditionally initialize Cubit
-    if export_dict['h5m_export'] == 'Cubit' or magnets is not None:
-        # Retrieve Cubit module directory
-        cubit_dir = os.path.dirname(inspect.getfile(cubit))
-        # Append plugins directory to Cubit module directory
-        cubit_dir = cubit_dir + '/plugins/'
-        # Initialize Cubit
-        cubit.init([
-            'cubit',
-            '-nojournal',
-            '-nographics',
-            '-information', 'off',
-            '-warning', 'off',
-            '-commandplugindir',
-            cubit_dir
-        ])
-
-    # Conditionally build magnet coils and store volume indices
     if magnets is not None:
         magnets['vol_id'] = magnet_coils.magnet_coils(
-            magnets, (repeat + 1) * tor_ext, logger = logger
+            magnets, (repeat + 1)*tor_ext, logger = logger
         )
 
-    # Export components
     try:
         exports(export_dict, components, magnets, logger)
     except ValueError as e:
         logger.error(e.args[0])
         raise e
     
-    # Conditionally create source mesh
     if source is not None:
         strengths = source_mesh.source_mesh(vmec, source, logger = logger)
         return strengths

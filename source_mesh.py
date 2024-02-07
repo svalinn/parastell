@@ -21,8 +21,12 @@ def rxn_rate(s):
         T = 11.5*(1 - s)
         # Ion density
         n = 4.8e20*(1 - s**5)
-        # Reaction rate
+        # Reaction rate in 1/m^3/s
         rr = 3.68e-18*(n**2)/4*T**(-2/3)*np.exp(-19.94*T**(-1/3))
+        # Define m^3 to cm^3 constant
+        m3tocm3 = 1e6
+        
+        rr = rr/m3tocm3
 
     return rr
 
@@ -34,7 +38,7 @@ def source_strength(verts, verts_s, ids):
     Arguments:
         verts (list of list of float): list of 3D Cartesian coordinates of each
             vertex in form [x (cm), y (cm), z (cm)].
-        verts_s (list of float): list of closed flux surface indices for each
+        verts_s (list of float): list of closed flux surface labels for each
             vertex.
         ids (list of int): tetrahedron vertex indices.
 
@@ -43,7 +47,7 @@ def source_strength(verts, verts_s, ids):
     """
     # Initialize list of coordinates for each tetrahedron vertex
     tet_verts = []
-    # Initialize list of source strengths for each tetrahedron
+    # Initialize list of source strengths for each tetrahedron vertex
     ss_verts = []
 
     # Define vertices for tetrahedron
@@ -69,10 +73,9 @@ def source_strength(verts, verts_s, ids):
     # Compute graph of tetrahedral vertices
     T = np.subtract(tet_verts[:3], tet_verts[3]).transpose()
     
-    # Compute volume of tetrahedron
-    vol = np.abs(np.linalg.det(T))/6
-    # Compute source strength of tetrahedron
-    ss = vol * np.dot(int_w, ss_int_pts)
+    tet_vol = np.abs(np.linalg.det(T))/6
+    
+    ss = tet_vol * np.dot(int_w, ss_int_pts)
 
     return ss
 
@@ -88,7 +91,7 @@ def create_tet(
         mbc_verts (list of EntityHandle): list of mesh vertices.
         verts (list of list of float): list of 3D Cartesian coordinates of each
             vertex in form [x (cm), y (cm), z (cm)].
-        verts_s (list of float): list of closed flux surface indices for each
+        verts_s (list of float): list of closed flux surface labels for each
             vertex.
         ids (list of int): tetrahedron vertex indices.
         strengths (list of float): list of source strengths for each
@@ -103,15 +106,15 @@ def create_tet(
         ]
     # Create tetrahedron in PyMOAB
     tet = mbc.create_element(types.MBTET, tet_verts)
-    # Add tetrahedron to PyMOAB core instance
     mbc.add_entity(mesh_set, tet)
+    
     # Compute source strength for tetrahedron
     ss = source_strength(verts, verts_s, ids)
-    # Tag tetrahedra with source strength data
-    mbc.tag_set_data(tag_handle, tet, [ss])
-    # Append source strength to list
     strengths.append(ss)
 
+    # Tag tetrahedra with source strength data
+    mbc.tag_set_data(tag_handle, tet, [ss])
+    
 
 def create_tets_from_hex(
     mbc, tag_handle, mesh_set, mbc_verts, verts, verts_s, ids_hex, strengths):
@@ -124,7 +127,7 @@ def create_tets_from_hex(
         mbc_verts (list of EntityHandle): list of mesh vertices.
         verts (list of list of float): list of 3D Cartesian coordinates of each
             vertex in form [x (cm), y (cm), z (cm)].
-        verts_s (list of float): list of closed flux surface indices for each
+        verts_s (list of float): list of closed flux surface labels for each
             vertex.
         ids_hex (list of int): list of hexahedron vertex indices.
         strengths (list of float): list of source strengths for each
@@ -138,7 +141,7 @@ def create_tets_from_hex(
         [ids_hex[5], ids_hex[6], ids_hex[4], ids_hex[1]],
         [ids_hex[3], ids_hex[1], ids_hex[4], ids_hex[6]]
     ]
-    # Create tetrahedra for wedge
+    
     for vertex_ids in hex_canon_ids:
         create_tet(
             mbc, tag_handle, mesh_set, mbc_verts, verts, verts_s, vertex_ids,
@@ -157,7 +160,7 @@ def create_tets_from_wedge(
         mbc_verts (list of EntityHandle): list of mesh vertices.
         verts (list of list of float): list of 3D Cartesian coordinates of each
             vertex in form [x (cm), y (cm), z (cm)].
-        verts_s (list of float): list of closed flux surface indices for each
+        verts_s (list of float): list of closed flux surface labels for each
             vertex.
         ids_wedge (list of int): list of wedge vertex indices.
         strengths (list of float): list of source strengths for each
@@ -169,7 +172,7 @@ def create_tets_from_wedge(
         [ids_wedge[5], ids_wedge[4], ids_wedge[2], ids_wedge[3]],
         [ids_wedge[0], ids_wedge[2], ids_wedge[4], ids_wedge[3]]
     ]
-    # Create tetrahedra for wedge
+    
     for vertex_ids in wedge_canon_ids:
         create_tet(
             mbc, tag_handle, mesh_set, mbc_verts, verts, verts_s, vertex_ids,
@@ -194,23 +197,22 @@ def get_vertex_id(vert_ids, num_phi, num_s, num_theta, tor_ext):
         id (int): vertex index in row-major order as stored by MOAB
     """
     # Compute index offset from magnetic axis
-    if tor_ext == 360.0:
-        if vert_ids[0] == num_phi - 1:
-            # Ensure logical connectivity at final toroidal angle
-            ma_offset = 0
+    if tor_ext == 2*np.pi and vert_ids[0] == num_phi - 1:
+        # Ensure logical connectivity at final toroidal angle
+        ma_offset = 0
     else:
-        # Otherwise, compute index of magnetic axis
         ma_offset = vert_ids[0] * (1 + ((num_s - 1) * (num_theta - 1)))
+    
     # Compute index offset from closed flux surface
     s_offset = vert_ids[1] * (num_theta - 1)
+    
     # Compute index offset from poloidal angle
     if vert_ids[2] == num_theta:
         # Ensure logical connectivity at final poloidal angle
         theta_offset = 1
     else:
-        # Otherwise, compute index of poloidal angle
         theta_offset = vert_ids[2]
-    # Compute vertex index
+    
     id = ma_offset + s_offset + theta_offset
 
     return id
@@ -231,7 +233,7 @@ def create_mesh(
         mbc_verts (list of EntityHandle): list of mesh vertices.
         verts (list of list of float): list of 3D Cartesian coordinates of each
             vertex in form [x (cm), y (cm), z (cm)].
-        verts_s (list of float): list of closed flux surface indices for each
+        verts_s (list of float): list of closed flux surface labels for each
             vertex.
             
     Returns:
@@ -243,10 +245,8 @@ def create_mesh(
     # Add vertices to mesh set
     mbc.add_entity(tet_set, mbc_verts)
 
-    # Initialize list of tetrahedra source strengths
     strengths = []
     
-    # Create tetrahedra, looping through vertices
     for i in range(num_phi - 1):
         # Create tetrahedra for wedges at center of plasma
         for k in range(1, num_theta):
@@ -261,14 +261,15 @@ def create_mesh(
                 [i + 1, 0, k,   ],
                 [i + 1, 0, k + 1]
             ]
-            # Initialize list of vertex indices for wedges
+            
             ids_wedge = []
+            
             # Define vertex indices in row-major order for wedges
             for vertex in wedge_id_data:
                 ids_wedge += [
                     get_vertex_id(vertex, num_phi, num_s, num_theta, tor_ext)
                 ]
-            # Create tetrahedra from wedge
+            
             create_tets_from_wedge(
                 mbc, tag_handle, tet_set, mbc_verts, verts, verts_s, ids_wedge,
                 strengths
@@ -276,7 +277,6 @@ def create_mesh(
 
         # Create tetrahedra for hexahedra beyond center of plasma
         for j in range(num_s - 2):
-            # Create tetrahedra for current hexahedron
             for k in range(1, num_theta):
                 # Define eight hexahedron vertex indices in matrix format as
                 # well as index offset accounting for magnetic axis vertex in
@@ -292,8 +292,9 @@ def create_mesh(
                     [i + 1, j + 1, k + 1],
                     [i + 1, j,     k + 1]
                 ]
-                # Initialize list of vertex indices for hexahedra
+                
                 ids_hex = []
+                
                 # Define vertex indices in row-major order for hexahedra
                 for vertex in hex_id_data:
                     ids_hex += [
@@ -301,7 +302,7 @@ def create_mesh(
                             vertex, num_phi, num_s, num_theta, tor_ext
                         )
                     ]
-                # Create tetrahedra from hexahedron
+                
                 create_tets_from_hex(
                     mbc, tag_handle, tet_set, mbc_verts, verts, verts_s,
                     ids_hex, strengths
@@ -325,56 +326,53 @@ def create_vertices(vmec, mbc, num_s, num_theta, num_phi, tor_ext):
         mbc_verts (list of EntityHandle): list of mesh vertices.
         verts (list of list of float): list of 3D Cartesian coordinates of each
             vertex in form [x (cm), y (cm), z (cm)].
-        verts_s (list of float): list of closed flux surface indices for each
+        verts_s (list of float): list of closed flux surface labels for each
             vertex.
     """
     # Compute total number of vertices
-    if tor_ext == 360.0:
-        num_verts = (num_phi - 1) * (1 + ((num_s - 1) * (num_theta - 1)))
-    else:
-        num_verts = num_phi * (1 + ((num_s - 1) * (num_theta - 1)))
-    # Initialize n x 3 array of vertex coordinates
-    verts = np.zeros((num_verts, 3))
-    # Initialize array of vertex closed flux surface indices
-    verts_s = np.zeros(num_verts)
-
     # Compute regular spacing between toroidal angles in confinement space to
     # be included in mesh
-    if tor_ext == 360.0:
-        phi_list = np.linspace(0, np.deg2rad(tor_ext), num = num_phi)[:-1]
+    if tor_ext == 2*np.pi:
+        num_verts = (num_phi - 1) * (1 + ((num_s - 1) * (num_theta - 1)))
+        phi_list = np.linspace(0, tor_ext, num = num_phi)[:-1]
     else:
-        phi_list = np.linspace(0, np.deg2rad(tor_ext), num = num_phi)
-    # Compute regular spacing between closed magnetic flux surface indices in
-    # confinement space to be included in mesh
+        num_verts = num_phi * (1 + ((num_s - 1) * (num_theta - 1)))
+        phi_list = np.linspace(0, tor_ext, num = num_phi)
+    
+    # Compute regular spacing between closed flux surface labels in confinement
+    # space to be included in mesh
     s_list = np.linspace(0.0, 1.0, num = num_s)[1:]
+    
     # Compute regular spacing between poloidal angles in confinement space to
     # be included in mesh
     theta_list = np.linspace(0, 2*np.pi, num = num_theta)[:-1]
+
+    # Initialize n x 3 array of vertex coordinates
+    verts = np.zeros((num_verts, 3))
+    # Initialize array of vertex closed flux surface labels
+    verts_s = np.zeros(num_verts)
 
     # Define conversion from m to cm
     m2cm = 100
     
     # Initialize vertex index
     i_vert = 0
-    # Compute vertices in Cartesian space
+    
     for phi in phi_list:
-        # Determine vertex at magnetic axis, convertic to cm
+        # Determine vertex at magnetic axis, converting to cm
         verts[i_vert,:] = np.array(vmec.vmec2xyz(0, 0, phi)) * m2cm
-        # Store closed flux surface index for vertex
         verts_s[i_vert] = 0
-        # Iterate vertex index
+        
         i_vert += 1
 
         # Compute off-axis vertices at specified toroidal angle
         for s in s_list:
-            # Exclude final poloidal angle as the final and initial are the same
             for theta in theta_list:
                 # Determine vertex at specified toroidal angle, closed flux
                 # surface, poloidal angle
                 verts[i_vert,:] = np.array(vmec.vmec2xyz(s, theta, phi)) * m2cm
-                # Store closed flux surface index for vertex
                 verts_s[i_vert] = s
-                # Iterate vertex index
+                
                 i_vert += 1
 
     # Create vertices in PyMOAB
@@ -429,18 +427,16 @@ def source_mesh(vmec, source, logger = None):
         strengths (list of float): list of source strengths for each
             tetrahedron (1/s).
     """
-    # Conditionally instantiate logger
     if logger == None or not logger.hasHandlers():
         logger = log.init()
 
-    # Signal source mesh generation
     logger.info(f'Building SourceMesh.h5m...')
 
-    # Extract source mesh parameters
     num_s = source['num_s']
     num_theta = source['num_theta']
     num_phi = source['num_phi']
     tor_ext = source['tor_ext']
+    tor_ext = np.deg2rad(tor_ext)
 
     # Instantiate PyMOAB core instance and define source strength tag
     mbc, tag_handle = create_mbc()
@@ -456,7 +452,6 @@ def source_mesh(vmec, source, logger = None):
         verts_s
     )
 
-    # Export mesh
     mbc.write_file("SourceMesh.h5m")
 
     return strengths

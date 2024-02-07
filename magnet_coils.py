@@ -1,52 +1,78 @@
 import log
 import cubit
+from pymoab import core, types
 import numpy as np
+from sklearn.preprocessing import normalize
+import os
 
 
-def mesh_magnets(vol_ids):
+def mesh_magnets(vol_ids, logger):
     """Creates tetrahedral mesh of magnet volumes.
 
     Arguments:
         vol_ids (list of int): indices for magnet volumes.
     """
-    # Loop over magnet indices
+    # Mesh magnet volumes
     for vol in vol_ids:
-        # Create scheme and meshes
         cubit.cmd(f'volume {vol} scheme tetmesh')
         cubit.cmd(f'mesh volume {vol}')
 
+    logger.info('Exporting coil mesh...')
+    
+    # Assign export paths
+    cwd = os.getcwd()
+    base_name = 'coil_mesh'
+    general_export_path = f"{cwd}/{base_name}"
+    exo_path = f'{general_export_path}.exo'
+    h5m_path = f'{general_export_path}.h5m'
+    
+    # EXODUS export
+    cubit.cmd(f'export mesh "{exo_path}"')
+    
+    # Convert EXODUS to H5M
+    mb = core.Core()
+    exodus_set = mb.create_meshset()
+    mb.load_file(exo_path, exodus_set)
+    mb.write_file(h5m_path, [exodus_set])
 
-def cut_mags(tor_ext, vol_ids):
+
+def cut_mags(tor_ext, vol_ids, r_avg):
     """Cuts magnet volumes such that only the specified toroidal extent is
     included.
     
     Arguments:
-        tor_ext (float): toroidal extent to model (deg).
+        tor_ext (float): toroidal extent to model (rad).
         vol_ids (list of int): indices for magnet volumes.
+        r_avg (float): average radial distance of magnets (cm).
     
     Returns:
         vol_ids (list of int): updated indices for magnet volumes.
     """
-    # Create surface
-    cubit.cmd('create surface rectangle width 4000 yplane')
-    # Extract surface index
+    # Define sweeping surface width
+    # Multiply by factor of 2 to be conservative
+    rec_width = 2*r_avg
+    
+    cubit.cmd(f'create surface rectangle width {rec_width} yplane')
     surf_id = cubit.get_last_id("surface")
-    # Move surface
-    cubit.cmd(f'move Surface {surf_id} x 2000')
-    # Sweep surface
-    cubit.cmd(f'sweep surface {surf_id} zaxis angle {tor_ext}')
-    # Extract volume index
+    
+    # Shift surface to positive x axis
+    cubit.cmd(f'move Surface {surf_id} x {rec_width/2}')
+    
+    # Revolve surface to create wedge spanning toroidal extent
+    cubit.cmd(
+        f'sweep surface {surf_id} zaxis angle {np.rad2deg(tor_ext)}'
+    )
     sweep_id = cubit.get_last_id("volume")
 
-    # Intersect magnet volumes with sweep volume
+    # Remove magnets and magnet portions not within toroidal extent
     cubit.cmd(
         'intersect volume ' + ' '.join(str(i) for i in vol_ids)
         + f' {sweep_id}'
     )
 
-    # Extract index of most recently created volume
     last_id = cubit.get_last_id("volume")
-    # Compute magnet volume indices
+    
+    # Compute new magnet volume indices
     vol_ids = range(sweep_id + 1, last_id + 1)
 
     return vol_ids
@@ -59,10 +85,11 @@ def unit_vector(vec):
         vec (array of [float, float, float]): input vector to be normalized.
     
     Returns:
-        vec/np.linalg.norm(vec) (array of [float, float, float]): normalized
-            input vector.
+        vec (array of [float, float, float]): normalized input vector.
     """
-    return vec/np.linalg.norm(vec)
+    vec = normalize(vec.reshape(-1, 1), axis = 0).ravel()
+    
+    return vec
 
 
 def orient_rectangle(path_origin, surf_id, t_vec, norm, rot_axis, rot_ang_norm):
@@ -119,105 +146,22 @@ def orient_rectangle(path_origin, surf_id, t_vec, norm, rot_axis, rot_ang_norm):
     )
 
 
-def extract_cs(cross_section, logger):
-    """Extract coil cross-section parameters
-
-    Arguments:
-        cross_section (list or tuple of str, float, float): coil cross-section
-            definition. Note that the cross-section shape must be either a
-            circle or rectangle.
-            For a circular cross-section, the list format is
-            ['circle' (str), radius (float, cm)]
-            For a rectangular cross-section, the list format is
-            ['rectangle' (str), width (float, cm), thickness (float, cm)]
-        logger (object): logger object.
-
-    Returns:
-        shape_str (str): string to pass to Cubit for cross-section generation.
-            For a circular cross-section, the string format is
-            '{shape} radius {radius}'
-            For a rectangular cross-section, the string format is
-            '{shape} width {thickness} height {width}'
-    """
-    # Extract coil cross-section shape
-    shape = cross_section[0]
-    
-    # Conditionally extract parameters for circular cross-section
-    if shape == 'circle':
-        # Check that list format is correct
-        if len(cross_section) == 1:
-            raise ValueError(
-                'Format of list defining circular cross-section must be\n'
-                '[\'circle\' (str), radius (float, cm)]'
-            )
-        elif len(cross_section) > 2:
-            logger.warning(
-                'More than one length dimension has been defined for '
-                'cross_section. Interpreting the first as the circle\'s radius;'
-                ' did you mean to use \'rectangle\'?'
-            )
-        # Extract parameters
-        radius = cross_section[1]
-        # Define string to pass to Cubit for cross-section generation
-        shape_str = f'{shape} radius {radius}'
-    # Conditinally extract parameters for rectangular cross-section
-    elif shape == 'rectangle':
-        # Check that list format is correct
-        if len(cross_section) != 3:
-            raise ValueError(
-                'Format of list defining rectangular cross-section must be\n'
-                '[\'rectangle\' (str), width (float, cm), thickness '
-                '(float, cm)]'
-            )
-        # Extract parameters
-        width = cross_section[1]
-        thickness = cross_section[2]
-        # Define string to pass to Cubit for cross-section generation
-        shape_str = f'{shape} width {thickness} height {width}'
-    # Otherwise, if input string is neither 'circle' nor 'rectangle', raise an
-    # exception
-    else:
-        raise ValueError(
-            'Magnet cross-section must be either a circle or rectangle. The '
-            'first entry of the list defining the cross-section must be the '
-            'shape, with the following entries defining the shape parameters.\n'
-            '\n'
-            'For a circular cross-section, the list format is\n'
-            '[\'circle\' (str), radius (float, cm)]\n'
-            '\n'
-            'For a rectangular cross-section, the list format is\n'
-            '[\'rectangle\' (str), width (float, cm), thickness (float, cm)]'
-        )
-
-    return shape_str
-
-
-def create_magnets(filaments, cross_section, meshing, logger):
+def create_magnets(filaments, shape, shape_str):
     """Creates magnet coil solids.
     
     Arguments:
         filaments (list of list of list of float): list of filament coordinates.
             Each filament is a list of coordinates.
-        cross_section (list or tuple of str, float, float): coil cross-section
-            definition. Note that the cross-section shape must be either a
-            circle or rectangle.
-            For a circular cross-section, the list format is
-            ['circle' (str), radius (float, cm)]
-            For a rectangular cross-section, the list format is
-            ['rectangle' (str), width (float, cm), thickness (float, cm)]
-        meshing (bool): setting for tetrahedral mesh generation
-        logger (object): logger object.
+        shape (str): cross-section shape.
+        shape_str (str): string to pass to Cubit for cross-section generation.
+            For a circular cross-section, the string format is
+            '{shape} radius {radius}'
+            For a rectangular cross-section, the string format is
+            '{shape} width {thickness} height {width}'
 
     Returns:
         vol_ids (list of int): indices for magnet volumes.
     """
-    # Extract cross-section parameters
-    try:
-        shape_str = extract_cs(cross_section, logger)
-    except ValueError as e:
-        logger.error(e.args[0])
-        raise e
-
     # Cross-section inititally populated with thickness vector
     # oriented along x axis
     t_vec = np.array([1, 0, 0])
@@ -239,23 +183,18 @@ def create_magnets(filaments, cross_section, meshing, logger):
 
     # Extract filament data
     for filament in filaments:
-        
         # Create vertices in filament path
         for x, y, z in filament:
-            # Create vertex in path
             cubit.cmd(f'create vertex {x} {y} {z}')
-            # Append vertex to path list
             path += [cubit.get_last_id("vertex")]
         
         # Ensure final vertex in path is the same as the first
         path += [path[0]]
         
-        # Create spline for path
         cubit.cmd(
             f'create curve spline location vertex ' +
             ' '.join(str(i) for i in path)
         )
-        # Store curve index
         curve_id = cubit.get_last_id("curve")
 
         # Define new surface normal vector as that pointing between path
@@ -264,8 +203,7 @@ def create_magnets(filaments, cross_section, meshing, logger):
         # Extract path points adjacent to initial point
         next_pt = np.array(cubit.vertex(path[1]).coordinates())
         last_pt = np.array(cubit.vertex(path[-2]).coordinates())
-        # Compute tangent at path origin (direction in which to align surface
-        # normal)
+        # Compute direction in which to align surface normal
         tang = unit_vector(np.subtract(next_pt, last_pt))
         
         # Define axis and angle of rotation to orient cross-section along
@@ -280,7 +218,6 @@ def create_magnets(filaments, cross_section, meshing, logger):
 
         # Copy cross-section for sweep
         cubit.cmd(f'surface {cs_id} copy')
-        # Store surface index
         surf_id = cubit.get_last_id("surface")
         
         # Orient cross-section along defined normal
@@ -290,7 +227,7 @@ def create_magnets(filaments, cross_section, meshing, logger):
         )
 
         # Conditionally orients rectangular cross-section
-        if cross_section[0] == 'rectangle':
+        if shape == 'rectangle':
             orient_rectangle(
                 path[0], surf_id, t_vec, tang, rot_axis, rot_ang_norm
             )
@@ -303,9 +240,9 @@ def create_magnets(filaments, cross_section, meshing, logger):
             f'sweep surface {surf_id} along curve {curve_id} '
             f'individual'
         )
-        # Store volume index
         volume_id = cubit.get_last_id("volume")
         vol_ids.append(volume_id)
+        
         # Delete extraneous curves and vertices
         cubit.cmd(f'delete curve {curve_id}')
         cubit.cmd('delete vertex all')
@@ -319,14 +256,16 @@ def create_magnets(filaments, cross_section, meshing, logger):
     return vol_ids
 
 
-def clean_mag_data(filaments, tor_ext):
+def clean_mag_data(filaments, tor_ext, r_avg, mag_len):
     """Cleans filament data such that only filaments within the toroidal extent
     of the model are included and filaments are sorted by toroidal angle.
 
     Arguments:
         filaments (list of list of list of float): list of filament coordinates.
             Each filament is a list of coordinates.
-        tor_ext (float): toroidal extent to model (deg).
+        tor_ext (float): toroidal extent to model (rad).
+        r_avg (float): average radial distance of magnets (cm).
+        mag_len (float): characteristic length of magnets.
     
     Returns:
         sorted_fils (list of list of list of float): sorted list of filament
@@ -334,66 +273,142 @@ def clean_mag_data(filaments, tor_ext):
     """
     # Initialize data for filaments within toroidal extent of model
     reduced_fils = []
-    # Initialize list of toroidal angles of filament centers of mass
-    phi_list = []
+    # Initialize list of filament centers of mass for those within toroidal
+    # extent of model
+    com_list = []
 
-    # Define tolerance of toroidal extent (accounts for width of coils)
-    tol = np.deg2rad(5)
+    # Define tolerance of toroidal extent to account for width of coils
+    # Multiply by factor of 2 to be conservative
+    tol = 2*np.arctan2(mag_len, r_avg)
 
-    # Loop over filaments
+    # Compute lower and upper bounds of toroidal extent within tolerance
+    min_rad = 2*np.pi - tol
+    max_rad = tor_ext + tol
+
     for fil in filaments:
-        # Initialize counter of number of points within toroidal extent
-        counter = 0
-        # Initialize center of mass
-        com = np.array([0, 0, 0])
+        # Compute filament center of mass
+        com = np.average(fil, axis = 0)
+        # Compute toroidal angle of each point in filament
+        phi_pts = np.arctan2(fil[:,1], fil[:,0])
+        # Compute bounds of toroidal extent of filament
+        min_phi = np.min(phi_pts)
+        max_phi = np.max(phi_pts)
+        # Ensure angles are positive
+        min_phi = (min_phi + 2*np.pi) % (2*np.pi)
+        max_phi = (max_phi + 2*np.pi) % (2*np.pi)
+
+        # Determine if filament toroidal extent overlaps with that of model
+        if (
+            (min_phi >= min_rad or min_phi <= max_rad) or
+            (max_phi >= min_rad or max_phi <= max_rad)
+        ):
+            reduced_fils.append(fil)
+            com_list.append(com)
         
-        # Loop over filament points
-        for coords in fil:
-            # Extract x coordinate
-            x = coords[0]
-            # Extract y coordinate
-            y = coords[1]
-            # Compute toroidal angle of point
-            phi = np.arctan2(y, x)
-            # Conditionally rotate toroidal angle such that it is positive
-            if phi < 0:
-                phi = phi + 2*np.pi
-            # Conditionally iterate counter
-            if (
-                phi < np.deg2rad(tor_ext) + tol or
-                phi > 2*np.pi - tol
-            ):
-                counter += 1
-            
-            # Cumulatively sum center of mass
-            com = com + np.array(coords)
+    reduced_fils = np.array(reduced_fils)
+    com_list = np.array(com_list)
 
-        # Average center of mass coordinates
-        com = com/len(fil)
-
-        # If no points within toroidal extent, exclude filament by continuing
-        # to next iteration of loop
-        if counter == 0 and tor_ext < 360.0:
-            continue
-        # Otherwise, append filament to storage list
-        reduced_fils.append(fil)
-
-        # Extract x coordinate of center of mass
-        x = com[0]
-        # Extract y coordinate of center of mass
-        y = com[1]
-        # Compute toroidal angle of center of mass
-        phi = np.arctan2(y, x)
-        # Conditionally rotate toroidal angle such that it is positive
-        if phi < 0:
-            phi = phi + 2*np.pi
-        # Append toroidal angle to storage list
-        phi_list.append(phi)
+    # Compute toroidal angles of filament centers of mass
+    phi_arr = np.arctan2(com_list[:,1], com_list[:,0])
 
     # Sort filaments by toroidal angle
-    sorted_fils = [x for _,x in sorted(zip(phi_list, reduced_fils))]
+    sorted_fils = [x for _,x in sorted(zip(phi_arr, reduced_fils))]
 
     return sorted_fils
+
+
+def avg_rad_dist(filaments):
+    """Computes average radial distance of filament points.
+
+    Arguments:
+        filaments (list of list of list of float): list of filament coordinates.
+            Each filament is a list of coordinates.
+
+    Returns:
+        r_avg (float): average radial distance of magnets (cm).
+    """
+    r_avg = np.square(filaments[:,:,0]) + np.square(filaments[:,:,1])
+    r_avg = np.sqrt(r_avg)
+    r_avg = np.average(r_avg)
+
+    return r_avg
+
+
+def extract_cs(cross_section, logger):
+    """Extract coil cross-section parameters
+
+    Arguments:
+        cross_section (list or tuple of str, float, float): coil cross-section
+            definition. Note that the cross-section shape must be either a
+            circle or rectangle.
+            For a circular cross-section, the list format is
+            ['circle' (str), radius (float, cm)]
+            For a rectangular cross-section, the list format is
+            ['rectangle' (str), width (float, cm), thickness (float, cm)]
+        logger (object): logger object.
+
+    Returns:
+        shape (str): cross-section shape.
+        shape_str (str): string to pass to Cubit for cross-section generation.
+            For a circular cross-section, the string format is
+            '{shape} radius {radius}'
+            For a rectangular cross-section, the string format is
+            '{shape} width {thickness} height {width}'
+        mag_len (float): characteristic length of magnets.
+    """
+    # Extract coil cross-section shape
+    shape = cross_section[0]
+    
+    # Conditionally extract parameters for circular cross-section
+    if shape == 'circle':
+        # Check that list format is correct
+        if len(cross_section) == 1:
+            raise ValueError(
+                'Format of list defining circular cross-section must be\n'
+                '[\'circle\' (str), radius (float, cm)]'
+            )
+        elif len(cross_section) > 2:
+            logger.warning(
+                'More than one length dimension has been defined for '
+                'cross_section. Interpreting the first as the circle\'s radius;'
+                ' did you mean to use \'rectangle\'?'
+            )
+        # Extract parameters
+        mag_len = cross_section[1]
+        # Define string to pass to Cubit for cross-section generation
+        shape_str = f'{shape} radius {mag_len}'
+    # Conditinally extract parameters for rectangular cross-section
+    elif shape == 'rectangle':
+        # Check that list format is correct
+        if len(cross_section) != 3:
+            raise ValueError(
+                'Format of list defining rectangular cross-section must be\n'
+                '[\'rectangle\' (str), width (float, cm), thickness '
+                '(float, cm)]'
+            )
+        # Extract parameters
+        width = cross_section[1]
+        thickness = cross_section[2]
+        # Detemine largest parameter
+        mag_len = max(width, thickness)
+        # Define string to pass to Cubit for cross-section generation
+        shape_str = f'{shape} width {thickness} height {width}'
+    # Otherwise, if input string is neither 'circle' nor 'rectangle', raise an
+    # exception
+    else:
+        raise ValueError(
+            'Magnet cross-section must be either a circle or rectangle. The '
+            'first entry of the list defining the cross-section must be the '
+            'shape, with the following entries defining the shape parameters.\n'
+            '\n'
+            'For a circular cross-section, the list format is\n'
+            '[\'circle\' (str), radius (float, cm)]\n'
+            '\n'
+            'For a rectangular cross-section, the list format is\n'
+            '[\'rectangle\' (str), width (float, cm), thickness (float, cm)]'
+        )
+
+    return shape, shape_str, mag_len
 
 
 def extract_filaments(file, start, stop, sample):
@@ -440,7 +455,7 @@ def extract_filaments(file, start, stop, sample):
         # If current is not zero, conditionally store coordinate in filament
         # list
         if s != 0:
-            # Only store every five points
+            # Only store every N points according to sampling modifier
             if i % sample == 0:
                 # Append coordinates to list
                 coords.append([x, y, z])
@@ -449,10 +464,11 @@ def extract_filaments(file, start, stop, sample):
         # the initial and final vertex indices equal. This is handled in the
         # create_magnets method
         else:
-            # Append list of coordinates to list of filaments
             filaments.append(coords)
             # Reinitialize list of coordinates
             coords = []
+
+    filaments = np.array(filaments)
 
     return filaments
 
@@ -480,18 +496,16 @@ def magnet_coils(magnets, tor_ext, logger = None):
             ['circle' (str), radius (float, cm)]
             For a rectangular cross-section, the list format is
             ['rectangle' (str), width (float, cm), thickness (float, cm)]
-        tor_ext (float): toroidal extent to model (deg).
+        tor_ext (float): toroidal extent to model (rad).
         logger (object): logger object (defaults to None). If no logger is
             supplied, a default logger will be instantiated.
 
     Returns:
         vol_ids (list of int): indices for magnet volumes.
     """
-    # Conditionally instantiate logger
     if logger == None or not logger.hasHandlers():
         logger = log.init()
     
-    # Signal magnet generation
     logger.info(f'Building {magnets["name"]}...')
     
     # Extract filament data
@@ -499,23 +513,33 @@ def magnet_coils(magnets, tor_ext, logger = None):
         magnets['file'], magnets['start'], magnets['stop'], magnets['sample']
     )
 
+    # Extract cross-section parameters
+    try:
+        shape, shape_str, mag_len = extract_cs(magnets['cross_section'], logger)
+    except ValueError as e:
+        logger.error(e.args[0])
+        raise e
+
+    # Compute average radial distance of filament points
+    r_avg = avg_rad_dist(filaments)
+
     # Clean magnet data
-    sorted_fils = clean_mag_data(filaments, tor_ext)
+    sorted_fils = clean_mag_data(filaments, tor_ext, r_avg, mag_len)
 
     # Generate magnet coil solids
     vol_ids = create_magnets(
-        sorted_fils, magnets['cross_section'], magnets['meshing'], logger
+        sorted_fils, shape, shape_str
     )
 
     # Conditionally cut magnets according to toroidal extent
-    if tor_ext < 360.0:
-        vol_ids = cut_mags(tor_ext, vol_ids)
+    if tor_ext < 2*np.pi:
+        vol_ids = cut_mags(tor_ext, vol_ids, r_avg)
     
     # Export magnet coils
     cubit.cmd(f'export step "{magnets["name"]}.step"  overwrite')
 
     # Optional tetrahedral mesh functionality
     if magnets['meshing']:
-        mesh_magnets(vol_ids)
+        mesh_magnets(vol_ids, logger)
 
     return vol_ids
