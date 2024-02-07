@@ -1,92 +1,67 @@
 import parastell
-import logging
+import numpy as np
 
 
 # Define plasma equilibrium VMEC file
 plas_eq = 'plas_eq.nc'
+
+# Define toroidal angles at which radial build is specified.
+# Note that the initial toroidal angle (phi) must be zero
+# Also note that it is generally not advised to have the toroidal extent to
+# extend beyond one stellarator period
+# To build a geometry extending beyond one period, make use of the 'repeat'
+# parameter
+phi_list = [0.0, 22.5, 45.0, 67.5, 90.0]
+# Define poloidal angles at which radial builds is specified.
+# Note that this should always span 360 degrees.
+theta_list = [0.0, 90.0, 180.0, 270.0, 360.0]
+
 # Define radial build
+# For each component, thickness matrices have rows corresponding to toroidal
+# angles (phi_list) and columns corresponding to poloidal angles (theta_list)
 build = {
-    'phi_list': [0.0, 22.5, 45.0, 67.5, 90.0],
-    'theta_list': [0.0, 5.0, 90.0, 175.0, 180.0, 185.0, 270.0, 355.0, 360.0],
+    'phi_list': phi_list,
+    'theta_list': theta_list,
     'wall_s': 1.2,
     'radial_build': {
         'first_wall': {
-            'thickness_matrix': [
-                [5, 5, 5, 5, 5, 5, 5, 5, 5],
-                [5, 5, 5, 5, 5, 5, 5, 5, 5],
-                [5, 5, 5, 5, 5, 5, 5, 5, 5],
-                [5, 5, 5, 5, 5, 5, 5, 5, 5],
-                [5, 5, 5, 5, 5, 5, 5, 5, 5]
-            ]
-                },
+            'thickness_matrix': np.ones((len(phi_list), len(theta_list)))*5
+        },
         'breeder': {
             'thickness_matrix': [
-                [100, 100, 30, 10, 10, 10, 30, 100, 100],
-                [30,  30,  10, 5,  5,  5,  20, 30,  30],
-                [25,  25,  25, 5,  5,  5,  25, 25,  25],
-                [30,  30,  20, 5,  5,  5,  10, 30,  30],
-                [100, 100, 30, 10, 10, 10, 30, 100, 100]
+                [80, 40, 20, 40, 80],
+                [50, 40, 30, 30, 50],
+                [30, 30, 25, 30, 30],
+                [50, 30, 30, 40, 50],
+                [80, 40, 20, 40, 80]
             ]
         },
         'back_wall': {
-            'thickness_matrix': [
-                [5, 5, 5, 5, 5, 5, 5, 5, 5],
-                [5, 5, 5, 5, 5, 5, 5, 5, 5],
-                [5, 5, 5, 5, 5, 5, 5, 5, 5],
-                [5, 5, 5, 5, 5, 5, 5, 5, 5],
-                [5, 5, 5, 5, 5, 5, 5, 5, 5]
-            ]
+            'thickness_matrix': np.ones((len(phi_list), len(theta_list)))*5
         },
         'shield': {
             'thickness_matrix': [
-                [25, 25, 25, 25, 25, 25, 25, 25, 25],
-                [25, 25, 25, 25, 25, 25, 25, 25, 25],
-                [25, 25, 25, 25, 25, 25, 25, 25, 25],
-                [25, 25, 25, 25, 25, 25, 25, 25, 25],
-                [25, 25, 25, 25, 25, 25, 25, 25, 25]
+                [50, 25, 15, 25, 50],
+                [30, 25, 20, 20, 30],
+                [20, 20, 15, 20, 20],
+                [30, 20, 20, 25, 30],
+                [50, 25, 15, 25, 50]
             ]
-        },
-        'manifolds': {
-            'thickness_matrix': [
-                [50, 50, 15, 5,  5,  5,  15, 50, 50],
-                [20, 20, 5,  5,  5,  5,  15, 20, 20],
-                [15, 15, 15, 5,  5,  5,  15, 15, 15],
-                [20, 20, 15, 5,  5,  5,  5,  20, 20],
-                [50, 50, 15, 5,  5,  5,  15, 50, 50]
-            ]
-        },
-        'gap': {
-            'thickness_matrix': [
-                [5, 5, 5, 5, 5, 5, 5, 5, 5],
-                [5, 5, 5, 5, 5, 5, 5, 5, 5],
-                [5, 5, 5, 5, 5, 5, 5, 5, 5],
-                [5, 5, 5, 5, 5, 5, 5, 5, 5],
-                [5, 5, 5, 5, 5, 5, 5, 5, 5]
-            ],
-            'h5m_tag': 'Vacuum'
         },
         # Note that some neutron transport codes (such as OpenMC) will interpret
         # materials with "vacuum" in the name as void material
         'vacuum_vessel': {
-            'thickness_matrix': [
-                [15, 15, 15, 15, 15, 15, 15, 15, 15],
-                [15, 15, 15, 15, 15, 15, 15, 15, 15],
-                [15, 15, 15, 15, 15, 15, 15, 15, 15],
-                [15, 15, 15, 15, 15, 15, 15, 15, 15],
-                [15, 15, 15, 15, 15, 15, 15, 15, 15]
-            ],
+            'thickness_matrix': np.ones((len(phi_list), len(theta_list)))*15,
             'h5m_tag': 'vac_vessel'
+        }
     }
 }
-}
-# Define number of periods in stellarator plasma
-num_periods = 4
-# Define number of periods to generate
-gen_periods = 1
+# Define number of times to repeat build
+repeat = 0
 # Define number of toroidal cross-sections to make
-num_phi = 60
+num_phi = 61
 # Define number of poloidal points to include in each toroidal cross-section
-num_theta = 60
+num_theta = 61
 # Define magnet coil parameters
 magnets = {
     'file': 'coils.txt',
@@ -102,11 +77,12 @@ magnets = {
 source = {
     'num_s': 11,
     'num_theta': 81,
-    'num_phi': 241
+    'num_phi': 61,
+    'tor_ext': 90.0
 }
 # Define export parameters
 export = {
-    'exclude': ['plasma'],
+    'exclude': [],
     'graveyard': False,
     'step_export': True,
     'h5m_export': 'Cubit',
@@ -116,7 +92,9 @@ export = {
     'facet_tol': 1,
     'len_tol': 5,
     'norm_tol': None,
-    'native_meshing': False, #choose whether to use native cubit meshing v2023.11+ or legacy DAGMC workflow
+    # Choose whether to use native Cubit meshing (v2023.11+) or legacy DAGMC
+    # workflow
+    'native_meshing': False,
     'anisotropic_ratio': 100,
     'deviation_angle': 5,
     # Note the following export parameters are used only for Gmsh H5M exports
@@ -127,30 +105,8 @@ export = {
     'bounding_box_atol': 0.00001
 }
 
-# Define logger. Note that this is identical to the default logger instatiated
-# by log.py. If no logger is passed to parametric_stellarator, this is the
-# logger that will be used.
-logger = logging.getLogger('log')
-# Configure base logger message level
-logger.setLevel(logging.INFO)
-# Configure stream handler
-s_handler = logging.StreamHandler()
-# Configure file handler
-f_handler = logging.FileHandler('stellarator.log')
-# Define and set logging format
-format = logging.Formatter(
-    fmt = '%(asctime)s: %(message)s',
-    datefmt = '%H:%M:%S'
-)
-s_handler.setFormatter(format)
-f_handler.setFormatter(format)
-# Add handlers to logger
-logger.addHandler(s_handler)
-logger.addHandler(f_handler)
-
 # Create stellarator
-parastell.parastell(
-    plas_eq, num_periods, build, gen_periods, num_phi, num_theta,
-    magnets = magnets, source = source,
-    export = export, logger = logger
+strengths = parastell.parastell(
+    plas_eq, build, repeat, num_phi, num_theta,
+    magnets = magnets, source = source, export = export
 )
