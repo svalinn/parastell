@@ -18,7 +18,7 @@ build = {
                 [5, 5, 5, 5, 5, 5, 5, 5, 5],
                 [5, 5, 5, 5, 5, 5, 5, 5, 5]
             ]
-        },
+                },
         'breeder': {
             'thickness_matrix': [
                 [100, 100, 30, 10, 10, 10, 30, 100, 100],
@@ -76,8 +76,8 @@ build = {
                 [15, 15, 15, 15, 15, 15, 15, 15, 15]
             ],
             'h5m_tag': 'vac_vessel'
-        }
     }
+}
 }
 # Define number of periods in stellarator plasma
 num_periods = 4
@@ -116,6 +116,9 @@ export = {
     'facet_tol': 1,
     'len_tol': 5,
     'norm_tol': None,
+    'native_meshing': False, #choose whether to use native cubit meshing v2023.11+ or legacy DAGMC workflow
+    'anisotropic_ratio': 100,
+    'deviation_angle': 5,
     # Note the following export parameters are used only for Gmsh H5M exports
     'min_mesh_size': 5.0,
     'max_mesh_size': 20.0,
