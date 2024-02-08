@@ -5,9 +5,14 @@ import numpy as np
 export_def = {
     'step_export': True,
     'h5m_export': None,
+    'dir': '',
+    'h5m_filename': 'dagmc',
+    'native_meshing': False,
     'facet_tol': None,
     'len_tol': None,
     'norm_tol': None,
+    'anisotropic_ratio': 100,
+    'deviation_angle': 5,
     'min_mesh_size': 5.0,
     'max_mesh_size': 20.0,
     'volume_atol': 0.00001,
@@ -38,13 +43,6 @@ def NWL_geom(
             }
         export (dict): dictionary of export parameters including
             {
-                'exclude': names of components not to export (list of str,
-                    defaults to empty),
-                'graveyard': generate graveyard volume as additional component
-                    (bool, defaults to False),
-                'dir': directory to which to export output files (str, defaults
-                    to empty string). Note that directory must end in '/', if
-                    using Linux or MacOS, or '\' if using Windows.
                 'step_export': export component STEP files (bool, defaults to
                     True),
                 'h5m_export': export DAGMC-compatible neutronics H5M file using
@@ -52,15 +50,13 @@ def NWL_geom(
                     of 'Cubit' or 'Gmsh' (str, defaults to None). The string is
                     case-sensitive. Note that if magnets are included, 'Cubit'
                     must be used,
+                'dir': directory to which to export output files (str, defaults
+                    to empty string). Note that directory must end in '/', if
+                    using Linux or MacOS, or '\' if using Windows.
                 'h5m_filename': name of DAGMC-compatible neutronics H5M file
                     (str, defaults to 'dagmc'),
-                'plas_h5m_tag': optional alternate material tag to use for
-                    plasma. If none is supplied and the plasma is not excluded,
-                    'plasma' will be used (str, defaults to None),
-                'sol_h5m_tag': optional alternate material tag to use for 
-                    scrape-off layer. If none is supplied and the scrape-off
-                    layer is not excluded, 'sol' will be used (str, defaults to
-                    None),
+                'native_meshing': choose native or legacy faceting for DAGMC
+                    export (bool, defaults to False),
                 'facet_tol': maximum distance a facet may be from surface of
                     CAD representation for Cubit export (float, defaults to
                     None),
@@ -68,6 +64,11 @@ def NWL_geom(
                     (float, defaults to None),
                 'norm_tol': maximum change in angle between normal vector of
                     adjacent facets (float, defaults to None),
+                'anisotropic_ratio': controls edge length ratio of elements
+                    (float, defaults to 100.0),
+                'deviation_angle': controls deviation angle of facet from
+                    surface, i.e. lower deviation angle => more elements in
+                    areas with higher curvature (float, defaults to 5.0),
                 'min_mesh_size': minimum mesh element size for Gmsh export
                     (float, defaults to 5.0),
                 'max_mesh_size': maximum mesh element size for Gmsh export

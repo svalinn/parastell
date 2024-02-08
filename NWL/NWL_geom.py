@@ -1,4 +1,4 @@
-import NWL
+import NWL.NWL as NWL
 import numpy as np
 
 
@@ -23,6 +23,7 @@ export = {
     'h5m_export': 'Cubit',
     'h5m_filename': 'first_wall',
     'dir': '',
+    'native_meshing': False,
     'facet_tol': 1,
     'len_tol': 5,
     'norm_tol': None

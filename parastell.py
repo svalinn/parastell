@@ -28,9 +28,6 @@ def cubit_export(components, export, magnets):
                     defaults to empty),
                 'graveyard': generate graveyard volume as additional component
                     (bool, defaults to False),
-                'dir': directory to which to export output files (str, defaults
-                    to empty string). Note that directory must end in '/', if
-                    using Linux or MacOS, or '\' if using Windows.
                 'step_export': export component STEP files (bool, defaults to
                     True),
                 'h5m_export': export DAGMC-compatible neutronics H5M file using
@@ -38,6 +35,9 @@ def cubit_export(components, export, magnets):
                     of 'Cubit' or 'Gmsh' (str, defaults to None). The string is
                     case-sensitive. Note that if magnets are included, 'Cubit'
                     must be used,
+                'dir': directory to which to export output files (str, defaults
+                    to empty string). Note that directory must end in '/', if
+                    using Linux or MacOS, or '\' if using Windows.
                 'h5m_filename': name of DAGMC-compatible neutronics H5M file
                     (str, defaults to 'dagmc'),
                 'plas_h5m_tag': optional alternate material tag to use for
@@ -47,6 +47,8 @@ def cubit_export(components, export, magnets):
                     scrape-off layer. If none is supplied and the scrape-off
                     layer is not excluded, 'sol' will be used (str, defaults to
                     None),
+                'native_meshing': choose native or legacy faceting for DAGMC
+                    export (bool, defaults to False),
                 'facet_tol': maximum distance a facet may be from surface of
                     CAD representation for Cubit export (float, defaults to
                     None),
@@ -54,8 +56,6 @@ def cubit_export(components, export, magnets):
                     (float, defaults to None),
                 'norm_tol': maximum change in angle between normal vector of
                     adjacent facets (float, defaults to None),
-                'native_meshing': choose native or legacy faceting for DAGMC
-                    export (bool, defaults to False),
                 'anisotropic_ratio': controls edge length ratio of elements
                     (float, defaults to 100.0),
                 'deviation_angle': controls deviation angle of facet from
@@ -128,7 +128,7 @@ def cubit_export(components, export, magnets):
         
         # DAGMC export
         cubit.cmd(
-            f'export dagmc "dagmc.h5m" {facet_tol_str} {len_tol_str} '
+            f'export dagmc "{dir}{filename}.h5m" {facet_tol_str} {len_tol_str} '
             f'{norm_tol_str} make_watertight'
         )
 
@@ -193,12 +193,13 @@ def cubit_export(components, export, magnets):
         cubit.cmd("mesh surface all")
 
         # Export DAGMC file
-        cubit.cmd(f'export cf_dagmc "{cwd + "/dagmc.h5m"}" overwrite')
+        cubit.cmd(f'export cf_dagmc "{dir}{filename}.h5m" overwrite')
 
-    cwd = os.getcwd()
+    dir = export['dir']
+    filename = export['h5m_filename']
 
     for name in components.keys():
-        cubit.cmd(f'import step "' + cwd + '/' + name + '.step" heal')
+        cubit.cmd(f'import step "{dir}{name}.step" heal')
         components[name]['vol_id'] = cubit.get_last_id("volume")
 
     cubit.cmd('imprint volume all')
@@ -220,9 +221,6 @@ def exports(export, components, magnets, logger):
                     defaults to empty),
                 'graveyard': generate graveyard volume as additional component
                     (bool, defaults to False),
-                'dir': directory to which to export output files (str, defaults
-                    to empty string). Note that directory must end in '/', if
-                    using Linux or MacOS, or '\' if using Windows.
                 'step_export': export component STEP files (bool, defaults to
                     True),
                 'h5m_export': export DAGMC-compatible neutronics H5M file using
@@ -230,6 +228,9 @@ def exports(export, components, magnets, logger):
                     of 'Cubit' or 'Gmsh' (str, defaults to None). The string is
                     case-sensitive. Note that if magnets are included, 'Cubit'
                     must be used,
+                'dir': directory to which to export output files (str, defaults
+                    to empty string). Note that directory must end in '/', if
+                    using Linux or MacOS, or '\' if using Windows.
                 'h5m_filename': name of DAGMC-compatible neutronics H5M file
                     (str, defaults to 'dagmc'),
                 'plas_h5m_tag': optional alternate material tag to use for
@@ -239,6 +240,8 @@ def exports(export, components, magnets, logger):
                     scrape-off layer. If none is supplied and the scrape-off
                     layer is not excluded, 'sol' will be used (str, defaults to
                     None),
+                'native_meshing': choose native or legacy faceting for DAGMC
+                    export (bool, defaults to False),
                 'facet_tol': maximum distance a facet may be from surface of
                     CAD representation for Cubit export (float, defaults to
                     None),
@@ -246,6 +249,11 @@ def exports(export, components, magnets, logger):
                     (float, defaults to None),
                 'norm_tol': maximum change in angle between normal vector of
                     adjacent facets (float, defaults to None),
+                'anisotropic_ratio': controls edge length ratio of elements
+                    (float, defaults to 100.0),
+                'deviation_angle': controls deviation angle of facet from
+                    surface, i.e. lower deviation angle => more elements in
+                    areas with higher curvature (float, defaults to 5.0),
                 'min_mesh_size': minimum mesh element size for Gmsh export
                     (float, defaults to 5.0),
                 'max_mesh_size': maximum mesh element size for Gmsh export
@@ -298,7 +306,7 @@ def exports(export, components, magnets, logger):
     if export['step_export']:
         logger.info('Exporting STEP files...')
         for name, comp in components.items():
-            cq.exporters.export(comp['solid'], name + '.step')
+            cq.exporters.export(comp['solid'], export['dir'] + name + '.step')
     
     if export['h5m_export'] == 'Cubit':
         logger.info('Exporting neutronics H5M file via Cubit...')
@@ -542,13 +550,13 @@ export_def = {
     'step_export': True,
     'h5m_export': None,
     'dir': '',
-    'dagmc_filename': 'dagmc',
+    'h5m_filename': 'dagmc',
+    'native_meshing': False,
     'plas_h5m_tag': None,
     'sol_h5m_tag': None,
     'facet_tol': None,
     'len_tol': None,
     'norm_tol': None,
-    'native_meshing': False,
     'anisotropic_ratio': 100,
     'deviation_angle': 5,
     'min_mesh_size': 5.0,
@@ -634,9 +642,6 @@ def parastell(
                     defaults to empty),
                 'graveyard': generate graveyard volume as additional component
                     (bool, defaults to False),
-                'dir': directory to which to export output files (str, defaults
-                    to empty string). Note that directory must end in '/', if
-                    using Linux or MacOS, or '\' if using Windows.
                 'step_export': export component STEP files (bool, defaults to
                     True),
                 'h5m_export': export DAGMC-compatible neutronics H5M file using
@@ -644,6 +649,9 @@ def parastell(
                     of 'Cubit' or 'Gmsh' (str, defaults to None). The string is
                     case-sensitive. Note that if magnets are included, 'Cubit'
                     must be used,
+                'dir': directory to which to export output files (str, defaults
+                    to empty string). Note that directory must end in '/', if
+                    using Linux or MacOS, or '\' if using Windows.
                 'h5m_filename': name of DAGMC-compatible neutronics H5M file
                     (str, defaults to 'dagmc'),
                 'plas_h5m_tag': optional alternate material tag to use for
@@ -653,6 +661,8 @@ def parastell(
                     scrape-off layer. If none is supplied and the scrape-off
                     layer is not excluded, 'sol' will be used (str, defaults to
                     None),
+                'native_meshing': choose native or legacy faceting for DAGMC
+                    export (bool, defaults to False),
                 'facet_tol': maximum distance a facet may be from surface of
                     CAD representation for Cubit export (float, defaults to
                     None),
@@ -660,8 +670,6 @@ def parastell(
                     (float, defaults to None),
                 'norm_tol': maximum change in angle between normal vector of
                     adjacent facets (float, defaults to None),
-                'native_meshing': choose native or legacy faceting for DAGMC
-                    export (bool, defaults to False),
                 'anisotropic_ratio': controls edge length ratio of elements
                     (float, defaults to 100.0),
                 'deviation_angle': controls deviation angle of facet from
