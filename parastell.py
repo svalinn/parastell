@@ -28,6 +28,9 @@ def cubit_export(components, export, magnets):
                     defaults to empty),
                 'graveyard': generate graveyard volume as additional component
                     (bool, defaults to False),
+                'dir': directory to which to export output files (str, defaults
+                    to empty string). Note that directory must end in '/', if
+                    using Linux or MacOS, or '\' if using Windows.
                 'step_export': export component STEP files (bool, defaults to
                     True),
                 'h5m_export': export DAGMC-compatible neutronics H5M file using
@@ -35,9 +38,15 @@ def cubit_export(components, export, magnets):
                     of 'Cubit' or 'Gmsh' (str, defaults to None). The string is
                     case-sensitive. Note that if magnets are included, 'Cubit'
                     must be used,
+                'h5m_filename': name of DAGMC-compatible neutronics H5M file
+                    (str, defaults to 'dagmc'),
                 'plas_h5m_tag': optional alternate material tag to use for
                     plasma. If none is supplied and the plasma is not excluded,
                     'plasma' will be used (str, defaults to None),
+                'sol_h5m_tag': optional alternate material tag to use for 
+                    scrape-off layer. If none is supplied and the scrape-off
+                    layer is not excluded, 'sol' will be used (str, defaults to
+                    None),
                 'facet_tol': maximum distance a facet may be from surface of
                     CAD representation for Cubit export (float, defaults to
                     None),
@@ -211,6 +220,9 @@ def exports(export, components, magnets, logger):
                     defaults to empty),
                 'graveyard': generate graveyard volume as additional component
                     (bool, defaults to False),
+                'dir': directory to which to export output files (str, defaults
+                    to empty string). Note that directory must end in '/', if
+                    using Linux or MacOS, or '\' if using Windows.
                 'step_export': export component STEP files (bool, defaults to
                     True),
                 'h5m_export': export DAGMC-compatible neutronics H5M file using
@@ -218,9 +230,15 @@ def exports(export, components, magnets, logger):
                     of 'Cubit' or 'Gmsh' (str, defaults to None). The string is
                     case-sensitive. Note that if magnets are included, 'Cubit'
                     must be used,
+                'h5m_filename': name of DAGMC-compatible neutronics H5M file
+                    (str, defaults to 'dagmc'),
                 'plas_h5m_tag': optional alternate material tag to use for
                     plasma. If none is supplied and the plasma is not excluded,
                     'plasma' will be used (str, defaults to None),
+                'sol_h5m_tag': optional alternate material tag to use for 
+                    scrape-off layer. If none is supplied and the scrape-off
+                    layer is not excluded, 'sol' will be used (str, defaults to
+                    None),
                 'facet_tol': maximum distance a facet may be from surface of
                     CAD representation for Cubit export (float, defaults to
                     None),
@@ -294,7 +312,9 @@ def exports(export, components, magnets, logger):
                 comp['solid'],
                 material_tags = [comp['h5m_tag']]
             )
-        model.export_dagmc_h5m_file()
+        model.export_dagmc_h5m_file(
+            filename = f"{export['dir']}{export['h5m_filename']}.h5m"
+        )
 
 
 def graveyard(vmec, offset, components, logger):
@@ -349,7 +369,7 @@ def surf_norm(vmec, s, phi, theta, ref_pt, plane_norm):
 
     Arguments:
         vmec (object): plasma equilibrium object.
-        s (float): normalized magnetic closed flux surface value.
+        s (float): normalized magnetic closed flux surface label.
         phi (float): toroidal angle being solved for (rad).
         theta (float): poloidal angle of interest (rad).
         ref_pt (array of float): Cartesian coordinates of plasma edge or
@@ -377,7 +397,7 @@ def offset_point(vmec, s, theta, phi, offset, plane_norm):
 
     Arguments:
         vmec (object): plasma equilibrium object.
-        s (float): normalized magnetic closed flux surface value.
+        s (float): normalized magnetic closed flux surface label.
         theta (float): poloidal angle of interest (rad).
         phi (float): toroidal angle of interest (rad).
         offset (float): total offset of layer from plamsa (m).
@@ -410,7 +430,7 @@ def stellarator_torus(
     
     Arguments:
         vmec (object): plasma equilibrium object.
-        s (float): normalized magnetic closed flux surface value.
+        s (float): normalized magnetic closed flux surface label.
         tor_ext (float): toroidal extent of build (rad).
         repeat (int): number of times to repeat build.
         phi_list_exp (list of float): interpolated list of toroidal angles
@@ -517,11 +537,12 @@ def expand_ang(ang_list, num_ang):
 
 # Define default export dictionary
 export_def = {
-    'dir': '',
     'exclude': [],
     'graveyard': False,
     'step_export': True,
     'h5m_export': None,
+    'dir': '',
+    'dagmc_filename': 'dagmc',
     'plas_h5m_tag': None,
     'sol_h5m_tag': None,
     'facet_tol': None,
@@ -565,7 +586,8 @@ def parastell(
                 'theta_list': poloidal angles at which radial build is
                     specified. This list should always span 360 degrees (list
                     of float, deg).
-                'wall_s': closed flux index extrapolation at wall (float),
+                'wall_s': closed flux surface label extrapolation at wall
+                    (float),
                 'radial_build': {
                     'component': {
                         'thickness_matrix': list of list of float (cm),
@@ -579,7 +601,7 @@ def parastell(
         num_phi (int): number of phi geometric cross-sections to make for each
             build segment (defaults to 61).
         num_theta (int): number of points defining the geometric cross-section
-            (defaults to 100).
+            (defaults to 61).
         magnets (dict): dictionary of magnet parameters including
             {
                 'file': path to magnet coil point-locus data file (str),
@@ -612,6 +634,9 @@ def parastell(
                     defaults to empty),
                 'graveyard': generate graveyard volume as additional component
                     (bool, defaults to False),
+                'dir': directory to which to export output files (str, defaults
+                    to empty string). Note that directory must end in '/', if
+                    using Linux or MacOS, or '\' if using Windows.
                 'step_export': export component STEP files (bool, defaults to
                     True),
                 'h5m_export': export DAGMC-compatible neutronics H5M file using
@@ -619,6 +644,8 @@ def parastell(
                     of 'Cubit' or 'Gmsh' (str, defaults to None). The string is
                     case-sensitive. Note that if magnets are included, 'Cubit'
                     must be used,
+                'h5m_filename': name of DAGMC-compatible neutronics H5M file
+                    (str, defaults to 'dagmc'),
                 'plas_h5m_tag': optional alternate material tag to use for
                     plasma. If none is supplied and the plasma is not excluded,
                     'plasma' will be used (str, defaults to None),
