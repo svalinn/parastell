@@ -78,55 +78,6 @@ def cut_mags(tor_ext, vol_ids, r_avg):
     return vol_ids
 
 
-def mesh_magnets(vol_ids):
-    """Creates tetrahedral mesh of magnet volumes.
-
-    Arguments:
-        vol_ids (list of int): indices for magnet volumes.
-    """
-    # Loop over magnet indices
-    for vol in vol_ids:
-        # Create scheme and meshes
-        cubit.cmd(f'volume {vol} scheme tetmesh')
-        cubit.cmd(f'mesh volume {vol}')
-
-
-def cut_mags(tor_ext, vol_ids):
-    """Cuts magnet volumes such that only the specified toroidal extent is
-    included.
-    
-    Arguments:
-        tor_ext (float): toroidal extent to model (deg).
-        vol_ids (list of int): indices for magnet volumes.
-    
-    Returns:
-        vol_ids (list of int): updated indices for magnet volumes.
-    """
-    # Create surface
-    cubit.cmd('create surface rectangle width 4000 yplane')
-    # Extract surface index
-    surf_id = cubit.get_last_id("surface")
-    # Move surface
-    cubit.cmd(f'move Surface {surf_id} x 2000')
-    # Sweep surface
-    cubit.cmd(f'sweep surface {surf_id} zaxis angle {tor_ext}')
-    # Extract volume index
-    sweep_id = cubit.get_last_id("volume")
-
-    # Intersect magnet volumes with sweep volume
-    cubit.cmd(
-        'intersect volume ' + ' '.join(str(i) for i in vol_ids)
-        + f' {sweep_id}'
-    )
-
-    # Extract index of most recently created volume
-    last_id = cubit.get_last_id("volume")
-    # Compute magnet volume indices
-    vol_ids = range(sweep_id + 1, last_id + 1)
-
-    return vol_ids
-
-
 def unit_vector(vec):
     """Normalizes given vector.
 

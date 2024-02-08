@@ -126,18 +126,18 @@ def cubit_export(components, export, magnets):
     def native_export():
         """Exports neutronics H5M file via native Cubit faceting method.
         """
-        #extract Cubit export parameters
+        # Extract Cubit export parameters
         anisotropic_ratio = export['anisotropic_ratio']
         deviation_angle = export['deviation_angle']
 
-        # create materials for native cubit meshing
+        # Create materials for native cubit meshing
         for comp in components.values():
             cubit.cmd(
                 f'create material "{comp["h5m_tag"]}" property_group '
                 + '"CUBIT-ABAQUS"'
             )
 
-        # assign components to blocks
+        # Assign components to blocks
         for comp in components.values():
             cubit.cmd('set duplicate block elements off')
             cubit.cmd(
@@ -145,7 +145,7 @@ def cubit_export(components, export, magnets):
                 + str(comp['vol_id'])
             )
         
-        # assign materials to blocks
+        # Assign materials to blocks
         for comp in components.values():
             cubit.cmd(
                 "block " + str(comp['vol_id']) + " material "
@@ -186,15 +186,12 @@ def cubit_export(components, export, magnets):
         # Export DAGMC file
         cubit.cmd(f'export cf_dagmc "{cwd + "/dagmc.h5m"}" overwrite')
 
-    # Get current working directory
     cwd = os.getcwd()
 
-    # Import solids
     for name in components.keys():
         cubit.cmd(f'import step "' + cwd + '/' + name + '.step" heal')
         components[name]['vol_id'] = cubit.get_last_id("volume")
 
-    # Imprint and merge all volumes
     cubit.cmd('imprint volume all')
     cubit.cmd('merge volume all')
 
