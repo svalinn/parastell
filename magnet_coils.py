@@ -4,13 +4,17 @@ from pymoab import core, types
 import numpy as np
 from sklearn.preprocessing import normalize
 import os
+from pathlib import Path
 
 
-def mesh_magnets(vol_ids, logger):
+def mesh_magnets(vol_ids, export_dir, logger):
     """Creates tetrahedral mesh of magnet volumes.
 
     Arguments:
         vol_ids (list of int): indices for magnet volumes.
+        export_dir (str): directory to which to export output files.
+        logger (object): logger object (defaults to None). If no logger is
+            supplied, a default logger will be instantiated.
     """
     # Mesh magnet volumes
     for vol in vol_ids:
@@ -19,12 +23,9 @@ def mesh_magnets(vol_ids, logger):
 
     logger.info('Exporting coil mesh...')
     
-    # Assign export paths
-    cwd = os.getcwd()
-    base_name = 'coil_mesh'
-    general_export_path = f"{cwd}/{base_name}"
-    exo_path = f'{general_export_path}.exo'
-    h5m_path = f'{general_export_path}.h5m'
+    # Define export paths
+    exo_path = str(Path(export_dir) / 'coil_mesh.exo')
+    h5m_path = str(Path(export_dir) / 'coil_mesh.h5m')
     
     # EXODUS export
     cubit.cmd(f'export mesh "{exo_path}"')
@@ -473,7 +474,7 @@ def extract_filaments(file, start, stop, sample):
     return filaments
 
 
-def magnet_coils(magnets, tor_ext, logger = None):
+def magnet_coils(magnets, tor_ext, export_dir, logger = None):
     """Generates STEP file using Cubit for stellarator magnet coils based on
     user-supplied coil data. The coils have rectangular cross-section.
 
@@ -497,6 +498,7 @@ def magnet_coils(magnets, tor_ext, logger = None):
             For a rectangular cross-section, the list format is
             ['rectangle' (str), width (float, cm), thickness (float, cm)]
         tor_ext (float): toroidal extent to model (rad).
+        export_dir (str): directory to which to export output files.
         logger (object): logger object (defaults to None). If no logger is
             supplied, a default logger will be instantiated.
 
@@ -536,10 +538,13 @@ def magnet_coils(magnets, tor_ext, logger = None):
         vol_ids = cut_mags(tor_ext, vol_ids, r_avg)
     
     # Export magnet coils
-    cubit.cmd(f'export step "{magnets["name"]}.step"  overwrite')
+    export_path = Path(export_dir) / f'{magnets["name"]}.step'
+    cubit.cmd(
+        f'export step "{export_path}" overwrite'
+    )
 
     # Optional tetrahedral mesh functionality
     if magnets['meshing']:
-        mesh_magnets(vol_ids, logger)
+        mesh_magnets(vol_ids, export_dir, logger)
 
     return vol_ids

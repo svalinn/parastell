@@ -30,5 +30,6 @@ export = {
 }
 
 NWL.NWL_geom(
-    plas_eq, wall_s, tor_ext, num_phi, num_theta, source = source, export = export
+    plas_eq, wall_s, tor_ext, num_phi, num_theta, source = source,
+    export = export
 )

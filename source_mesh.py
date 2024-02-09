@@ -1,6 +1,7 @@
 import log
 from pymoab import core, types
 import numpy as np
+from pathlib import Path
 
 
 def rxn_rate(s):
@@ -406,7 +407,7 @@ def create_mbc():
     return mbc, tag_handle
 
 
-def source_mesh(vmec, source, logger = None):
+def source_mesh(vmec, source, export_dir, logger = None):
     """Creates H5M volumetric mesh defining fusion source using PyMOAB and
     user-supplied plasma equilibrium VMEC data.
 
@@ -420,6 +421,7 @@ def source_mesh(vmec, source, logger = None):
                 'num_phi': number of toroidal angles defining mesh (int),
                 'tor_ext': toroidal extent to model (float, deg)
             }
+        export_dir (str): directory to which to export output files.
         logger (object): logger object (defaults to None). If no logger is
             supplied, a default logger will be instantiated.
 
@@ -452,6 +454,7 @@ def source_mesh(vmec, source, logger = None):
         verts_s
     )
 
-    mbc.write_file("SourceMesh.h5m")
+    export_path = str(Path(export_dir) / 'SourceMesh.h5m')
+    mbc.write_file(export_path)
 
     return strengths

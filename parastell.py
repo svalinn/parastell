@@ -11,6 +11,7 @@ from scipy.interpolate import RegularGridInterpolator
 from sklearn.preprocessing import normalize
 import os
 import inspect
+from pathlib import Path
 
 
 def cubit_export(components, export, magnets):
@@ -127,8 +128,9 @@ def cubit_export(components, export, magnets):
             norm_tol_str = f'normal_tolerance {norm_tol}'
         
         # DAGMC export
+        export_path = Path(dir) / f'{filename}.h5m'
         cubit.cmd(
-            f'export dagmc "{dir}{filename}.h5m" {facet_tol_str} {len_tol_str} '
+            f'export dagmc "{export_path}" {facet_tol_str} {len_tol_str} '
             f'{norm_tol_str} make_watertight'
         )
 
@@ -193,13 +195,17 @@ def cubit_export(components, export, magnets):
         cubit.cmd("mesh surface all")
 
         # Export DAGMC file
-        cubit.cmd(f'export cf_dagmc "{dir}{filename}.h5m" overwrite')
+        export_path = Path(dir) / f'{filename}.h5m'
+        cubit.cmd(
+            f'export cf_dagmc "{export_path}" overwrite'
+        )
 
     dir = export['dir']
     filename = export['h5m_filename']
 
     for name in components.keys():
-        cubit.cmd(f'import step "{dir}{name}.step" heal')
+        import_path = Path(dir) / f'{name}.step'
+        cubit.cmd(f'import step "{import_path}" heal')
         components[name]['vol_id'] = cubit.get_last_id("volume")
 
     cubit.cmd('imprint volume all')
@@ -303,10 +309,16 @@ def exports(export, components, magnets, logger):
             'Inclusion of magnets in H5M model requires Cubit export'
         )
     
+    dir = export['dir']
+    filename = export['h5m_filename']
+
     if export['step_export']:
         logger.info('Exporting STEP files...')
         for name, comp in components.items():
-            cq.exporters.export(comp['solid'], export['dir'] + name + '.step')
+            cq.exporters.export(
+                comp['solid'],
+                str(Path(dir) / f'{name}.step')
+            )
     
     if export['h5m_export'] == 'Cubit':
         logger.info('Exporting neutronics H5M file via Cubit...')
@@ -321,7 +333,7 @@ def exports(export, components, magnets, logger):
                 material_tags = [comp['h5m_tag']]
             )
         model.export_dagmc_h5m_file(
-            filename = f"{export['dir']}{export['h5m_filename']}.h5m"
+            filename = Path(dir) / f'{filename}.h5m'
         )
 
 
@@ -834,7 +846,7 @@ def parastell(
 
     if magnets is not None:
         magnets['vol_id'] = magnet_coils.magnet_coils(
-            magnets, (repeat + 1)*tor_ext, logger = logger
+            magnets, (repeat + 1)*tor_ext, export['dir'], logger = logger
         )
 
     try:
@@ -844,5 +856,7 @@ def parastell(
         raise e
     
     if source is not None:
-        strengths = source_mesh.source_mesh(vmec, source, logger = logger)
+        strengths = source_mesh.source_mesh(
+            vmec, source, export['dir'], logger = logger
+        )
         return strengths

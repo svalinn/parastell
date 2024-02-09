@@ -22,7 +22,8 @@ export_def = {
 
 
 def NWL_geom(
-        plas_eq, wall_s, tor_ext, num_phi = 61, num_theta = 61, source = None, export = export_def, logger = None
+        plas_eq, wall_s, tor_ext, num_phi = 61, num_theta = 61, source = None,
+        export = export_def, logger = None
     ):
     """Creates DAGMC-compatible neutronics H5M geometry of first wall.
 
@@ -161,7 +162,7 @@ def NWL_geom(
         raise e
 
     if source is not None:
-        strengths = sm.source_mesh(vmec, source, logger = logger)
+        strengths = sm.source_mesh(vmec, source, export['dir'], logger = logger)
         
         file = open('strengths.txt', 'w')
         for tet in strengths:
@@ -303,35 +304,42 @@ def find_coords(vmec, wall_s, phi, pt):
     # Solve for the poloidal angle via minimization
     theta = direct(
         min_problem,
-        bounds = [(0., 2*np.pi)],
+        bounds = [(-np.pi, np.pi)],
         args = (vmec, wall_s, phi, pt)
     )
     # Extract angle
-    theta = theta.x
+    theta = theta.x[0]
 
     return theta
 
 
-def flux_coords(vmec, wall_s, pt):
+def flux_coords(vmec, wall_s, coords, coords_x, coords_y):
     """Computes flux-coordinate toroidal and poloidal angles corresponding to
     specified Cartesian coordinates.
     
     Arguments:
         vmec (object): plasma equilibrium object.
         wall_s (float): closed flux surface label extrapolation at wall.
-        pt (array of float): Cartesian coordinates of interest (cm).
+        coords (array of array of float): Cartesian coordinates of all particle
+            surface crossings (cm).
+        coords_x (array of float): x coordinates of all particle surface
+            crossings (cm).
+        coords_y (array of float): y coordinates of all particle surface
+            crossings (cm).
 
     Returns:
-        phi (float): toroidal angle (rad).
-        theta (float): poloidal angle (rad).
+        phi_coords (array of float): toroidal angles of surface crossings (rad).
+        theta_coords (array of float): poloidal angles of surface crossings
+            (rad).
     """
-    # Extract Cartesian coordinates of original point
-    x, y, z = pt
+    phi_coords = np.arctan2(coords_y, coords_x)
+    theta_coords = []
     
-    phi = np.arctan2(y, x)
-    theta = find_coords(vmec, wall_s, phi, pt)
+    for pt, phi in zip(coords, phi_coords):
+        theta = find_coords(vmec, wall_s, phi, pt)
+        theta_coords.append(theta)
 
-    return phi, theta
+    return phi_coords, theta_coords
 
 
 def extract_coords(source_file):
@@ -344,6 +352,10 @@ def extract_coords(source_file):
     Returns:
         coords (array of array of float): Cartesian coordinates of all particle
             surface crossings.
+        coords_x (array of float): x coordinates of all particle surface
+            crossings (cm).
+        coords_y (array of float): y coordinates of all particle surface
+            crossings (cm).
     """
     import h5py
     
@@ -351,30 +363,37 @@ def extract_coords(source_file):
     file = h5py.File(source_file, 'r')
     # Extract source information
     dataset = file['source_bank']
-    # Extract coordinates of particle crossings
-    coords = dataset['r']
+    # Extract Cartesian coordinates of particle crossings
+    coords_x = dataset['r']['x']
+    coords_y = dataset['r']['y']
+    coords_z = dataset['r']['z']
+    # Construct matrix of particle crossing coordinates
+    coords = np.empty((len(coords_x), 3))
+    coords[:,0] = coords_x
+    coords[:,1] = coords_y
+    coords[:,2] = coords_z
 
-    return coords
+    return coords, coords_x, coords_y
 
 
-def plot(NWL_mat, phi_bins, theta_bins, num_levels):
+def plot(NWL_mat, phi_pts, theta_pts, num_levels):
     """Generates contour plot of NWL.
 
     Arguments:
         NWL_mat (array of array of float): NWL solutions at centroids of
             (phi, theta) bins (MW).
-        phi_bins (array of float): centroids of toroidal angle bins (rad).
+        phi_pts (array of float): centroids of toroidal angle bins (rad).
         theta_bins (array of float): centroids of poloidal angle bins (rad).
         num_levels (int): number of contour regions.
     """
     import matplotlib.pyplot as plt
     
-    phi_bins = np.rad2deg(phi_bins)
-    theta_bins = np.rad2deg(theta_bins)
+    phi_pts = np.rad2deg(phi_pts)
+    theta_pts = np.rad2deg(theta_pts)
 
     levels = np.linspace(np.min(NWL_mat), np.max(NWL_mat), num = num_levels)
     fig, ax = plt.subplots()
-    CF = ax.contourf(phi_bins, theta_bins, NWL_mat, levels = levels)
+    CF = ax.contourf(phi_pts, theta_pts, NWL_mat, levels = levels)
     cbar = plt.colorbar(CF)
     cbar.ax.set_ylabel('NWL (MW)')
     plt.xlabel('Toroidal Angle (degrees)')
@@ -383,7 +402,8 @@ def plot(NWL_mat, phi_bins, theta_bins, num_levels):
 
 
 def NWL_plot(
-    source_file, ss_file, plas_eq, tor_ext, pol_ext, wall_s, num_phi = 101, num_theta = 101, num_levels = 10
+    source_file, ss_file, plas_eq, tor_ext, pol_ext, wall_s, num_phi = 101,
+    num_theta = 101, num_levels = 10
     ):
     """Computes and plots NWL.
 
@@ -403,37 +423,32 @@ def NWL_plot(
     tor_ext = np.deg2rad(tor_ext)
     pol_ext = np.deg2rad(pol_ext)
     
-    coords = extract_coords(source_file)
+    coords, coords_x, coords_y = extract_coords(source_file)
     
     # Load plasma equilibrium data
     vmec = read_vmec.vmec_data(plas_eq)
 
-    phi_bins = np.linspace(0.0, tor_ext, num = num_phi)
-    theta_bins = np.linspace(-pol_ext/2, pol_ext/2, num = num_theta)
+    phi_coords, theta_coords = flux_coords(
+        vmec, wall_s, coords, coords_x, coords_y
+    )
+
+    # Define minimum and maximum bin edges for each dimension
+    phi_min = 0 - tor_ext/num_phi/2
+    phi_max = tor_ext + tor_ext/num_phi/2
+    theta_min = -pol_ext/2 - pol_ext/num_theta/2
+    theta_max = pol_ext/2 + pol_ext/num_theta/2
     
-    # Initialize count matrix
-    count_mat = np.zeros((num_phi, num_theta))
+    # Bin particle crossings
+    count_mat, phi_bins, theta_bins = np.histogram2d(
+        phi_coords,
+        theta_coords,
+        bins = [num_phi, num_theta],
+        range = [[phi_min, phi_max], [theta_min, theta_max]]
+    )
 
-    for pt in coords:
-        # Extract Cartesian coordinates and format as array
-        pt = [pt['x'], pt['y'], pt['z']]
-        pt = np.array(pt)
-        
-        phi, theta = flux_coords(vmec, wall_s, pt)
-        
-        # Shift angles to fit in bins
-        if theta > pol_ext/2:
-            theta = theta - pol_ext
-
-        for i, phi_bin in enumerate(phi_bins):
-            # Conditionally contribute to bin crossing count if crossing within
-            # bin
-            if np.abs(phi - phi_bin) <= tor_ext/(num_phi - 1)/2:
-                for j, theta_bin in enumerate(theta_bins):
-                    # Conditionally contribute to bin crossing count if
-                    # crossing within bin
-                    if np.abs(theta - theta_bin) <= pol_ext/(num_theta - 1)/2:
-                        count_mat[i,j] += 1
+    # Compute centroids of bin dimensions
+    phi_pts = np.linspace(0, tor_ext, num = num_phi)
+    theta_pts = np.linspace(-pol_ext/2, pol_ext/2, num = num_theta)
 
     # Define fusion neutron energy (eV)
     n_energy = 14.1e6
@@ -449,4 +464,4 @@ def NWL_plot(
 
     NWL_mat = count_mat*n_energy*eV2J*SS*J2MJ/num_parts
 
-    plot(NWL_mat, phi_bins, theta_bins, num_levels)
+    plot(NWL_mat, phi_pts, theta_pts, num_levels)
