@@ -99,13 +99,14 @@ def NWL_geom(
     from scipy.interpolate import RegularGridInterpolator
     import os
     import inspect
+    from pathlib import Path
     
     export_dict = export_def.copy()
     export_dict.update(export)
     
     if export_dict['h5m_export'] == 'Cubit':
         cubit_dir = os.path.dirname(inspect.getfile(cubit))
-        cubit_dir = cubit_dir + '/plugins/'
+        cubit_dir = Path(cubit_dir) / Path('plugins')
         cubit.init([
             'cubit',
             '-nojournal',
@@ -113,7 +114,7 @@ def NWL_geom(
             '-information', 'off',
             '-warning', 'off',
             '-commandplugindir',
-            cubit_dir
+            str(cubit_dir)
         ])
     
     if logger == None or not logger.hasHandlers():
@@ -164,7 +165,9 @@ def NWL_geom(
     if source is not None:
         strengths = sm.source_mesh(vmec, source, export['dir'], logger = logger)
         
-        file = open('strengths.txt', 'w')
+        filepath = Path(export['dir']) / 'strengths.txt'
+
+        file = open(filepath, 'w')
         for tet in strengths:
             file.write(f'{tet}\n')
         
@@ -175,7 +178,7 @@ def extract_ss(ss_file):
     """Extracts list of source strengths for each tetrahedron from input file.
 
     Arguments:
-        ss_file (str): source strength input file.
+        ss_file (str): path to source strength input file.
 
     Returns:
         strengths (list): list of source strengths for each tetrahedron (1/s).
@@ -313,7 +316,7 @@ def find_coords(vmec, wall_s, phi, pt):
     return theta
 
 
-def flux_coords(vmec, wall_s, coords, coords_x, coords_y):
+def flux_coords(vmec, wall_s, coords):
     """Computes flux-coordinate toroidal and poloidal angles corresponding to
     specified Cartesian coordinates.
     
@@ -322,17 +325,13 @@ def flux_coords(vmec, wall_s, coords, coords_x, coords_y):
         wall_s (float): closed flux surface label extrapolation at wall.
         coords (array of array of float): Cartesian coordinates of all particle
             surface crossings (cm).
-        coords_x (array of float): x coordinates of all particle surface
-            crossings (cm).
-        coords_y (array of float): y coordinates of all particle surface
-            crossings (cm).
 
     Returns:
         phi_coords (array of float): toroidal angles of surface crossings (rad).
         theta_coords (array of float): poloidal angles of surface crossings
             (rad).
     """
-    phi_coords = np.arctan2(coords_y, coords_x)
+    phi_coords = np.arctan2(coords[:,1], coords[:,0])
     theta_coords = []
     
     for pt, phi in zip(coords, phi_coords):
@@ -352,28 +351,20 @@ def extract_coords(source_file):
     Returns:
         coords (array of array of float): Cartesian coordinates of all particle
             surface crossings.
-        coords_x (array of float): x coordinates of all particle surface
-            crossings (cm).
-        coords_y (array of float): y coordinates of all particle surface
-            crossings (cm).
     """
     import h5py
     
     # Load source file
     file = h5py.File(source_file, 'r')
     # Extract source information
-    dataset = file['source_bank']
-    # Extract Cartesian coordinates of particle crossings
-    coords_x = dataset['r']['x']
-    coords_y = dataset['r']['y']
-    coords_z = dataset['r']['z']
+    dataset = file['source_bank']['r']
     # Construct matrix of particle crossing coordinates
-    coords = np.empty((len(coords_x), 3))
-    coords[:,0] = coords_x
-    coords[:,1] = coords_y
-    coords[:,2] = coords_z
+    coords = np.empty((len(dataset), 3))
+    coords[:,0] = dataset['x']
+    coords[:,1] = dataset['y']
+    coords[:,2] = dataset['z']
 
-    return coords, coords_x, coords_y
+    return coords
 
 
 def plot(NWL_mat, phi_pts, theta_pts, num_levels):
@@ -423,14 +414,12 @@ def NWL_plot(
     tor_ext = np.deg2rad(tor_ext)
     pol_ext = np.deg2rad(pol_ext)
     
-    coords, coords_x, coords_y = extract_coords(source_file)
+    coords = extract_coords(source_file)
     
     # Load plasma equilibrium data
     vmec = read_vmec.vmec_data(plas_eq)
 
-    phi_coords, theta_coords = flux_coords(
-        vmec, wall_s, coords, coords_x, coords_y
-    )
+    phi_coords, theta_coords = flux_coords(vmec, wall_s, coords)
 
     # Define minimum and maximum bin edges for each dimension
     phi_min = 0 - tor_ext/num_phi/2

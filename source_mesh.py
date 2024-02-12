@@ -454,7 +454,7 @@ def source_mesh(vmec, source, export_dir, logger = None):
         verts_s
     )
 
-    export_path = str(Path(export_dir) / 'SourceMesh.h5m')
-    mbc.write_file(export_path)
+    export_path = Path(export_dir) / 'SourceMesh.h5m'
+    mbc.write_file(str(export_path))
 
     return strengths

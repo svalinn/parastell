@@ -128,7 +128,7 @@ def cubit_export(components, export, magnets):
             norm_tol_str = f'normal_tolerance {norm_tol}'
         
         # DAGMC export
-        export_path = Path(dir) / f'{filename}.h5m'
+        export_path = dir / filename.with_suffix('.h5m')
         cubit.cmd(
             f'export dagmc "{export_path}" {facet_tol_str} {len_tol_str} '
             f'{norm_tol_str} make_watertight'
@@ -195,16 +195,16 @@ def cubit_export(components, export, magnets):
         cubit.cmd("mesh surface all")
 
         # Export DAGMC file
-        export_path = Path(dir) / f'{filename}.h5m'
+        export_path = dir / filename.with_suffix('.h5m')
         cubit.cmd(
             f'export cf_dagmc "{export_path}" overwrite'
         )
 
-    dir = export['dir']
-    filename = export['h5m_filename']
+    dir = Path(export['dir'])
+    filename = Path(export['h5m_filename'])
 
     for name in components.keys():
-        import_path = Path(dir) / f'{name}.step'
+        import_path = dir / Path(name).with_suffix('.step')
         cubit.cmd(f'import step "{import_path}" heal')
         components[name]['vol_id'] = cubit.get_last_id("volume")
 
@@ -309,15 +309,16 @@ def exports(export, components, magnets, logger):
             'Inclusion of magnets in H5M model requires Cubit export'
         )
     
-    dir = export['dir']
-    filename = export['h5m_filename']
+    dir = Path(export['dir'])
+    filename = Path(export['h5m_filename'])
 
     if export['step_export']:
         logger.info('Exporting STEP files...')
         for name, comp in components.items():
+            export_path = dir / Path(name).with_suffix('.step')
             cq.exporters.export(
                 comp['solid'],
-                str(Path(dir) / f'{name}.step')
+                str(export_path)
             )
     
     if export['h5m_export'] == 'Cubit':
@@ -333,7 +334,7 @@ def exports(export, components, magnets, logger):
                 material_tags = [comp['h5m_tag']]
             )
         model.export_dagmc_h5m_file(
-            filename = Path(dir) / f'{filename}.h5m'
+            filename = dir / filename.with_suffix('.h5m')
         )
 
 
@@ -713,7 +714,7 @@ def parastell(
     
     if export_dict['h5m_export'] == 'Cubit' or magnets is not None:
         cubit_dir = os.path.dirname(inspect.getfile(cubit))
-        cubit_dir = cubit_dir + '/plugins/'
+        cubit_dir = Path(cubit_dir) / Path('plugins')
         cubit.init([
             'cubit',
             '-nojournal',
@@ -721,7 +722,7 @@ def parastell(
             '-information', 'off',
             '-warning', 'off',
             '-commandplugindir',
-            cubit_dir
+            str(cubit_dir)
         ])
     
     if logger == None or not logger.hasHandlers():

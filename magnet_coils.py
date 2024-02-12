@@ -24,8 +24,8 @@ def mesh_magnets(vol_ids, export_dir, logger):
     logger.info('Exporting coil mesh...')
     
     # Define export paths
-    exo_path = str(Path(export_dir) / 'coil_mesh.exo')
-    h5m_path = str(Path(export_dir) / 'coil_mesh.h5m')
+    exo_path = Path(export_dir) / 'coil_mesh.exo'
+    h5m_path = Path(export_dir) / 'coil_mesh.h5m'
     
     # EXODUS export
     cubit.cmd(f'export mesh "{exo_path}"')
@@ -33,8 +33,8 @@ def mesh_magnets(vol_ids, export_dir, logger):
     # Convert EXODUS to H5M
     mb = core.Core()
     exodus_set = mb.create_meshset()
-    mb.load_file(exo_path, exodus_set)
-    mb.write_file(h5m_path, [exodus_set])
+    mb.load_file(str(exo_path), exodus_set)
+    mb.write_file(str(h5m_path), [exodus_set])
 
 
 def cut_mags(tor_ext, vol_ids, r_avg):
@@ -538,7 +538,7 @@ def magnet_coils(magnets, tor_ext, export_dir, logger = None):
         vol_ids = cut_mags(tor_ext, vol_ids, r_avg)
     
     # Export magnet coils
-    export_path = Path(export_dir) / f'{magnets["name"]}.step'
+    export_path = Path(export_dir) / Path(magnets["name"]).with_suffix('step')
     cubit.cmd(
         f'export step "{export_path}" overwrite'
     )
