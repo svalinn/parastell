@@ -11,6 +11,7 @@ from scipy.interpolate import RegularGridInterpolator
 from sklearn.preprocessing import normalize
 import os
 import inspect
+from pathlib import Path
 
 
 def cubit_export(components, export, magnets):
@@ -35,9 +36,20 @@ def cubit_export(components, export, magnets):
                     of 'Cubit' or 'Gmsh' (str, defaults to None). The string is
                     case-sensitive. Note that if magnets are included, 'Cubit'
                     must be used,
+                'dir': directory to which to export output files (str, defaults
+                    to empty string). Note that directory must end in '/', if
+                    using Linux or MacOS, or '\' if using Windows.
+                'h5m_filename': name of DAGMC-compatible neutronics H5M file
+                    (str, defaults to 'dagmc'),
                 'plas_h5m_tag': optional alternate material tag to use for
                     plasma. If none is supplied and the plasma is not excluded,
                     'plasma' will be used (str, defaults to None),
+                'sol_h5m_tag': optional alternate material tag to use for 
+                    scrape-off layer. If none is supplied and the scrape-off
+                    layer is not excluded, 'sol' will be used (str, defaults to
+                    None),
+                'native_meshing': choose native or legacy faceting for DAGMC
+                    export (bool, defaults to False),
                 'facet_tol': maximum distance a facet may be from surface of
                     CAD representation for Cubit export (float, defaults to
                     None),
@@ -45,8 +57,6 @@ def cubit_export(components, export, magnets):
                     (float, defaults to None),
                 'norm_tol': maximum change in angle between normal vector of
                     adjacent facets (float, defaults to None),
-                'native_meshing': choose native or legacy faceting for DAGMC
-                    export (bool, defaults to False),
                 'anisotropic_ratio': controls edge length ratio of elements
                     (float, defaults to 100.0),
                 'deviation_angle': controls deviation angle of facet from
@@ -118,26 +128,27 @@ def cubit_export(components, export, magnets):
             norm_tol_str = f'normal_tolerance {norm_tol}'
         
         # DAGMC export
+        export_path = dir / filename.with_suffix('.h5m')
         cubit.cmd(
-            f'export dagmc "dagmc.h5m" {facet_tol_str} {len_tol_str} '
+            f'export dagmc "{export_path}" {facet_tol_str} {len_tol_str} '
             f'{norm_tol_str} make_watertight'
         )
 
     def native_export():
         """Exports neutronics H5M file via native Cubit faceting method.
         """
-        #extract Cubit export parameters
+        # Extract Cubit export parameters
         anisotropic_ratio = export['anisotropic_ratio']
         deviation_angle = export['deviation_angle']
 
-        # create materials for native cubit meshing
+        # Create materials for native cubit meshing
         for comp in components.values():
             cubit.cmd(
                 f'create material "{comp["h5m_tag"]}" property_group '
                 + '"CUBIT-ABAQUS"'
             )
 
-        # assign components to blocks
+        # Assign components to blocks
         for comp in components.values():
             cubit.cmd('set duplicate block elements off')
             cubit.cmd(
@@ -145,7 +156,7 @@ def cubit_export(components, export, magnets):
                 + str(comp['vol_id'])
             )
         
-        # assign materials to blocks
+        # Assign materials to blocks
         for comp in components.values():
             cubit.cmd(
                 "block " + str(comp['vol_id']) + " material "
@@ -184,17 +195,19 @@ def cubit_export(components, export, magnets):
         cubit.cmd("mesh surface all")
 
         # Export DAGMC file
-        cubit.cmd(f'export cf_dagmc "{cwd + "/dagmc.h5m"}" overwrite')
+        export_path = dir / filename.with_suffix('.h5m')
+        cubit.cmd(
+            f'export cf_dagmc "{export_path}" overwrite'
+        )
 
-    # Get current working directory
-    cwd = os.getcwd()
+    dir = Path(export['dir'])
+    filename = Path(export['h5m_filename'])
 
-    # Import solids
     for name in components.keys():
-        cubit.cmd(f'import step "' + cwd + '/' + name + '.step" heal')
+        import_path = dir / Path(name).with_suffix('.step')
+        cubit.cmd(f'import step "{import_path}" heal')
         components[name]['vol_id'] = cubit.get_last_id("volume")
 
-    # Imprint and merge all volumes
     cubit.cmd('imprint volume all')
     cubit.cmd('merge volume all')
 
@@ -221,9 +234,20 @@ def exports(export, components, magnets, logger):
                     of 'Cubit' or 'Gmsh' (str, defaults to None). The string is
                     case-sensitive. Note that if magnets are included, 'Cubit'
                     must be used,
+                'dir': directory to which to export output files (str, defaults
+                    to empty string). Note that directory must end in '/', if
+                    using Linux or MacOS, or '\' if using Windows.
+                'h5m_filename': name of DAGMC-compatible neutronics H5M file
+                    (str, defaults to 'dagmc'),
                 'plas_h5m_tag': optional alternate material tag to use for
                     plasma. If none is supplied and the plasma is not excluded,
                     'plasma' will be used (str, defaults to None),
+                'sol_h5m_tag': optional alternate material tag to use for 
+                    scrape-off layer. If none is supplied and the scrape-off
+                    layer is not excluded, 'sol' will be used (str, defaults to
+                    None),
+                'native_meshing': choose native or legacy faceting for DAGMC
+                    export (bool, defaults to False),
                 'facet_tol': maximum distance a facet may be from surface of
                     CAD representation for Cubit export (float, defaults to
                     None),
@@ -231,6 +255,11 @@ def exports(export, components, magnets, logger):
                     (float, defaults to None),
                 'norm_tol': maximum change in angle between normal vector of
                     adjacent facets (float, defaults to None),
+                'anisotropic_ratio': controls edge length ratio of elements
+                    (float, defaults to 100.0),
+                'deviation_angle': controls deviation angle of facet from
+                    surface, i.e. lower deviation angle => more elements in
+                    areas with higher curvature (float, defaults to 5.0),
                 'min_mesh_size': minimum mesh element size for Gmsh export
                     (float, defaults to 5.0),
                 'max_mesh_size': maximum mesh element size for Gmsh export
@@ -280,10 +309,17 @@ def exports(export, components, magnets, logger):
             'Inclusion of magnets in H5M model requires Cubit export'
         )
     
+    dir = Path(export['dir'])
+    filename = Path(export['h5m_filename'])
+
     if export['step_export']:
         logger.info('Exporting STEP files...')
         for name, comp in components.items():
-            cq.exporters.export(comp['solid'], name + '.step')
+            export_path = dir / Path(name).with_suffix('.step')
+            cq.exporters.export(
+                comp['solid'],
+                str(export_path)
+            )
     
     if export['h5m_export'] == 'Cubit':
         logger.info('Exporting neutronics H5M file via Cubit...')
@@ -297,7 +333,9 @@ def exports(export, components, magnets, logger):
                 comp['solid'],
                 material_tags = [comp['h5m_tag']]
             )
-        model.export_dagmc_h5m_file()
+        model.export_dagmc_h5m_file(
+            filename = dir / filename.with_suffix('.h5m')
+        )
 
 
 def graveyard(vmec, offset, components, logger):
@@ -352,7 +390,7 @@ def surf_norm(vmec, s, phi, theta, ref_pt, plane_norm):
 
     Arguments:
         vmec (object): plasma equilibrium object.
-        s (float): normalized magnetic closed flux surface value.
+        s (float): normalized magnetic closed flux surface label.
         phi (float): toroidal angle being solved for (rad).
         theta (float): poloidal angle of interest (rad).
         ref_pt (array of float): Cartesian coordinates of plasma edge or
@@ -380,7 +418,7 @@ def offset_point(vmec, s, theta, phi, offset, plane_norm):
 
     Arguments:
         vmec (object): plasma equilibrium object.
-        s (float): normalized magnetic closed flux surface value.
+        s (float): normalized magnetic closed flux surface label.
         theta (float): poloidal angle of interest (rad).
         phi (float): toroidal angle of interest (rad).
         offset (float): total offset of layer from plamsa (m).
@@ -413,7 +451,7 @@ def stellarator_torus(
     
     Arguments:
         vmec (object): plasma equilibrium object.
-        s (float): normalized magnetic closed flux surface value.
+        s (float): normalized magnetic closed flux surface label.
         tor_ext (float): toroidal extent of build (rad).
         repeat (int): number of times to repeat build.
         phi_list_exp (list of float): interpolated list of toroidal angles
@@ -520,17 +558,18 @@ def expand_ang(ang_list, num_ang):
 
 # Define default export dictionary
 export_def = {
-    'dir': '',
     'exclude': [],
     'graveyard': False,
     'step_export': True,
     'h5m_export': None,
+    'dir': '',
+    'h5m_filename': 'dagmc',
+    'native_meshing': False,
     'plas_h5m_tag': None,
     'sol_h5m_tag': None,
     'facet_tol': None,
     'len_tol': None,
     'norm_tol': None,
-    'native_meshing': False,
     'anisotropic_ratio': 100,
     'deviation_angle': 5,
     'min_mesh_size': 5.0,
@@ -568,7 +607,8 @@ def parastell(
                 'theta_list': poloidal angles at which radial build is
                     specified. This list should always span 360 degrees (list
                     of float, deg).
-                'wall_s': closed flux index extrapolation at wall (float),
+                'wall_s': closed flux surface label extrapolation at wall
+                    (float),
                 'radial_build': {
                     'component': {
                         'thickness_matrix': list of list of float (cm),
@@ -582,7 +622,7 @@ def parastell(
         num_phi (int): number of phi geometric cross-sections to make for each
             build segment (defaults to 61).
         num_theta (int): number of points defining the geometric cross-section
-            (defaults to 100).
+            (defaults to 61).
         magnets (dict): dictionary of magnet parameters including
             {
                 'file': path to magnet coil point-locus data file (str),
@@ -622,6 +662,11 @@ def parastell(
                     of 'Cubit' or 'Gmsh' (str, defaults to None). The string is
                     case-sensitive. Note that if magnets are included, 'Cubit'
                     must be used,
+                'dir': directory to which to export output files (str, defaults
+                    to empty string). Note that directory must end in '/', if
+                    using Linux or MacOS, or '\' if using Windows.
+                'h5m_filename': name of DAGMC-compatible neutronics H5M file
+                    (str, defaults to 'dagmc'),
                 'plas_h5m_tag': optional alternate material tag to use for
                     plasma. If none is supplied and the plasma is not excluded,
                     'plasma' will be used (str, defaults to None),
@@ -629,6 +674,8 @@ def parastell(
                     scrape-off layer. If none is supplied and the scrape-off
                     layer is not excluded, 'sol' will be used (str, defaults to
                     None),
+                'native_meshing': choose native or legacy faceting for DAGMC
+                    export (bool, defaults to False),
                 'facet_tol': maximum distance a facet may be from surface of
                     CAD representation for Cubit export (float, defaults to
                     None),
@@ -636,8 +683,6 @@ def parastell(
                     (float, defaults to None),
                 'norm_tol': maximum change in angle between normal vector of
                     adjacent facets (float, defaults to None),
-                'native_meshing': choose native or legacy faceting for DAGMC
-                    export (bool, defaults to False),
                 'anisotropic_ratio': controls edge length ratio of elements
                     (float, defaults to 100.0),
                 'deviation_angle': controls deviation angle of facet from
@@ -669,7 +714,7 @@ def parastell(
     
     if export_dict['h5m_export'] == 'Cubit' or magnets is not None:
         cubit_dir = os.path.dirname(inspect.getfile(cubit))
-        cubit_dir = cubit_dir + '/plugins/'
+        cubit_dir = Path(cubit_dir) / Path('plugins')
         cubit.init([
             'cubit',
             '-nojournal',
@@ -677,7 +722,7 @@ def parastell(
             '-information', 'off',
             '-warning', 'off',
             '-commandplugindir',
-            cubit_dir
+            str(cubit_dir)
         ])
     
     if logger == None or not logger.hasHandlers():
@@ -802,7 +847,7 @@ def parastell(
 
     if magnets is not None:
         magnets['vol_id'] = magnet_coils.magnet_coils(
-            magnets, (repeat + 1)*tor_ext, logger = logger
+            magnets, (repeat + 1)*tor_ext, export['dir'], logger = logger
         )
 
     try:
@@ -812,5 +857,7 @@ def parastell(
         raise e
     
     if source is not None:
-        strengths = source_mesh.source_mesh(vmec, source, logger = logger)
+        strengths = source_mesh.source_mesh(
+            vmec, source, export['dir'], logger = logger
+        )
         return strengths

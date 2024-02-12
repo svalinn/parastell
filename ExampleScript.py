@@ -84,8 +84,10 @@ source = {
 export = {
     'exclude': [],
     'graveyard': False,
+    'dir': '',
     'step_export': True,
     'h5m_export': 'Cubit',
+    'h5m_filename': 'dagmc',
     'plas_h5m_tag': 'Vacuum',
     'sol_h5m_tag': 'Vacuum',
     # Note the following export parameters are used only for Cubit H5M exports
