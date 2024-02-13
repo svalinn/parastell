@@ -1,6 +1,5 @@
 import log
 import cubit
-from pymoab import core, types
 import numpy as np
 from sklearn.preprocessing import normalize
 import os
@@ -23,18 +22,10 @@ def mesh_magnets(vol_ids, export_dir, logger):
 
     logger.info('Exporting coil mesh...')
     
-    # Define export paths
-    exo_path = Path(export_dir) / 'coil_mesh.exo'
-    h5m_path = Path(export_dir) / 'coil_mesh.h5m'
+    export_path = Path(export_dir) / 'coil_mesh.h5m'
     
-    # EXODUS export
-    cubit.cmd(f'export mesh "{exo_path}"')
-    
-    # Convert EXODUS to H5M
-    mb = core.Core()
-    exodus_set = mb.create_meshset()
-    mb.load_file(str(exo_path), exodus_set)
-    mb.write_file(str(h5m_path), [exodus_set])
+    # H5M export
+    cubit.cmd(f'export cf_dagmc "{export_path}" overwrite')
 
 
 def cut_mags(tor_ext, vol_ids, r_avg):
