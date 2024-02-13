@@ -93,6 +93,7 @@ def cubit_export(components, export, magnets):
             For a rectangular cross-section, the list format is
             ['rectangle' (str), width (float, cm), thickness (float, cm)]
     """
+
     def legacy_export():
         """Exports neutronics H5M file via legacy plug-in faceting method.
         """
@@ -186,8 +187,6 @@ def cubit_export(components, export, magnets):
                 "block " + str(block_number) + " material "
                 + ''.join(("\'",magnet_h5m_tag,"\'"))
             )
-        # Export .cub file to check
-        cubit.cmd(f'save cub5 "{cwd + "/test.cub5"}" overwrite journal')
 
         # Mesh the model
         cubit.cmd(
@@ -206,7 +205,7 @@ def cubit_export(components, export, magnets):
     dir = Path(export['dir'])
     filename = Path(export['h5m_filename'])
     
-    def merge_layers():
+    def merge_layer_surfaces():
         #the plasma will have IDs 1,2,3 and name in components dict 'plasma'
         #the ends are 'planar surfaces'
         #the swept surfaces are 'spline surfaces'
@@ -258,6 +257,7 @@ def cubit_export(components, export, magnets):
                     if cubit.get_surface_type(surf) == 'spline surface':
                         splineSurfaces.append(surf)
 
+                #the outer surface bounding box will have the larger max xy value
                 if cubit.get_bounding_box('surface', splineSurfaces[1])[4] > cubit.get_bounding_box('surface',splineSurfaces[0])[4]:
                     outerSurface = splineSurfaces[1]
                     innerSurface = splineSurfaces[0]
@@ -267,21 +267,16 @@ def cubit_export(components, export, magnets):
                     outerSurface = splineSurfaces[0]
                     innerSurface = splineSurfaces[1]
 
-                
                 cubit.cmd('merge surface '+ str(innerSurface) + ' ' + str(lastOuterSurface))
-                print('merged surfaces ', innerSurface, lastOuterSurface)
                 
                 lastOuterSurface = outerSurface
-
-    # Get current working directory
-    cwd = os.getcwd()
 
     for name in components.keys():
         import_path = dir / Path(name).with_suffix('.step')
         cubit.cmd(f'import step "{import_path}" heal')
         components[name]['vol_id'] = cubit.get_last_id("volume")
 
-    merge_layers()
+    merge_layer_surfaces()
             
     if export['native_meshing']:
         native_export()
