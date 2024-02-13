@@ -861,3 +861,6 @@ def parastell(
             vmec, source, export['dir'], logger = logger
         )
         return strengths
+    
+    # reset cubit to avoid issues when looping
+    cubit.cmd('reset')
