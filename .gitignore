@@ -136,3 +136,6 @@ dmypy.json
 *.jou
 *.ods
 *.vtk
+*.cub
+*.cub5
+*.h5
