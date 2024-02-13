@@ -282,7 +282,8 @@ def cubit_export(components, export, magnets):
         native_export()
     else:
         legacy_export()
-       
+    
+
 
 def exports(export, components, magnets, logger):
     """Export components.
@@ -928,3 +929,6 @@ def parastell(
             vmec, source, export['dir'], logger = logger
         )
         return strengths
+    
+    # reset cubit to avoid issues when looping parastell
+    cubit.cmd('reset')
