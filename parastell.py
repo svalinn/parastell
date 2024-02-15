@@ -647,6 +647,7 @@ export_def = {
     'facet_tol': None,
     'len_tol': None,
     'norm_tol': None,
+    'skip_imprinting': False,
     'anisotropic_ratio': 100,
     'deviation_angle': 5,
     'min_mesh_size': 5.0,
@@ -760,6 +761,9 @@ def parastell(
                     (float, defaults to None),
                 'norm_tol': maximum change in angle between normal vector of
                     adjacent facets (float, defaults to None),
+                'skip_imprinting': choose whether to imprint and merge all in
+                    cubit or to merge surfaces based on import order and
+                    geometry information.
                 'anisotropic_ratio': controls edge length ratio of elements
                     (float, defaults to 100.0),
                 'deviation_angle': controls deviation angle of facet from
