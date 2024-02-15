@@ -12,8 +12,6 @@ from sklearn.preprocessing import normalize
 import os
 import inspect
 from pathlib import Path
-import itertools
-import json
 
 
 def cubit_export(components, export, magnets):
@@ -189,6 +187,10 @@ def cubit_export(components, export, magnets):
                 + ''.join(("\'",magnet_h5m_tag,"\'"))
             )
 
+        cwd = os.getcwd()
+
+        cubit.cmd(f'save cub5 "{cwd + "/test.cub5"}" overwrite journal')
+
         # Mesh the model
         cubit.cmd(
             "set trimesher coarse on ratio " + str(anisotropic_ratio)
@@ -206,81 +208,87 @@ def cubit_export(components, export, magnets):
     dir = Path(export['dir'])
     filename = Path(export['h5m_filename'])
     
-    def merge_layer_surfaces():
-        #the plasma will have IDs 1,2,3 and name in components dict 'plasma'
-        #the ends are 'planar surfaces'
-        #the swept surfaces are 'spline surfaces'
-        #when using cubit.get_surface_type(int)
-        
-        # get a tuple of volume ids, these will be in the import order
-        # and are assumed to increase in order from inside to outside
-        volumes = cubit.get_entities('volume')
+    def merge_layer_surfaces(): # assumes that components dict is ordered from inside to out
+        """Merge surfaces based on surface ids rather than imprinting/merging all
+        """
+        def orient_spline_surfaces(volume_id):
+            """Return the inner and outer surface ids for a given volume id
+            """
+            surfaces = cubit.get_relatives('volume', volume_id, 'surface')
+                
+            splineSurfaces = []
+
+            for surf in surfaces:
+                if cubit.get_surface_type(surf) == 'spline surface':
+                    splineSurfaces.append(surf)
+
+            # check if this is the plasm
+            if len(splineSurfaces) == 1:
+                outerSurface = splineSurfaces[0]
+                innerSurface = None
+            
+            else:
+                # the outer surface bounding box will have the larger max xy value
+                if cubit.get_bounding_box('surface', splineSurfaces[1])[4] > cubit.get_bounding_box('surface',splineSurfaces[0])[4]:
+                    outerSurface = splineSurfaces[1]
+                    innerSurface = splineSurfaces[0]
+
+                else:
+                    outerSurface = splineSurfaces[0]
+                    innerSurface = splineSurfaces[1]
+                
+            return innerSurface, outerSurface
+
 
         # tracks the surface id of the outer surface of the previous layer
         lastOuterSurface = None
         
-        for name, vol in zip(components.keys(),volumes):
+        for name in components.keys():
+
+            # get volume ID for layer
+
+            vol_id = components[name]['vol_id']
 
             # wait to merge until the next layer if the plasma is included
             # store surface to be merged for next loop
             if name == 'plasma':
-                surfaces = cubit.get_relatives('volume',vol,'surface')
-
-                for surf in surfaces:
-                    if cubit.get_surface_type(surf) == 'spline surface':
-                        lastOuterSurface = surf
+                
+                _ , lastOuterSurface = orient_spline_surfaces(vol_id)
 
             # check if we are in the first layer in a build with plasma excluded
             # store outer surface to be merged in next loop
             elif lastOuterSurface is None:
-                surfaces = cubit.get_relatives('volume',vol,'surface')
-                splineSurfaces = []
-
-                for surf in surfaces:
-                    if cubit.get_surface_type(surf) == 'spline surface':
-                        splineSurfaces.append(surf)
-
-                if cubit.get_bounding_box('surface', splineSurfaces[1])[4] > cubit.get_bounding_box('surface',splineSurfaces[0])[4]:
-                    outerSurface = splineSurfaces[1]
-
-                else:
-                    outerSurface = splineSurfaces[0]
+                
+                innerSurface, outerSurface = orient_spline_surfaces(vol_id)
 
                 lastOuterSurface = outerSurface
 
             # get the inner surface of the current if it is not the first
             # layer and merge it with the outside surface of the previous layer
             else:
-                surfaces = cubit.get_relatives('volume',vol,'surface')
-                splineSurfaces = []
-
-                for surf in surfaces:
-                    if cubit.get_surface_type(surf) == 'spline surface':
-                        splineSurfaces.append(surf)
-
-                #the outer surface bounding box will have the larger max xy value
-                if cubit.get_bounding_box('surface', splineSurfaces[1])[4] > cubit.get_bounding_box('surface',splineSurfaces[0])[4]:
-                    outerSurface = splineSurfaces[1]
-                    innerSurface = splineSurfaces[0]
-
-                else:
-                    
-                    outerSurface = splineSurfaces[0]
-                    innerSurface = splineSurfaces[1]
+                
+                innerSurface, outerSurface = orient_spline_surfaces(vol_id)
 
                 cubit.cmd('merge surface '+ str(innerSurface) + ' ' + str(lastOuterSurface))
                 
                 lastOuterSurface = outerSurface
+        
 
     for name in components.keys():
         import_path = dir / Path(name).with_suffix('.step')
         cubit.cmd(f'import step "{import_path}" heal')
         components[name]['vol_id'] = cubit.get_last_id("volume")
 
-    merge_layer_surfaces()
+    if export['skip_imprinting']:
+        merge_layer_surfaces()
+
+    else:
+        cubit.cmd('imprint volume all')
+        cubit.cmd('merge volume all')
             
     if export['native_meshing']:
         native_export()
+
     else:
         legacy_export()
     
@@ -905,8 +913,6 @@ def parastell(
                 cutter
             )
 
-            volume_dict[name] = cutter.val().Volume()
-
         except ValueError as e:
             logger.error(e.args[0])
             raise e
@@ -941,7 +947,4 @@ def parastell(
     if export_dict['h5m_export'] == 'Cubit':
         cubit.cmd('reset')
 
-    # save the volume data
-    with open('volumes.txt','w') as f:
-        f.write(json.dumps(volume_dict))
 

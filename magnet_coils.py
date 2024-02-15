@@ -538,7 +538,7 @@ def magnet_coils(magnets, tor_ext, export_dir, logger = None):
         vol_ids = cut_mags(tor_ext, vol_ids, r_avg)
     
     # Export magnet coils
-    export_path = Path(export_dir) / Path(magnets["name"]).with_suffix('step')
+    export_path = Path(export_dir) / Path(magnets["name"]).with_suffix('.step')
     cubit.cmd(
         f'export step "{export_path}" overwrite'
     )
