@@ -187,10 +187,6 @@ def cubit_export(components, export, magnets):
                 + ''.join(("\'",magnet_h5m_tag,"\'"))
             )
 
-        cwd = os.getcwd()
-
-        cubit.cmd(f'save cub5 "{cwd + "/test.cub5"}" overwrite journal')
-
         # Mesh the model
         cubit.cmd(
             "set trimesher coarse on ratio " + str(anisotropic_ratio)
