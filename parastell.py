@@ -13,6 +13,7 @@ import os
 import inspect
 from pathlib import Path
 import itertools
+import json
 
 
 def cubit_export(components, export, magnets):
@@ -866,6 +867,9 @@ def parastell(
 
     # Initialize offset matrix
     offset_mat = np.zeros((n_phi, n_theta))
+
+    # initialize dict for storing volumes
+    volume_dict = {}
     
     # Generate components in radial build
     for name, layer_data in radial_build.items():
@@ -900,6 +904,9 @@ def parastell(
                 vmec, s, tor_ext, repeat, phi_list_exp, theta_list_exp, interp,
                 cutter
             )
+
+            volume_dict[name] = cutter.val().Volume()
+
         except ValueError as e:
             logger.error(e.args[0])
             raise e
@@ -915,7 +922,7 @@ def parastell(
 
     if magnets is not None:
         magnets['vol_id'] = magnet_coils.magnet_coils(
-            magnets, (repeat + 1)*tor_ext, export['dir'], logger = logger
+            magnets, (repeat + 1)*tor_ext, export_dict['dir'], logger = logger
         )
 
     try:
@@ -926,9 +933,15 @@ def parastell(
     
     if source is not None:
         strengths = source_mesh.source_mesh(
-            vmec, source, export['dir'], logger = logger
+            vmec, source, export_dict['dir'], logger = logger
         )
         return strengths
     
     # reset cubit to avoid issues when looping parastell
-    cubit.cmd('reset')
+    if export_dict['h5m_export'] == 'Cubit':
+        cubit.cmd('reset')
+
+    # save the volume data
+    with open('volumes.txt','w') as f:
+        f.write(json.dumps(volume_dict))
+
