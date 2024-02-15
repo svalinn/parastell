@@ -847,7 +847,7 @@ def parastell(
 
     if magnets is not None:
         magnets['vol_id'] = magnet_coils.magnet_coils(
-            magnets, (repeat + 1)*tor_ext, export['dir'], logger = logger
+            magnets, (repeat + 1)*tor_ext, export_dict['dir'], logger = logger
         )
 
     try:
@@ -858,9 +858,10 @@ def parastell(
     
     if source is not None:
         strengths = source_mesh.source_mesh(
-            vmec, source, export['dir'], logger = logger
+            vmec, source, export_dict['dir'], logger = logger
         )
         return strengths
     
     # reset cubit to avoid issues when looping
-    cubit.cmd('reset')
+    if export_dict['h5m_export'] == 'Cubit':    
+        cubit.cmd('reset')
