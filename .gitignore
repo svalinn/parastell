@@ -139,4 +139,3 @@ dmypy.json
 *.cub
 *.cub5
 *.h5
-logMem.sh

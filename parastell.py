@@ -203,38 +203,38 @@ def cubit_export(components, export, magnets):
 
     dir = Path(export['dir'])
     filename = Path(export['h5m_filename'])
+
+    def orient_spline_surfaces(volume_id):
+        """Return the inner and outer surface ids for a given volume id
+        """
+        surfaces = cubit.get_relatives('volume', volume_id, 'surface')
+            
+        splineSurfaces = []
+
+        for surf in surfaces:
+            if cubit.get_surface_type(surf) == 'spline surface':
+                splineSurfaces.append(surf)
+
+        # check if this is the plasma
+        if len(splineSurfaces) == 1:
+            outerSurface = splineSurfaces[0]
+            innerSurface = None
+        
+        else:
+            # the outer surface bounding box will have the larger max xy value
+            if cubit.get_bounding_box('surface', splineSurfaces[1])[4] > cubit.get_bounding_box('surface',splineSurfaces[0])[4]:
+                outerSurface = splineSurfaces[1]
+                innerSurface = splineSurfaces[0]
+
+            else:
+                outerSurface = splineSurfaces[0]
+                innerSurface = splineSurfaces[1]
+            
+        return innerSurface, outerSurface
     
     def merge_layer_surfaces(): # assumes that components dict is ordered from inside to out
         """Merge surfaces based on surface ids rather than imprinting/merging all
         """
-        def orient_spline_surfaces(volume_id):
-            """Return the inner and outer surface ids for a given volume id
-            """
-            surfaces = cubit.get_relatives('volume', volume_id, 'surface')
-                
-            splineSurfaces = []
-
-            for surf in surfaces:
-                if cubit.get_surface_type(surf) == 'spline surface':
-                    splineSurfaces.append(surf)
-
-            # check if this is the plasm
-            if len(splineSurfaces) == 1:
-                outerSurface = splineSurfaces[0]
-                innerSurface = None
-            
-            else:
-                # the outer surface bounding box will have the larger max xy value
-                if cubit.get_bounding_box('surface', splineSurfaces[1])[4] > cubit.get_bounding_box('surface',splineSurfaces[0])[4]:
-                    outerSurface = splineSurfaces[1]
-                    innerSurface = splineSurfaces[0]
-
-                else:
-                    outerSurface = splineSurfaces[0]
-                    innerSurface = splineSurfaces[1]
-                
-            return innerSurface, outerSurface
-
 
         # tracks the surface id of the outer surface of the previous layer
         lastOuterSurface = None
@@ -245,25 +245,23 @@ def cubit_export(components, export, magnets):
 
             vol_id = components[name]['vol_id']
 
+            # get the inner and outer surface IDs of the current layer
+            innerSurface, outerSurface = orient_spline_surfaces(vol_id)
+
             # wait to merge until the next layer if the plasma is included
             # store surface to be merged for next loop
             if name == 'plasma':
                 
-                _ , lastOuterSurface = orient_spline_surfaces(vol_id)
+                lastOuterSurface = outerSurface
 
             # check if we are in the first layer in a build with plasma excluded
             # store outer surface to be merged in next loop
             elif lastOuterSurface is None:
                 
-                innerSurface, outerSurface = orient_spline_surfaces(vol_id)
-
                 lastOuterSurface = outerSurface
 
-            # get the inner surface of the current if it is not the first
-            # layer and merge it with the outside surface of the previous layer
+            # merge inner surface with outer surface of previous layer
             else:
-                
-                innerSurface, outerSurface = orient_spline_surfaces(vol_id)
 
                 cubit.cmd('merge surface '+ str(innerSurface) + ' ' + str(lastOuterSurface))
                 
@@ -875,9 +873,6 @@ def parastell(
 
     # Initialize offset matrix
     offset_mat = np.zeros((n_phi, n_theta))
-
-    # initialize dict for storing volumes
-    volume_dict = {}
     
     # Generate components in radial build
     for name, layer_data in radial_build.items():
