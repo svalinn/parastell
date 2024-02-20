@@ -94,8 +94,7 @@ def cubit_export(components, export, magnets):
     """
 
     def legacy_export():
-        """Exports neutronics H5M file via legacy plug-in faceting method.
-        """
+        """Exports neutronics H5M file via legacy plug-in faceting method."""
         # Conditionally assign magnet material group
         if magnets is not None:
             magnet_h5m_tag = magnets['h5m_tag']
@@ -136,8 +135,7 @@ def cubit_export(components, export, magnets):
         )
 
     def native_export():
-        """Exports neutronics H5M file via native Cubit faceting method.
-        """
+        """Exports neutronics H5M file via native Cubit faceting method."""
         # Extract Cubit export parameters
         anisotropic_ratio = export['anisotropic_ratio']
         deviation_angle = export['deviation_angle']
@@ -166,13 +164,11 @@ def cubit_export(components, export, magnets):
             
         if magnets is not None:
             magnet_h5m_tag = magnets['h5m_tag']
-            
             # Create magnet material
             cubit.cmd(
                 f'create material "{magnet_h5m_tag}" property_group '
                 + '"CUBIT-ABAQUS"'
             )
-
             # Assign magnets to block
             block_number = min(magnets['vol_id'])
             for vol in magnets['vol_id']:
@@ -180,7 +176,6 @@ def cubit_export(components, export, magnets):
                 cubit.cmd(
                     "block " + str(block_number) + " add volume " + str(vol)
                 )
-            
             # Assign magnet material to block
             cubit.cmd(
                 "block " + str(block_number) + " material "
@@ -201,72 +196,66 @@ def cubit_export(components, export, magnets):
             f'export cf_dagmc "{export_path}" overwrite'
         )
 
-    dir = Path(export['dir'])
-    filename = Path(export['h5m_filename'])
-
     def orient_spline_surfaces(volume_id):
-        """Return the inner and outer surface ids for a given volume id
-        """
+        """Return the inner and outer surface ids for a given volume id"""
+
         surfaces = cubit.get_relatives('volume', volume_id, 'surface')
             
-        splineSurfaces = []
+        spline_surfaces = []
 
         for surf in surfaces:
             if cubit.get_surface_type(surf) == 'spline surface':
-                splineSurfaces.append(surf)
+                spline_surfaces.append(surf)
 
-        # check if this has only 1 spline surface
-        if len(splineSurfaces) == 1:
-            outerSurface = splineSurfaces[0]
-            innerSurface = None
-        
+        if len(spline_surfaces) == 1:
+            outer_surface = spline_surfaces[0]
+            inner_surface = None
         else:
-            # the outer surface bounding box will have the larger max xy value
-            if cubit.get_bounding_box('surface', splineSurfaces[1])[4] > cubit.get_bounding_box('surface',splineSurfaces[0])[4]:
-                outerSurface = splineSurfaces[1]
-                innerSurface = splineSurfaces[0]
-
+            # The outer surface bounding box will have the larger max xy value
+            if (cubit.get_bounding_box('surface', spline_surfaces[1])[4] >
+                    cubit.get_bounding_box('surface',spline_surfaces[0])[4]):
+                outer_surface = spline_surfaces[1]
+                inner_surface = spline_surfaces[0]
             else:
-                outerSurface = splineSurfaces[0]
-                innerSurface = splineSurfaces[1]
+                outer_surface = spline_surfaces[0]
+                inner_surface = spline_surfaces[1]
             
-        return innerSurface, outerSurface
+        return inner_surface, outer_surface
     
-    def merge_layer_surfaces(): # assumes that components dict is ordered from inside to out
-        """Merge surfaces based on surface ids rather than imprinting/merging all
+    def merge_layer_surfaces():
+        """Merge surfaces based on surface ids rather than imprinting/merging 
+        all. Assumes that the components dict is ordered from inside to out.
         """
 
-        # tracks the surface id of the outer surface of the previous layer
-        lastOuterSurface = None
+        # Tracks the surface id of the outer surface of the previous layer
+        last_outer_surface = None
         
         for name in components.keys():
-
-            # get volume ID for layer
-
+            # Get volume ID for layer
             vol_id = components[name]['vol_id']
+            
+            # Get the inner and outer surface IDs of the current layer
+            inner_surface, outer_surface = orient_spline_surfaces(vol_id)
 
-            # get the inner and outer surface IDs of the current layer
-            innerSurface, outerSurface = orient_spline_surfaces(vol_id)
-
-            # wait to merge until the next layer if the plasma is included
-            # store surface to be merged for next loop
+            # Wait to merge until the next layer if the plasma is included
+            # Store surface to be merged for next loop
             if name == 'plasma':
-                
-                lastOuterSurface = outerSurface
+                last_outer_surface = outer_surface
 
-            # check if we are in the first layer in a build with plasma excluded
-            # store outer surface to be merged in next loop
-            elif lastOuterSurface is None:
-                
-                lastOuterSurface = outerSurface
+            # First layer if plasma is excluded
+            elif last_outer_surface is None:
+                last_outer_surface = outer_surface
 
-            # merge inner surface with outer surface of previous layer
+            # Merge inner surface with outer surface of previous layer
             else:
 
-                cubit.cmd('merge surface '+ str(innerSurface) + ' ' + str(lastOuterSurface))
+                cubit.cmd('merge surface '+ str(inner_surface) + ' ' 
+                          + str(last_outer_surface))
                 
-                lastOuterSurface = outerSurface
+                last_outer_surface = outer_surface
         
+    dir = Path(export['dir'])
+    filename = Path(export['h5m_filename'])
 
     for name in components.keys():
         import_path = dir / Path(name).with_suffix('.step')
