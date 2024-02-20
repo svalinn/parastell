@@ -215,7 +215,7 @@ def cubit_export(components, export, magnets):
             if cubit.get_surface_type(surf) == 'spline surface':
                 splineSurfaces.append(surf)
 
-        # check if this is the plasma
+        # check if this has only 1 spline surface
         if len(splineSurfaces) == 1:
             outerSurface = splineSurfaces[0]
             innerSurface = None
