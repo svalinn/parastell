@@ -5,6 +5,7 @@ import numpy as np
 from sklearn.preprocessing import normalize
 import os
 from pathlib import Path
+import subprocess
 
 
 def mesh_magnets(vol_ids, export_dir, logger):
@@ -28,13 +29,10 @@ def mesh_magnets(vol_ids, export_dir, logger):
     h5m_path = Path(export_dir) / 'coil_mesh.h5m'
     
     # EXODUS export
-    cubit.cmd(f'export mesh "{exo_path}"')
+    cubit.cmd(f'export mesh "{exo_path}" overwrite')
     
     # Convert EXODUS to H5M
-    mb = core.Core()
-    exodus_set = mb.create_meshset()
-    mb.load_file(str(exo_path), exodus_set)
-    mb.write_file(str(h5m_path), [exodus_set])
+    subprocess.run(f'mbconvert {exo_path} {h5m_path}', shell = True)
 
 
 def cut_mags(tor_ext, vol_ids, r_avg):
