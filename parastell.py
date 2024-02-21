@@ -92,9 +92,9 @@ def cubit_export(components, export, magnets):
             For a rectangular cross-section, the list format is
             ['rectangle' (str), width (float, cm), thickness (float, cm)]
     """
+
     def legacy_export():
-        """Exports neutronics H5M file via legacy plug-in faceting method.
-        """
+        """Exports neutronics H5M file via legacy plug-in faceting method."""
         # Conditionally assign magnet material group
         if magnets is not None:
             magnet_h5m_tag = magnets['h5m_tag']
@@ -135,8 +135,7 @@ def cubit_export(components, export, magnets):
         )
 
     def native_export():
-        """Exports neutronics H5M file via native Cubit faceting method.
-        """
+        """Exports neutronics H5M file via native Cubit faceting method."""
         # Extract Cubit export parameters
         anisotropic_ratio = export['anisotropic_ratio']
         deviation_angle = export['deviation_angle']
@@ -165,13 +164,11 @@ def cubit_export(components, export, magnets):
             
         if magnets is not None:
             magnet_h5m_tag = magnets['h5m_tag']
-            
             # Create magnet material
             cubit.cmd(
                 f'create material "{magnet_h5m_tag}" property_group '
                 + '"CUBIT-ABAQUS"'
             )
-
             # Assign magnets to block
             block_number = min(magnets['vol_id'])
             for vol in magnets['vol_id']:
@@ -179,13 +176,12 @@ def cubit_export(components, export, magnets):
                 cubit.cmd(
                     "block " + str(block_number) + " add volume " + str(vol)
                 )
-            
             # Assign magnet material to block
             cubit.cmd(
                 "block " + str(block_number) + " material "
                 + ''.join(("\'",magnet_h5m_tag,"\'"))
             )
-        
+
         # Mesh the model
         cubit.cmd(
             "set trimesher coarse on ratio " + str(anisotropic_ratio)
@@ -200,6 +196,64 @@ def cubit_export(components, export, magnets):
             f'export cf_dagmc "{export_path}" overwrite'
         )
 
+    def orient_spline_surfaces(volume_id):
+        """Return the inner and outer surface ids for a given volume id"""
+
+        surfaces = cubit.get_relatives('volume', volume_id, 'surface')
+            
+        spline_surfaces = []
+
+        for surf in surfaces:
+            if cubit.get_surface_type(surf) == 'spline surface':
+                spline_surfaces.append(surf)
+
+        if len(spline_surfaces) == 1:
+            outer_surface = spline_surfaces[0]
+            inner_surface = None
+        else:
+            # The outer surface bounding box will have the larger max xy value
+            if (cubit.get_bounding_box('surface', spline_surfaces[1])[4] >
+                    cubit.get_bounding_box('surface',spline_surfaces[0])[4]):
+                outer_surface = spline_surfaces[1]
+                inner_surface = spline_surfaces[0]
+            else:
+                outer_surface = spline_surfaces[0]
+                inner_surface = spline_surfaces[1]
+            
+        return inner_surface, outer_surface
+    
+    def merge_layer_surfaces():
+        """Merge surfaces based on surface ids rather than imprinting/merging 
+        all. Assumes that the components dict is ordered from inside to out.
+        """
+
+        # Tracks the surface id of the outer surface of the previous layer
+        last_outer_surface = None
+        
+        for name in components.keys():
+            # Get volume ID for layer
+            vol_id = components[name]['vol_id']
+            
+            # Get the inner and outer surface IDs of the current layer
+            inner_surface, outer_surface = orient_spline_surfaces(vol_id)
+
+            # Wait to merge until the next layer if the plasma is included
+            # Store surface to be merged for next loop
+            if name == 'plasma':
+                last_outer_surface = outer_surface
+
+            # First layer if plasma is excluded
+            elif last_outer_surface is None:
+                last_outer_surface = outer_surface
+
+            # Merge inner surface with outer surface of previous layer
+            else:
+
+                cubit.cmd('merge surface '+ str(inner_surface) + ' ' 
+                          + str(last_outer_surface))
+                
+                last_outer_surface = outer_surface
+        
     dir = Path(export['dir'])
     filename = Path(export['h5m_filename'])
 
@@ -208,14 +262,20 @@ def cubit_export(components, export, magnets):
         cubit.cmd(f'import step "{import_path}" heal')
         components[name]['vol_id'] = cubit.get_last_id("volume")
 
-    cubit.cmd('imprint volume all')
-    cubit.cmd('merge volume all')
+    if export['skip_imprinting']:
+        merge_layer_surfaces()
 
+    else:
+        cubit.cmd('imprint volume all')
+        cubit.cmd('merge volume all')
+            
     if export['native_meshing']:
         native_export()
+
     else:
         legacy_export()
-       
+    
+
 
 def exports(export, components, magnets, logger):
     """Export components.
@@ -570,6 +630,7 @@ export_def = {
     'facet_tol': None,
     'len_tol': None,
     'norm_tol': None,
+    'skip_imprinting': False,
     'anisotropic_ratio': 100,
     'deviation_angle': 5,
     'min_mesh_size': 5.0,
@@ -683,6 +744,9 @@ def parastell(
                     (float, defaults to None),
                 'norm_tol': maximum change in angle between normal vector of
                     adjacent facets (float, defaults to None),
+                'skip_imprinting': choose whether to imprint and merge all in
+                    cubit or to merge surfaces based on import order and
+                    geometry information.
                 'anisotropic_ratio': controls edge length ratio of elements
                     (float, defaults to 100.0),
                 'deviation_angle': controls deviation angle of facet from
@@ -832,6 +896,7 @@ def parastell(
                 vmec, s, tor_ext, repeat, phi_list_exp, theta_list_exp, interp,
                 cutter
             )
+
         except ValueError as e:
             logger.error(e.args[0])
             raise e
@@ -847,7 +912,7 @@ def parastell(
 
     if magnets is not None:
         magnets['vol_id'] = magnet_coils.magnet_coils(
-            magnets, (repeat + 1)*tor_ext, export['dir'], logger = logger
+            magnets, (repeat + 1)*tor_ext, export_dict['dir'], logger = logger
         )
 
     try:
@@ -858,6 +923,12 @@ def parastell(
     
     if source is not None:
         strengths = source_mesh.source_mesh(
-            vmec, source, export['dir'], logger = logger
+            vmec, source, export_dict['dir'], logger = logger
         )
         return strengths
+    
+    # reset cubit to avoid issues when looping parastell
+    if export_dict['h5m_export'] == 'Cubit':
+        cubit.cmd('reset')
+
+

@@ -94,6 +94,7 @@ export = {
     'facet_tol': 1,
     'len_tol': 5,
     'norm_tol': None,
+    'skip_imprinting': False,
     # Choose whether to use native Cubit meshing (v2023.11+) or legacy DAGMC
     # workflow
     'native_meshing': False,
