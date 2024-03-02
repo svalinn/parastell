@@ -91,20 +91,20 @@ class StellaratorRib(object):
         self.phi = phi_
         self.scale = scale_
 
-        if self.offset < 0:
+        if not np.all(self.offset >= 0):
             raise ValueError(
                 'Offset must be greater than or equal to 0. Check thickness inputs '
                 'for negative values'
             )
 
-        self.r = self.vmec2xyz()
+        self.r_loci = self.vmec2xyz()
 
         if self.offset > 0:
-            self.r += self.offset * self.surf_norm()
+            self.r_loci += (self.offset.T * self.surf_norm().T).T
 
-        self.r = np.append(self.r, self.r[0,:])
+        self.r_loci = np.append(self.r_loci, self.r_loci[0,:])
 
-        self.rib = cq.Workplane("XY").spline(r).close()
+        self.rib = cq.Workplane("XY").spline(self.r_loci).close()
 
     def vmec2xyz(self, poloidal_offset=0):
         '''
@@ -118,6 +118,9 @@ class StellaratorRib(object):
         return np.array([self.scale * self.vmec.vmec2xyz(self.s, theta, self.phi) 
                          for theta in (self.theta + poloidal_offset)])
 
+    def normalize(vec_list):
+        return np.divide(vec_list.T, np.linalg.norm(vec_list, axis=1).T).T
+
     def surf_norm(self):
         '''
         Approximate the normal to the curve at each poloidal angle by first approximating
@@ -125,10 +128,10 @@ class StellaratorRib(object):
         a vector defined as normal to the plane at this toroidal angle
         '''
 
-        eps = 1e-6
-        next_pt = self.vmec2xyz(eps)
+        eps = 1e-4
+        next_pt_loci = self.vmec2xyz(eps)
 
-        tangent = next_pt - self.r
+        tangent = next_pt_loci - self.r_loci
 
         plane_norm = np.array([-np.sin(self.phi), np.cos(self.phi), 0])
 
