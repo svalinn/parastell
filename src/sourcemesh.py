@@ -1,5 +1,6 @@
 import argparse
 import yaml
+import read_vmec
 import numpy as np
 from pymoab import core, types
 
@@ -85,7 +86,7 @@ class SourceMesh(object):
 
         self.verts_per_ring = theta_list.shape[0]
         # add one vertex per plane for magenetic axis  
-        self.verts_per_plane = s_list.shape[0] self.verts_per_ring + 1  
+        self.verts_per_plane = s_list.shape[0] * self.verts_per_ring + 1  
 
         num_verts = phi_list.shape[0] * self.verts_per_plane
         self.coords = np.zeros((num_verts, 3))
@@ -124,9 +125,9 @@ class SourceMesh(object):
         """
 
         # Initialize list of coordinates for each tetrahedron vertex
-        tet_verts = [ self.verts[id] for id in ids ]
+        tet_coords = [ self.coords[id] for id in ids ]
         # Initialize list of source strengths for each tetrahedron vertex
-        ss_verts = [ rxn_rate(self.verts_s[id]) for id in ids ]
+        vertex_strengths = [ rxn_rate(self.coords_s[id]) for id in ids ]
 
         # Define barycentric coordinates for integration points
         bary_coords = np.array([
@@ -141,12 +142,12 @@ class SourceMesh(object):
         int_w = np.array([-0.8, 0.45, 0.45, 0.45, 0.45])
         
         # Interpolate source strength at integration points
-        ss_int_pts = np.dot(bary_coords, ss_verts)
+        ss_int_pts = np.dot(bary_coords, vertex_strengths)
         
         # Compute graph of tetrahedral vertices
-        T = np.subtract(tet_verts[:3], tet_verts[3]).T
+        edge_vectors = np.subtract(tet_coords[:3], tet_coords[3]).T
         
-        tet_vol = np.abs(np.linalg.det(T))/6
+        tet_vol = np.abs(np.linalg.det(edge_vectors))/6
         
         ss = tet_vol * np.dot(int_w, ss_int_pts)
 
@@ -165,16 +166,15 @@ class SourceMesh(object):
 
         # Create tetrahedron in PyMOAB
         tet = self.mbc.create_element(types.MBTET, tet_verts)
-        self.mbc.add_entity(mesh_set, tet)
+        self.mbc.add_entity(self.mesh_set, tet)
         
         # Compute source strength for tetrahedron
         ss = self.source_strength(ids)
         self.strengths.append(ss)
 
         # Tag tetrahedra with source strength data
-        self.mbc.tag_set_data(tag_handle, tet, [ss])
+        self.mbc.tag_set_data(self.tag_handle, tet, [ss])
 
-        return        
 
     def create_tets_from_hex(s_idx, theta_idx, phi_idx):
         """Creates five tetrahedra from defined hexahedron.
@@ -213,8 +213,6 @@ class SourceMesh(object):
         for vertex_ids in hex_canon_ids:
             self.create_tet(vertex_ids)
         
-        return
-
     def create_tets_from_wedge(self, theta_idx, phi_idx):
         """Creates three tetrahedra from defined wedge.
 
@@ -246,8 +244,6 @@ class SourceMesh(object):
         
         for vertex_ids in wedge_canon_ids:
             self.create_tet(vertex_ids)
-
-        return
 
     def get_vertex_id(self, vertex_idx):
         """Computes vertex index in row-major order as stored by MOAB from
@@ -326,7 +322,9 @@ def generate_source_mesh():
 
     src_data = read_yaml_src(args.filename)
 
-    source_mesh = SourceMesh(src_data['vmec'], src_data['num_s'], src_data['num_theta'], src_data['num_phi'], src_data['tor_ext'])
+    vmec = read_vmec(src_data['vmec_file'])
+
+    source_mesh = SourceMesh(vmec, src_data['num_s'], src_data['num_theta'], src_data['num_phi'], src_data['tor_ext'])
 
     source_mesh.write(src_data['export_dir'] / src_data['mesh_file'])
 
