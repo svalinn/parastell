@@ -34,7 +34,8 @@ def test_vertices():
 
     source_mesh = SourceMesh(vmec, num_s_exp, num_theta_exp, num_phi_exp, 
                              tor_ext_exp)
-
+    
+    source_mesh.create_vertices()
 
     assert source_mesh.coord.shape = (num_verts_exp, 3)
     assert source_mesh.coord_s.shape = (num_verts_exp,)
