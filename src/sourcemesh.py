@@ -1,6 +1,5 @@
 import argparse
-import yaml
-import read_vmec
+import util
 import numpy as np
 from pymoab import core, types
 
@@ -188,7 +187,8 @@ class SourceMesh(object):
         # [flux surface index, poloidal index, toroidal index]
         # This is a canonical ordering expected by MOAB for elements
         # of this shape
-        hex_idx_data = np.array([s_idx, theta_idx, phi_idx]) + np.array([
+
+        hex_vertex_stencil = np.array([
             [0, 1, 0],
             [0, 0, 0],
             [0, 1, 1],
@@ -196,8 +196,9 @@ class SourceMesh(object):
             [1, 1, 0],
             [1, 0, 0],
             [1, 1, 1],
-            [1, 0, 1]
-        ]) 
+            [1, 0, 1] ])
+
+        hex_idx_data = np.array([s_idx, theta_idx, phi_idx]) + hex_vertex_stencil
 
         idx_list = [ self.get_vertex_id(vertex_idx) for vertex_idx in hex_idx_data ]
 
@@ -307,22 +308,23 @@ def parse_args():
 
     return parser.parse_args()
 
-def read_yaml_src():
+def read_yaml_src(filename):
     
-    with open(filename) as stream:
-        data = yaml.safe_load(stream)
+    all_data = util.read_yaml(filename)
 
     # extract data to define source mesh
-    src_data = data
+    src_data = all_data['source']
 
-    return src_data            
+    vmec_file = all_data['plasma_eq']
+
+    return vmec_file, src_data            
 
 def generate_source_mesh():
     args = parse_args()
 
-    src_data = read_yaml_src(args.filename)
+    vmec_file, src_data = read_yaml_src(args.filename)
 
-    vmec = read_vmec(src_data['vmec_file'])
+    vmec = util.read_vmec_file(vmec_file)
 
     source_mesh = SourceMesh(vmec, src_data['num_s'], src_data['num_theta'], src_data['num_phi'], src_data['tor_ext'])
 
