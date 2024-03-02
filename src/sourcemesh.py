@@ -48,8 +48,6 @@ class SourceMesh(object):
         self.tor_ext = np.deg2rad(tor_ext_)
 
         self.create_mbc()
-        self.create_vertices()
-        self.create_mesh()
 
 
     def create_mbc(self):
@@ -330,6 +328,8 @@ def generate_source_mesh():
     vmec = read_vmec.vmec_data(vmec_file)
 
     source_mesh = SourceMesh(vmec, src_data['num_s'], src_data['num_theta'], src_data['num_phi'], src_data['tor_ext'])
+    source_mesh.create_vertices()
+    source_mesh.create_mesh()
 
     source_mesh.write(src_data['export_dir'] / src_data['mesh_file'])
 
