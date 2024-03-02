@@ -1,5 +1,7 @@
 import argparse
 import util
+import yaml
+import read_vmec
 import numpy as np
 from pymoab import core, types
 
@@ -310,7 +312,8 @@ def parse_args():
 
 def read_yaml_src(filename):
     
-    all_data = util.read_yaml(filename)
+    with open(filename) as yaml_file:
+        all_data =  yaml.safe_load(yaml_file)
 
     # extract data to define source mesh
     src_data = all_data['source']
@@ -324,7 +327,7 @@ def generate_source_mesh():
 
     vmec_file, src_data = read_yaml_src(args.filename)
 
-    vmec = util.read_vmec_file(vmec_file)
+    vmec = read_vmec.vmec_data(vmec_file)
 
     source_mesh = SourceMesh(vmec, src_data['num_s'], src_data['num_theta'], src_data['num_phi'], src_data['tor_ext'])
 
