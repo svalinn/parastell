@@ -139,3 +139,12 @@ class StellaratorRib(object):
         return normalize(norm)
     
 
+def parse_args():
+    pass
+
+def parastell():
+    args = parse_args()
+    pass
+
+if __name__ == "__main__":
+    parastell()
