@@ -32,26 +32,56 @@ def rxn_rate(s):
     return rr/m3tocm3
 
 class SourceMesh(object):
+    """
+    Generates a source mesh that describes the relative source intensity of
+    neutrons in a magnetically confined plasma described by a VMEC plasma
+    equilibrium.  
+    
+    The mesh will be defined on a regular grid in the plasma coordinates of s,
+    theta, phi.  Mesh vertices will be defined on circular grid at each toroidal
+    plane, and connected between toroidal planes. This results in wedge elements
+    along the magnetic axis and hexagonal elements throughout the remainder of
+    the mesh.  Each of these elements will be subdivided into tetrahedra (4 for
+    the wedges and 5 for the hexahedra) to result in a mesh that is simpler to
+    use.
+
+    Each tetrahedron will be tagged with the volumetric neutron source intensity
+    in n/cm3/s, using on a finite-element based quadrature of the source
+    intensity evaluated at each vertex.
+
+    Parameters:
+        vmec (vmec object) : as defined by the pystell_uw vmec reader. Must have
+                a method `vmec2xyz(s, theta, phi)` that returns an (x,y,z)
+                coordinate for any plasma parameter, s, poloidal angle, theta,
+                and toroidal angle, phi.
+        num_s (int) : number of rings of vertices in each toroidal plane
+        num_theta (int) : number of poloidal angles for vertex locations
+        num_phi (int) : number of toroidal angles for planes of vertices
+        tor_ext (float) : extend of source mesh in toroidal direction in degrees
+                  assumed in degrees
+    """
     def __init__(
             self,
-            vmec_, 
-            num_s_,
-            num_theta_,
-            num_phi_,
-            tor_ext_
+            vmec, 
+            num_s,
+            num_theta,
+            num_phi,
+            tor_ext
     ):
         
-        self.vmec = vmec_
-        self.num_s = num_s_
-        self.num_theta = num_theta_
-        self.num_phi = num_phi_
-        self.tor_ext = np.deg2rad(tor_ext_)
+        self.vmec = vmec
+        self.num_s = num_s
+        self.num_theta = num_theta
+        self.num_phi = num_phi
+        self.tor_ext = np.deg2rad(tor_ext)
 
-        self.create_mbc()
+        self._create_mbc()
 
 
-    def create_mbc(self):
-        """Creates PyMOAB core instance with source strength tag.
+    def _create_mbc(self):
+        """
+        Creates PyMOAB core instance with source strength tag.
+        (Internal function not intended to be called externally.)
 
         Returns:
             mbc (object): PyMOAB core instance.
@@ -71,7 +101,14 @@ class SourceMesh(object):
         return
 
     def create_vertices(self):
-        """Creates mesh vertices and adds them to PyMOAB core.
+        """
+        Creates mesh vertices and adds them to PyMOAB core.
+
+        The grid of mesh vertices is generated from the user input
+        defining the number of meshes in each of the plasma
+        coordinate directions. Care is taken to manage the
+        mesh at the 0 == 2 * pi wrap so that everything
+        is closed and consistent.
         """
         phi_list = np.linspace(0, tor_ext, num = num_phi)
         # don't include magnetic axis in list of s values
@@ -112,9 +149,11 @@ class SourceMesh(object):
         self.verts = self.mbc.create_vertices(self.coords)
 
 
-    def source_strength(ids):
-        """Computes neutron source strength for a tetrahedron using five-node
+    def _source_strength(tet_ids):
+        """
+        Computes neutron source strength for a tetrahedron using five-node
         Gaussian quadrature.
+        (internal function not intended to be called externally.)
 
         Arguments:
             ids (list of int): tetrahedron vertex indices.
@@ -123,10 +162,11 @@ class SourceMesh(object):
             ss (float): integrated source strength for tetrahedron.
         """
 
-        # Initialize list of coordinates for each tetrahedron vertex
-        tet_coords = [ self.coords[id] for id in ids ]
+        # Initialize list of vertex coordinates for each tetrahedron vertex
+        tet_coords = [ self.coords[id] for id in tet_ids ]
+
         # Initialize list of source strengths for each tetrahedron vertex
-        vertex_strengths = [ rxn_rate(self.coords_s[id]) for id in ids ]
+        vertex_strengths = [ rxn_rate(self.coords_s[id]) for id in tet_ids ]
 
         # Define barycentric coordinates for integration points
         bary_coords = np.array([
@@ -143,7 +183,7 @@ class SourceMesh(object):
         # Interpolate source strength at integration points
         ss_int_pts = np.dot(bary_coords, vertex_strengths)
         
-        # Compute graph of tetrahedral vertices
+        # Compute edge vectors between tetrahedron vertices
         edge_vectors = np.subtract(tet_coords[:3], tet_coords[3]).T
         
         tet_vol = np.abs(np.linalg.det(edge_vectors))/6
@@ -152,103 +192,30 @@ class SourceMesh(object):
 
         return ss
 
-
-
-    def create_tet(self, ids):
-        """Creates tetrahedron and adds to moab core.
+    def _create_tet(self, tet_ids):
+        """
+        Creates tetrahedron and adds to pyMOAB core.
+        (internal function not intended to be called externally.)
 
         Arguments:
-            ids (list of int): tetrahedron vertex indices.
+            tet_ids (list of int): tetrahedron vertex indices.
         """
 
-        tet_verts = [ self.verts[id] for id in ids ]
-
-        # Create tetrahedron in PyMOAB
+        tet_verts = [ self.verts[id] for id in tet_ids ]
         tet = self.mbc.create_element(types.MBTET, tet_verts)
         self.mbc.add_entity(self.mesh_set, tet)
         
         # Compute source strength for tetrahedron
-        ss = self.source_strength(ids)
+        ss = self._source_strength(tet_ids)
         self.strengths.append(ss)
 
         # Tag tetrahedra with source strength data
         self.mbc.tag_set_data(self.tag_handle, tet, [ss])
 
-
-    def create_tets_from_hex(s_idx, theta_idx, phi_idx):
-        """Creates five tetrahedra from defined hexahedron.
-
-        Arguments:
-            idx_list (list of int): list of hexahedron vertex indices.
-        """
-        # Define eight hexahedron vertex indices in matrix format as
-        # well as index offset accounting for magnetic axis vertex in
-        # the form
-        # [flux surface index, poloidal index, toroidal index]
-        # This is a canonical ordering expected by MOAB for elements
-        # of this shape
-
-        hex_vertex_stencil = np.array([
-            [0, 1, 0],
-            [0, 0, 0],
-            [0, 1, 1],
-            [0, 0, 1],
-            [1, 1, 0],
-            [1, 0, 0],
-            [1, 1, 1],
-            [1, 0, 1] ])
-
-        hex_idx_data = np.array([s_idx, theta_idx, phi_idx]) + hex_vertex_stencil
-
-        idx_list = [ self.get_vertex_id(vertex_idx) for vertex_idx in hex_idx_data ]
-
-        # Define MOAB canonical ordering of hexahedron vertex indices
-        hex_canon_ids = [
-            [idx_list[0], idx_list[3], idx_list[1], idx_list[4]],
-            [idx_list[7], idx_list[4], idx_list[6], idx_list[3]],
-            [idx_list[2], idx_list[1], idx_list[3], idx_list[6]],
-            [idx_list[5], idx_list[6], idx_list[4], idx_list[1]],
-            [idx_list[3], idx_list[1], idx_list[4], idx_list[6]]
-        ]
-
-        for vertex_ids in hex_canon_ids:
-            self.create_tet(vertex_ids)
-        
-    def create_tets_from_wedge(self, theta_idx, phi_idx):
-        """Creates three tetrahedra from defined wedge.
-
-        Arguments:
-            idx_list (list of int): list of wedge vertex indices.
-        """
-        # Define six wedge vertex indices in matrix format as well as index
-        # offset accounting for magnetic axis vertex in the form
-        # [flux surface index, poloidal index, toroidal index]
-        # This is a canonical ordering expected by MOAB for elements
-        # of this shape
-        wedge_idx_data = np.array([0, 0, phi_idx]) + np.array([
-            [0, 0,           ,  0],
-            [0, theta_idx,   ,  0],
-            [0, theta_idx + 1,  0],
-            [0, 0,           ,  1],
-            [0, theta_idx,   ,  1],
-            [0, theta_idx + 1,  1]
-        ])
-                        
-        idx_list = [ self.get_vertex_id(vertex_idx) for vertex_idx in wedge_idx_data ]
-
-        # Define MOAB canonical ordering of wedge vertex indices
-        wedge_canon_ids = [
-            [idx_list[1], idx_list[2], idx_list[4], idx_list[0]],
-            [idx_list[5], idx_list[4], idx_list[2], idx_list[3]],
-            [idx_list[0], idx_list[2], idx_list[4], idx_list[3]]
-        ]
-        
-        for vertex_ids in wedge_canon_ids:
-            self.create_tet(vertex_ids)
-
-    def get_vertex_id(self, vertex_idx):
+    def _get_vertex_id(self, vertex_idx):
         """Computes vertex index in row-major order as stored by MOAB from
         three-dimensional n x 3 matrix indices.
+        (internal function not intended to be called externally.)
 
         Arguments:
             vert_idx (list of int): list of vertex 
@@ -279,6 +246,74 @@ class SourceMesh(object):
 
         return id
 
+    def _create_tets_from_hex(s_idx, theta_idx, phi_idx):
+        """Creates five tetrahedra from defined hexahedron.
+        (internal function not intended to be called externally.)
+
+        Arguments:
+            idx_list (list of int): list of hexahedron vertex indices.
+        """
+
+        # relative offsets of vertices in a 3-D index space
+        hex_vertex_stencil = np.array([
+            [0, 1, 0],
+            [0, 0, 0],
+            [0, 1, 1],
+            [0, 0, 1],
+            [1, 1, 0],
+            [1, 0, 0],
+            [1, 1, 1],
+            [1, 0, 1] ])
+
+        # Ids of hex vertices applying offset stencil to current point
+        hex_idx_data = np.array([s_idx, theta_idx, phi_idx]) + hex_vertex_stencil
+
+        idx_list = [ self._get_vertex_id(vertex_idx) for vertex_idx in hex_idx_data ]
+
+        # Define MOAB canonical ordering of hexahedron vertex indices
+        hex_canon_ids = [
+            [idx_list[0], idx_list[3], idx_list[1], idx_list[4]],
+            [idx_list[7], idx_list[4], idx_list[6], idx_list[3]],
+            [idx_list[2], idx_list[1], idx_list[3], idx_list[6]],
+            [idx_list[5], idx_list[6], idx_list[4], idx_list[1]],
+            [idx_list[3], idx_list[1], idx_list[4], idx_list[6]]
+        ]
+
+        for vertex_ids in hex_canon_ids:
+            self._create_tet(vertex_ids)
+        
+    def _create_tets_from_wedge(self, theta_idx, phi_idx):
+        """Creates three tetrahedra from defined wedge.
+        (internal function not intended to be called externally.)
+
+        Arguments:
+            idx_list (list of int): list of wedge vertex indices.
+        """
+       
+        # relative offsets of wedge vertices in a 3-D index space 
+        wedge_vertex_stencil = np.array([
+            [0, 0,           ,  0],
+            [0, theta_idx,   ,  0],
+            [0, theta_idx + 1,  0],
+            [0, 0,           ,  1],
+            [0, theta_idx,   ,  1],
+            [0, theta_idx + 1,  1]
+        ])
+
+        # Ids of wedge vertices applying offset stencil to current point
+        wedge_idx_data = np.array([0, 0, phi_idx]) + wedge_vertex_stencil
+                        
+        idx_list = [ self._get_vertex_id(vertex_idx) for vertex_idx in wedge_idx_data ]
+
+        # Define MOAB canonical ordering of wedge vertex indices
+        wedge_canon_ids = [
+            [idx_list[1], idx_list[2], idx_list[4], idx_list[0]],
+            [idx_list[5], idx_list[4], idx_list[2], idx_list[3]],
+            [idx_list[0], idx_list[2], idx_list[4], idx_list[3]]
+        ]
+        
+        for vertex_ids in wedge_canon_ids:
+            self._create_tet(vertex_ids)
 
     def create_mesh(self):
         """Creates volumetric source mesh in real space.
@@ -290,37 +325,45 @@ class SourceMesh(object):
         for phi_idx in range(self.num_phi - 1):
             # Create tetrahedra for wedges at center of plasma
             for theta_idx in range(1, self.num_theta):                
-                self.create_tets_from_wedge(theta_idx, phi_idx)
+                self._create_tets_from_wedge(theta_idx, phi_idx)
 
             # Create tetrahedra for hexahedra beyond center of plasma
             for s_idx in range(self.num_s - 2):
                 for theta_idx in range(1, self.num_theta):
-                    self.create_tets_from_hex(idx_list)
+                    self._create_tets_from_hex(idx_list)
 
     def write(self, filename):
+        """Use pyMOAB interface to write source mesh with 
+        source strengths tagged.
+        """
 
         self.mbc.write(str(filename))
 
 def parse_args():
-    parser = argparse.ArgumentParser(prog='generate_stellarator_source_mesh')
+    """
+    Parser for running as a script
+    """
+    parser = argparse.ArgumentParser(prog='sourcemesh')
 
     parser.add_argument('filename', desc='YAML file defining this case')
 
     return parser.parse_args()
 
 def read_yaml_src(filename):
-    
+    """
+    Read YAML file describing this case and extract data relevant for source
+    definition.
+    """
     with open(filename) as yaml_file:
         all_data =  yaml.safe_load(yaml_file)
 
     # extract data to define source mesh
-    src_data = all_data['source']
-
-    vmec_file = all_data['plasma_eq']
-
-    return vmec_file, src_data            
+    return all_data['plasma_eq'], all_data['source']            
 
 def generate_source_mesh():
+    """
+    Main method when run as a command line script.
+    """
     args = parse_args()
 
     vmec_file, src_data = read_yaml_src(args.filename)
