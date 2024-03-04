@@ -101,8 +101,6 @@ class SourceMesh(object):
             create_if_missing = True
         )
 
-        return
-
     def create_vertices(self):
         """
         Creates mesh vertices and adds them to PyMOAB core.
