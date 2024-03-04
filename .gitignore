@@ -139,3 +139,5 @@ dmypy.json
 *.cub
 *.cub5
 *.h5
+!coils.txt
+!wout_vmec.nc
