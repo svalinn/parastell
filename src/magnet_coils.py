@@ -4,6 +4,7 @@ import numpy as np
 from sklearn.preprocessing import normalize
 from pathlib import Path
 import subprocess
+import os
 
 m2cm = 100
 
@@ -75,7 +76,10 @@ class MagnetSet(object):
         coords = []
         filaments = []
 
-        for line_index, line in enumerate(data):
+        # ensure that sampling always starts on the first line of each filament
+        sample_counter = 0
+
+        for line in data:
 
             columns = line.strip().split()
 
@@ -91,10 +95,13 @@ class MagnetSet(object):
 
             # s==0 signals end of filament
             if s != 0:
-                if line_index % self.sample == 0:
+                if sample_counter % self.sample == 0:
                     coords.append([x, y, z])
+                sample_counter += 1
             else:
+                coords.append([x, y, z])
                 filaments.append(coords)
+                sample_counter = 0
                 coords = []
 
         self.filaments = np.array(filaments)

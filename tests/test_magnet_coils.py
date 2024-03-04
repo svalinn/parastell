@@ -29,7 +29,7 @@ export_dir = ''
 def test_rectangular_magnets():
 
     magnets = {
-    'file': 'coils.txt',
+    'file': './files_for_tests/coils.txt',
     'cross_section': ['rectangle', 20, 60],
     'start': 3,
     'stop': None,
@@ -40,15 +40,15 @@ def test_rectangular_magnets():
     }
 
 
-    len_filaments_exp = 48
-    average_radial_distance_exp = 1034.851169384387
-    len_filtered_filaments_exp = 20
+    len_filaments_exp = 40
+    average_radial_distance_exp = 1241.4516792609722
+    len_filtered_filaments_exp = 18
 
     shape_exp = 'rectangle'
     shape_str_exp = 'rectangle width 60 height 20'
     mag_len_exp = 60
 
-    len_test_coil_filament_exp = 64
+    len_test_coil_filament_exp = 23
 
     # no cubit required for these
     test_coil_set = magnet_coils.MagnetSet(magnets, toroidal_extent,
@@ -75,7 +75,7 @@ def test_rectangular_magnets():
 def test_circular_magnets():
 
     magnets = {
-    'file': 'coils.txt',
+    'file': './files_for_tests/coils.txt',
     'cross_section': ['circle', 20],
     'start': 3,
     'stop': None,
@@ -86,15 +86,15 @@ def test_circular_magnets():
     }
 
 
-    len_filaments_exp = 48
-    average_radial_distance_exp = 1034.851169384387
+    len_filaments_exp = 40
+    average_radial_distance_exp = 1241.4516792609722
     len_filtered_filaments_exp = 18
 
     shape_exp = 'circle'
     shape_str_exp = 'circle radius 20'
     mag_len_exp = 20
 
-    len_test_coil_filament_exp = 64
+    len_test_coil_filament_exp = 23
 
     # no cubit required for these
     test_coil_set = magnet_coils.MagnetSet(magnets, toroidal_extent,
@@ -130,7 +130,7 @@ def test_magnet_meshing():
         os.remove('coil_mesh.h5m')
 
     magnets = {
-    'file': 'coils.txt',
+    'file': './files_for_tests/coils.txt',
     'cross_section': ['circle', 20],
     'start': 3,
     'stop': None,
