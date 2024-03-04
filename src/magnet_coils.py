@@ -261,7 +261,7 @@ class MagnetSet(object):
     def create_magnet_coils(self):
         """
         Creates a list of MagnetCoil objects within the toroidal extent.
-  
+
         sets:
             self.magnet_coils (list of MagnetCoil objects): List of objects 
                 representing individual magnet filaments
@@ -316,7 +316,6 @@ class MagnetSet(object):
             + f' {sweep_id}'
         )
 
-        
         # renumber volume ids from 1 to N
         cubit.cmd('compress all')
 
@@ -330,8 +329,7 @@ class MagnetSet(object):
         Builds each filament in self.filtered_filaments in cubit, then
         cuts to the toroidal extent using self._cut_magnets()
         """
-        
-        
+
         self.create_magnet_coils()
 
         volume_ids = []
@@ -534,4 +532,3 @@ class MagnetCoil(object):
         cubit.cmd(f'delete surface {cs_id}')
 
         return volume_id
-
