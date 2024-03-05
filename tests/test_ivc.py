@@ -41,6 +41,8 @@ stellarator = ps.Stellarator(
 
 def test_ivc_data():
 
+    stellarator.populate_data()
+
     assert np.allclose(
         stellarator.data.phi_list, np.deg2rad(build['phi_list'])
     )
@@ -59,6 +61,8 @@ def test_ivc_data():
 
 
 def test_ivc_geom():
+
+    stellarator.construct_geometry()
 
     assert stellarator.components['plasma']['h5m_tag'] == 'Vacuum'
     assert stellarator.components['plasma']['solid'] is not None

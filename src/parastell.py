@@ -199,22 +199,29 @@ class Stellarator(object):
         if self.logger == None or not self.logger.hasHandlers():
             self.logger = log.init()
 
+    def populate_data(self):
+        '''Constructs Data class object.
+        '''
         self.data = Data(
             self.plas_eq, self.build, self.repeat, self.num_phi,
             self.num_theta, self.scale, self.export_dict, self.logger
         )
 
+    def construct_geometry(self):
+        '''Constructs CADGeometry class object.
+        '''
         self.cad_geometry = CADGeometry(
             self.data, self.repeat, self.magnets, self.export_dict,
             self.logger
         )
-
         self.components = self.cad_geometry.components
         self.magnets = self.cad_geometry.magnets
 
-        if self.source is not None:
-            self.source_mesh = SourceMesh(self.data.vmec, self.source)
-
+    def construct_source_mesh(self):
+        '''Constructs SourceMesh class object.
+        '''
+        self.source_mesh = SourceMesh(self.data.vmec, self.source)
+    
     def export_CAD_geometry(self):
         '''Exports stellarator CAD geometry STEP and/or DAGMC neutronics H5M
         files according to user-specification.
