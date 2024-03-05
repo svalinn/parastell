@@ -4,9 +4,23 @@ import numpy as np
 from sklearn.preprocessing import normalize
 from pathlib import Path
 import subprocess
-import os
+import yaml
+import argparse
 
 m2cm = 100
+
+def unit_vector(vec):
+    """Normalizes given vector.
+
+    Arguments:
+        vec (array of [float, float, float]): input vector to be normalized.
+
+    Returns:
+        vec (array of [float, float, float]): normalized input vector.
+    """
+    vec = normalize(vec.reshape(-1, 1), axis=0).ravel()
+
+    return vec
 
 
 class MagnetSet(object):
@@ -382,19 +396,6 @@ class MagnetCoil(object):
         self.shape = shape_
         self.shape_str = shape_str_
 
-    def unit_vector(self, vec):
-        """Normalizes given vector.
-
-        Arguments:
-            vec (array of [float, float, float]): input vector to be normalized.
-
-        Returns:
-            vec (array of [float, float, float]): normalized input vector.
-        """
-        vec = normalize(vec.reshape(-1, 1), axis=0).ravel()
-
-        return vec
-
     def orient_rectangle(self, path_origin, surf_id, t_vec, norm, rot_axis,
                          rot_ang_norm):
         """Orients rectangular cross-section in the normal plane such that its
@@ -414,13 +415,13 @@ class MagnetCoil(object):
         # oriented along filament origin tangent
 
         # Compute part of thickness vector parallel to rotation axis
-        t_vec_par = self.unit_vector(np.inner(t_vec, rot_axis)*rot_axis)
+        t_vec_par = unit_vector(np.inner(t_vec, rot_axis)*rot_axis)
         # Compute part of thickness vector orthogonal to rotation axis
-        t_vec_perp = self.unit_vector(t_vec - t_vec_par)
+        t_vec_perp = unit_vector(t_vec - t_vec_par)
 
         # Compute vector othogonal to both rotation axis and orthogonal
         # part of thickness vector
-        orth = self.unit_vector(np.cross(rot_axis, t_vec_perp))
+        orth = unit_vector(np.cross(rot_axis, t_vec_perp))
 
         # Determine part of rotated vector parallel to original
         rot_par = np.cos(rot_ang_norm)
@@ -430,7 +431,7 @@ class MagnetCoil(object):
         # Compute orthogonal part of thickness vector after rotation
         t_vec_perp_rot = rot_par*t_vec_perp + rot_perp*orth
         # Compute thickness vector after rotation
-        t_vec_rot = self.unit_vector(t_vec_perp_rot + t_vec_par)
+        t_vec_rot = unit_vector(t_vec_perp_rot + t_vec_par)
 
         # Orient cross-section in its plane such that it faces the global origin
 
@@ -438,7 +439,7 @@ class MagnetCoil(object):
         pos = cubit.vertex(path_origin).coordinates()
 
         # Project position vector onto cross-section
-        pos_proj = self.unit_vector(pos - np.inner(pos, norm)*norm)
+        pos_proj = unit_vector(pos - np.inner(pos, norm)*norm)
 
         # Compute angle by which to rotate cross-section such that it faces the
         # origin
@@ -493,14 +494,14 @@ class MagnetCoil(object):
         next_pt = np.array(cubit.vertex(path[1]).coordinates())
         last_pt = np.array(cubit.vertex(path[-2]).coordinates())
         # Compute direction in which to align surface normal
-        tang = self.unit_vector(np.subtract(next_pt, last_pt))
+        tang = unit_vector(np.subtract(next_pt, last_pt))
 
         # Define axis and angle of rotation to orient cross-section along
         # defined normal
 
         # Define axis of rotation as orthogonal to both z axis and surface
         # normal
-        rot_axis = self.unit_vector(np.cross(cs_axis, tang))
+        rot_axis = unit_vector(np.cross(cs_axis, tang))
         # Compute angle by which to rotate cross-section to orient along
         # defined surface normal
         rot_ang_norm = np.arccos(np.inner(cs_axis, tang))
@@ -539,3 +540,43 @@ class MagnetCoil(object):
         cubit.cmd(f'delete surface {cs_id}')
 
         return volume_id
+
+def parse_args():
+    """
+    Parser for running as a script
+    """
+    parser = argparse.ArgumentParser(prog='generateMagnetSet')
+
+    parser.add_argument('filename', help='YAML file defining this case')
+
+    return parser.parse_args()
+
+def read_yaml_magnets(filename):
+    """
+    Read YAML file describing this case and extract data relevant for magnet
+    definition.
+    """
+    with open(filename) as yaml_file:
+        all_data =  yaml.safe_load(yaml_file)
+
+    magnets = all_data['magnets']
+    toroidal_extent = all_data['toroidal_extent']
+    export_dir = all_data['export_dir']
+    logger = all_data['logger']
+    
+    return magnets, toroidal_extent, export_dir
+
+def generate_magnet_set():
+    """
+    Main method when run as cmd line script
+    """
+    args = parse_args()
+
+    magnets, toroidal_extent, export_dir = read_yaml_magnets(args.filename)
+
+    magnet_set = MagnetSet(magnets,toroidal_extent,export_dir)
+
+    magnet_set.build_magnet_coils()
+    magnet_set.mesh_magnets()
+
+if __name__ == '__main__': generate_magnet_set()
