@@ -1,7 +1,6 @@
 import log
 import cubit
 import numpy as np
-from sklearn.preprocessing import normalize
 from pathlib import Path
 import subprocess
 import yaml
@@ -18,7 +17,8 @@ def unit_vector(vec):
     Returns:
         vec (array of [float, float, float]): normalized input vector.
     """
-    vec = normalize(vec.reshape(-1, 1), axis=0).ravel()
+
+    vec = vec/((np.sum(vec**2))**0.5)
 
     return vec
 

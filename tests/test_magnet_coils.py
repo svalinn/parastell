@@ -1,4 +1,4 @@
-import magnet_coils
+import src.magnet_coils as magnet_coils
 import logging
 import os
 
