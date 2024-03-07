@@ -41,7 +41,7 @@ stellarator = ps.Stellarator(
 
 def test_export():
 
-    stellarator.construct_ivc()
+    stellarator.construct_invessel_build()
     stellarator.export_CAD_geometry()
     
     assert Path('plasma.step').exists() == True

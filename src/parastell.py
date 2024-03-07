@@ -1,5 +1,5 @@
 import cubit
-import src.ivc as ivc
+import src.invessel_build as ivb
 import magnet_coils
 import source_mesh
 import log
@@ -23,7 +23,7 @@ export_def = {
     'dir': '',
     'h5m_filename': 'dagmc',
     'native_meshing': False,
-    'plas_h5m_tag': None,
+    'plasma_h5m_tag': None,
     'sol_h5m_tag': None,
     'facet_tol': None,
     'len_tol': None,
@@ -48,7 +48,7 @@ class Stellarator(object):
     cross-section and coil filament point-locus data.
 
     Arguments:
-        plasma_eq (str): path to plasma equilibrium VMEC file.
+        vmec_file (str): path to plasma equilibrium VMEC file.
         build (dict): dictionary of list of toroidal and poloidal angles, as
             well as dictionary of component names with corresponding thickness
             matrix and optional material tag to use in H5M neutronics model.
@@ -170,7 +170,7 @@ class Stellarator(object):
 
     def __init__(
             self,
-            plasma_eq,
+            vmec_file,
             build,
             repeat,
             num_phi=61,
@@ -181,7 +181,7 @@ class Stellarator(object):
             export=export_def,
             logger=None
     ):
-        self.plasma_eq = plasma_eq
+        self.vmec_file = vmec_file
         self.build = build
         self.repeat = repeat
         self.num_phi = num_phi
@@ -197,7 +197,9 @@ class Stellarator(object):
         if self.logger == None or not self.logger.hasHandlers():
             self.logger = log.init()
 
-        self.vmec = read_vmec.vmec_data(self.plasma_eq)
+        self.vmec = read_vmec.vmec_data(self.vmec_file)
+
+        self.check_input()
 
         if (
             self.export_dict['h5m_export'] == 'cubit' or
@@ -205,36 +207,57 @@ class Stellarator(object):
         ):
             self.init_cubit()
 
+    def check_input(self):
+        '''Checks user input for errors.
+        '''
+        if (
+            self.export_dict['h5m_export'] not in
+            [None, 'cubit', 'cad_to_dagmc']
+        ):
+            raise ValueError(
+                'h5m_export must be None or have a string value of \'cubit\' '
+                'or \'cad_to_dagmc\''
+            )
+
+        if (
+            self.export_dict['h5m_export'] == 'cubit' and
+            not self.export_dict['step_export']
+        ):
+            raise ValueError('H5M export via Cubit requires STEP files')
+
+        if (self.export_dict['h5m_export'] == 'cad_to_dagmc' and
+                self.magnets is not None):
+            raise ValueError(
+                'Inclusion of magnets in H5M model requires Cubit export'
+            )
+    
     def init_cubit(self):
         '''Initializes Coreform Cubit with the DAGMC plugin.
         '''
-        if (
-            self.export_dict['h5m_export'] == 'cubit' or
-            self.magnets is not None
-        ):
-            cubit_dir = os.path.dirname(inspect.getfile(cubit))
-            cubit_dir = Path(cubit_dir) / Path('plugins')
-            cubit.init([
-                'cubit',
-                '-nojournal',
-                '-nographics',
-                '-information', 'off',
-                '-warning', 'off',
-                '-commandplugindir',
-                str(cubit_dir)
-            ])
+        cubit_dir = os.path.dirname(inspect.getfile(cubit))
+        cubit_dir = Path(cubit_dir) / Path('plugins')
+        cubit.init([
+            'cubit',
+            '-nojournal',
+            '-nographics',
+            '-information', 'off',
+            '-warning', 'off',
+            '-commandplugindir',
+            str(cubit_dir)
+        ])
 
-    def construct_ivc(self):
-        '''Construct IVC class object.
+    def construct_invessel_build(self):
+        '''Construct InVesselBuild class object.
         '''
-        self.ivc = IVC(
+        ivb = InVesselBuild(
             self.vmec, self.build, self.repeat, self.num_phi, self.num_theta,
             self.scale, self.export_dict['plasma_h5m_tag'],
-            self.export_dict['sol_h5m_tag'], self.logger)
-        self.ivc.ivc.populate_data()
-        self.ivc_data = self.ivc.ivc.data
-        self.ivc.ivc.construct_geometry()
-        self.components = self.ivc.ivc.components
+            self.export_dict['sol_h5m_tag'], self.logger
+        )
+        self.invessel_build = ivb.invessel_build
+        self.invessel_build.populate_surfaces()
+        self.invessel_build.calculate_loci()
+        self.invessel_build.generate_components()
 
     def construct_source_mesh(self):
         '''Constructs SourceMesh class object.
@@ -252,34 +275,17 @@ class Stellarator(object):
         '''Exports stellarator CAD geometry STEP and/or DAGMC neutronics H5M
         files according to user-specification.
         '''
-        if self.export_dict['h5m_export'] not in [None, 'cubit',
-                                                  'cad_to_dagmc']:
-            raise ValueError(
-                'h5m_export must be None or have a string value of \'cubit\' '
-                'or \'cad_to_dagmc\''
-            )
-
-        if (
-            self.export_dict['h5m_export'] == 'cubit' and
-            not self.export_dict['step_export']
-        ):
-            raise ValueError('H5M export via Cubit requires STEP files')
-
-        if (self.export_dict['h5m_export'] == 'cad_to_dagmc' and
-                self.magnets is not None):
-            raise ValueError(
-                'Inclusion of magnets in H5M model requires Cubit export'
-            )
-
-        self.dir = Path(self.export_dict['dir'])
-        self.h5m_filename = Path(self.export_dict['h5m_filename'])
+        self.construct_components_dict()
 
         if self.export_dict['step_export']:
             self.logger.info('Exporting STEP files...')
-            for name, comp in self.components.items():
-                export_path = self.dir / Path(name).with_suffix('.step')
+            for name, component in self.components.items():
+                export_path = (
+                    Path(self.export_dict['dir']) /
+                    Path(name).with_suffix('.step')
+                )
                 cq.exporters.export(
-                    comp['solid'],
+                    component['solid'],
                     str(export_path)
                 )
 
@@ -294,6 +300,19 @@ class Stellarator(object):
                 'Exporting DAGMC neutronics H5M file via CAD-to-DAGMC...'
             )
             self.gmsh_export()
+
+    def construct_components_dict(self):
+        '''Constructs components dictionary for export routine.
+        '''
+        self.components = {}
+
+        for component, (name, layer_data) in zip(
+            self.invessel_build.Components,
+            self.build['radial_build'].items()
+        ):
+            self.components[name] = {}
+            self.components[name]['h5m_tag'] = layer_data['h5m_tag']
+            self.components[name]['solid'] = component
 
     def cubit_export(self):
         '''Exports DAGMC neutronics H5M file via Coreform Cubit.
@@ -330,7 +349,10 @@ class Stellarator(object):
             if norm_tol is not None:
                 norm_tol_str = f'normal_tolerance {norm_tol}'
 
-            export_path = self.dir / self.h5m_filename.with_suffix('.h5m')
+            export_path = (
+                Path(self.export_dict['dir']) /
+                Path(self.export_dict['h5m_filename']).with_suffix('.h5m')
+            )
             cubit.cmd(
                 f'export dagmc "{export_path}" {facet_tol_str} {len_tol_str} '
                 f'{norm_tol_str} make_watertight'
@@ -387,7 +409,10 @@ class Stellarator(object):
             cubit.cmd("surface all scheme trimesh")
             cubit.cmd("mesh surface all")
 
-            export_path = self.dir / self.h5m_filename.with_suffix('.h5m')
+            export_path = (
+                Path(self.export_dict['dir']) /
+                Path(self.export_dict['h5m_filename']).with_suffix('.h5m')
+            )
             cubit.cmd(f'export cf_dagmc "{export_path}" overwrite')
 
         def merge_layer_surfaces():
@@ -456,7 +481,9 @@ class Stellarator(object):
             return inner_surface, outer_surface
 
         for name in self.components.keys():
-            import_path = self.dir / Path(name).with_suffix('.step')
+            import_path = (
+                Path(self.export_dict['dir']) / Path(name).with_suffix('.step')
+            )
             cubit.cmd(f'import step "{import_path}" heal')
             self.components[name]['vol_id'] = cubit.get_last_id("volume")
 
@@ -481,43 +508,23 @@ class Stellarator(object):
                 comp['solid'],
                 material_tags=[comp['h5m_tag']]
             )
-
+        export_path = (
+            Path(self.export_dict['dir']) /
+            Path(self.export_dict['h5m_filename']).with_suffix('.h5m')
+        )
         model.export_dagmc_h5m_file(
-            filename=self.dir / self.h5m_filename.with_suffix('.h5m')
+            filename=export_path
         )
 
 
-class IVC(object):
-    '''Calls ivc Python script to build IVC class object.
+class InVesselBuild(object):
+    '''Calls invessel_components Python script to build InVesselBuild class
+    object.
 
     Arguments:
         vmec (object): plasma equilibrium VMEC object from PyStell-UW.
-        build (dict): dictionary of list of toroidal and poloidal angles, as
-            well as dictionary of component names with corresponding thickness
-            matrix and optional material tag to use in H5M neutronics model.
-            The thickness matrix specifies component thickness at specified
-            (polidal angle, toroidal angle) pairs. This dictionary takes the
-            form
-            {
-                'phi_list': toroidal angles at which radial build is specified.
-                    This list should always begin at 0.0 and it is advised not
-                    to extend past one stellarator period. To build a geometry
-                    that extends beyond one period, make use of the 'repeat'
-                    parameter (list of double, deg).
-                'theta_list': poloidal angles at which radial build is
-                    specified. This list should always span 360 degrees (list
-                    of double, deg).
-                'wall_s': closed flux surface label extrapolation at wall
-                    (double),
-                'radial_build': {
-                    'component': {
-                        'thickness_matrix': list of list of double (cm),
-                        'h5m_tag': h5m_tag (str)
-                    }
-                }
-            }
-            If no alternate material tag is supplied for the H5M file, the
-            given component name will be used.
+        build (dict): dictionary of in-vessel component build parameters. See
+            Stellarator class docstring for more detail.
         repeat (int): number of times to repeat build segment.
         num_phi (int): number of phi geometric cross-sections to make for each
             build segment (defaults to 61).
@@ -547,7 +554,7 @@ class IVC(object):
             sol_h5m_tag,
             logger
     ):
-        self.ivc = ivc.IVC(
+        self.invessel_build = ivb.InVesselBuild(
             vmec, build, repeat, num_phi, num_theta, scale, plasma_h5m_tag, sol_h5m_tag, logger)
 
 
@@ -555,25 +562,8 @@ class MagnetSet(object):
     '''Calls magnet_coils Python script to build MagnetSet class object.
 
     Arguments:
-        magnets (dict): dictionary of magnet parameters including
-            {
-                'file': path to magnet coil point-locus data file (str),
-                'cross_section': coil cross-section definition (list),
-                'start': starting line index for data in file (int),
-                'stop': stopping line index for data in file (int),
-                'sample': sampling modifier for filament points (int). For a
-                    user-supplied value of n, sample every n points in list of
-                    points in each filament,
-                'name': name to use for STEP export (str),
-                'h5m_tag': material tag to use in H5M neutronics model (str)
-                'meshing': setting for tetrahedral mesh generation (bool)
-            }
-            For the list defining the coil cross-section, the cross-section
-            shape must be either a circle or rectangle. For a circular
-            cross-section, the list format is
-            ['circle' (str), radius (double, cm)]
-            For a rectangular cross-section, the list format is
-            ['rectangle' (str), width (double, cm), thickness (double, cm)]
+        magnets (dict): dictionary of magnet parameters. See Stellarator class
+            docstring for more detail.
         tor_ext (double): toroidal extent to model (rad).
         export_dir (str): directory to which to export output files.
         logger (object): logger object (defaults to None). If no logger is
@@ -596,13 +586,8 @@ class SourceMesh(object):
 
     Arguments:
         vmec (object): plasma equilibrium VMEC object from PyStell-UW.
-        source (dict): dictionary of source mesh parameters including
-            {
-                'num_s': number of closed magnetic flux surfaces defining mesh
-                    (int),
-                'num_theta': number of poloidal angles defining mesh (int),
-                'num_phi': number of toroidal angles defining mesh (int)
-            }
+        source (dict): dictionary of source mesh parameters. See Stellarator
+            class docstring for more detail.
     '''
 
     def __init__(
@@ -638,7 +623,7 @@ def read_yaml_src(filename):
 
     # Extract data to define source mesh
     return (
-        all_data['plasma_eq'], all_data['build'], all_data['repeat'],
+        all_data['vmec_file'], all_data['build'], all_data['repeat'],
         all_data['num_phi'], all_data['num_theta'], all_data['magnets'],
         all_data['source'], all_data['export'], all_data['logger']
     )
@@ -649,11 +634,11 @@ def parastell():
     '''
     args = parse_args()
 
-    (plasma_eq, build, repeat, num_phi, num_theta, magnets, source, export,
+    (vmec_file, build, repeat, num_phi, num_theta, magnets, source, export,
      logger) = read_yaml_src(args.filename)
 
     stellarator = Stellarator(
-        plasma_eq, build, repeat, num_phi, num_theta, magnets, source, export,
+        vmec_file, build, repeat, num_phi, num_theta, magnets, source, export,
         logger
     )
 
