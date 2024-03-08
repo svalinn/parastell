@@ -5,23 +5,9 @@ from pathlib import Path
 import subprocess
 import yaml
 import argparse
+from utils import normalize
 
 m2cm = 100
-
-def unit_vector(vec):
-    """Normalizes given vector.
-
-    Arguments:
-        vec (array of [float, float, float]): input vector to be normalized.
-
-    Returns:
-        vec (array of [float, float, float]): normalized input vector.
-    """
-
-    vec = vec/((np.sum(vec**2))**0.5)
-
-    return vec
-
 
 class MagnetSet(object):
     '''
@@ -415,13 +401,13 @@ class MagnetCoil(object):
         # oriented along filament origin tangent
 
         # Compute part of thickness vector parallel to rotation axis
-        t_vec_par = unit_vector(np.inner(t_vec, rot_axis)*rot_axis)
+        t_vec_par = normalize(np.inner(t_vec, rot_axis)*rot_axis)
         # Compute part of thickness vector orthogonal to rotation axis
-        t_vec_perp = unit_vector(t_vec - t_vec_par)
+        t_vec_perp = normalize(t_vec - t_vec_par)
 
         # Compute vector othogonal to both rotation axis and orthogonal
         # part of thickness vector
-        orth = unit_vector(np.cross(rot_axis, t_vec_perp))
+        orth = normalize(np.cross(rot_axis, t_vec_perp))
 
         # Determine part of rotated vector parallel to original
         rot_par = np.cos(rot_ang_norm)
@@ -431,7 +417,7 @@ class MagnetCoil(object):
         # Compute orthogonal part of thickness vector after rotation
         t_vec_perp_rot = rot_par*t_vec_perp + rot_perp*orth
         # Compute thickness vector after rotation
-        t_vec_rot = unit_vector(t_vec_perp_rot + t_vec_par)
+        t_vec_rot = normalize(t_vec_perp_rot + t_vec_par)
 
         # Orient cross-section in its plane such that it faces the global origin
 
@@ -439,7 +425,7 @@ class MagnetCoil(object):
         pos = cubit.vertex(path_origin).coordinates()
 
         # Project position vector onto cross-section
-        pos_proj = unit_vector(pos - np.inner(pos, norm)*norm)
+        pos_proj = normalize(pos - np.inner(pos, norm)*norm)
 
         # Compute angle by which to rotate cross-section such that it faces the
         # origin
@@ -494,14 +480,14 @@ class MagnetCoil(object):
         next_pt = np.array(cubit.vertex(path[1]).coordinates())
         last_pt = np.array(cubit.vertex(path[-2]).coordinates())
         # Compute direction in which to align surface normal
-        tang = unit_vector(np.subtract(next_pt, last_pt))
+        tang = normalize(np.subtract(next_pt, last_pt))
 
         # Define axis and angle of rotation to orient cross-section along
         # defined normal
 
         # Define axis of rotation as orthogonal to both z axis and surface
         # normal
-        rot_axis = unit_vector(np.cross(cs_axis, tang))
+        rot_axis = normalize(np.cross(cs_axis, tang))
         # Compute angle by which to rotate cross-section to orient along
         # defined surface normal
         rot_ang_norm = np.arccos(np.inner(cs_axis, tang))
