@@ -234,8 +234,9 @@ class Stellarator(object):
     def init_cubit(self):
         '''Initializes Coreform Cubit with the DAGMC plugin.
         '''
-        cubit_dir = os.path.dirname(inspect.getfile(cubit))
-        cubit_dir = Path(cubit_dir) / Path('plugins')
+        cubit_plugin_dir = (
+            Path(os.path.dirname(inspect.getfile(cubit))) / Path('plugins')
+        )
         cubit.init([
             'cubit',
             '-nojournal',
@@ -243,18 +244,17 @@ class Stellarator(object):
             '-information', 'off',
             '-warning', 'off',
             '-commandplugindir',
-            str(cubit_dir)
+            str(cubit_plugin_dir)
         ])
 
     def construct_invessel_build(self):
         '''Construct InVesselBuild class object.
         '''
-        ivb = InVesselBuild(
+        self.invessel_build = ivb.InVesselBuild(
             self.vmec, self.build, self.repeat, self.num_phi, self.num_theta,
             self.scale, self.export_dict['plasma_h5m_tag'],
             self.export_dict['sol_h5m_tag'], self.logger
         )
-        self.invessel_build = ivb.invessel_build
         self.invessel_build.populate_surfaces()
         self.invessel_build.calculate_loci()
         self.invessel_build.generate_components()
@@ -262,12 +262,12 @@ class Stellarator(object):
     def construct_source_mesh(self):
         '''Constructs SourceMesh class object.
         '''
-        self.source_mesh = SourceMesh(self.vmec, self.source)
+        self.source_mesh = source_mesh.SourceMesh(self.vmec, self.source)
 
     def construct_magnets(self):
         '''Constructs MagnetSet class object.
         '''
-        self.magnet_set = MagnetSet(
+        self.magnet_set = magnet_coils.MagnetSet(
             self.magnets, self.ivc_data.tot_tor_ext, self.export_dict['dir'],
             self.logger)
 
@@ -515,94 +515,6 @@ class Stellarator(object):
         model.export_dagmc_h5m_file(
             filename=export_path
         )
-
-
-class InVesselBuild(object):
-    '''Calls invessel_components Python script to build InVesselBuild class
-    object.
-
-    Arguments:
-        vmec (object): plasma equilibrium VMEC object from PyStell-UW.
-        build (dict): dictionary of in-vessel component build parameters. See
-            Stellarator class docstring for more detail.
-        repeat (int): number of times to repeat build segment.
-        num_phi (int): number of phi geometric cross-sections to make for each
-            build segment (defaults to 61).
-        num_theta (int): number of points defining the geometric cross-section
-            (defaults to 61).
-        scale (double): a scaling factor between the units of VMEC and [cm]
-            (defaults to m2cm = 100).
-        plasma_h5m_tag (str): optional alternate material tag to use for
-            plasma. If none is supplied and the plasma is not excluded,
-            'plasma' will be used (defaults to None).
-        sol_h5m_tag (str): optional alternate material tag to use for
-            scrape-off layer. If none is supplied and the scrape-off layer is
-            not excluded, 'sol' will be used (defaults to None).
-        logger (object): logger object (defaults to None). If no logger is
-            supplied, a default logger will be instantiated.
-    '''
-
-    def __init__(
-            self,
-            vmec,
-            build,
-            repeat,
-            num_phi,
-            num_theta,
-            scale,
-            plasma_h5m_tag,
-            sol_h5m_tag,
-            logger
-    ):
-        self.invessel_build = ivb.InVesselBuild(
-            vmec, build, repeat, num_phi, num_theta, scale, plasma_h5m_tag, sol_h5m_tag, logger)
-
-
-class MagnetSet(object):
-    '''Calls magnet_coils Python script to build MagnetSet class object.
-
-    Arguments:
-        magnets (dict): dictionary of magnet parameters. See Stellarator class
-            docstring for more detail.
-        tor_ext (double): toroidal extent to model (rad).
-        export_dir (str): directory to which to export output files.
-        logger (object): logger object (defaults to None). If no logger is
-            supplied, a default logger will be instantiated.
-    '''
-
-    def __init__(
-        self,
-        magnets,
-        tor_ext,
-        export_dir,
-        logger
-    ):
-        """self.magnet_geometry = magnet_coils.MagnetSet(
-            magnets, tor_ext, export_dir, logger)"""
-
-
-class SourceMesh(object):
-    '''Calls source_mesh Python script to build SourceMesh class object.
-
-    Arguments:
-        vmec (object): plasma equilibrium VMEC object from PyStell-UW.
-        source (dict): dictionary of source mesh parameters. See Stellarator
-            class docstring for more detail.
-    '''
-
-    def __init__(
-        self,
-        vmec,
-        source
-    ):
-        num_s = source['num_s']
-        num_theta = source['num_theta']
-        num_phi = source['num_phi']
-        tor_ext = source['tor_ext']
-
-        """self.source_mesh = source_mesh.SourceMesh(
-            vmec, num_s, num_theta, num_phi, tor_ext
-        )"""
 
 
 def parse_args():

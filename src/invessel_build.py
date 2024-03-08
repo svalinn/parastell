@@ -1,48 +1,15 @@
-import argparse
-import log
-import read_vmec
 import cadquery as cq
+import read_vmec
+from src.utils import *
+import log
+
 import numpy as np
-import math
 from scipy.interpolate import RegularGridInterpolator
+
+import argparse
 import yaml
 
 m2cm = 100
-
-
-def expand_ang(ang_list, num_ang):
-    '''Expands list of angles by linearly interpolating according to specified
-    number to include in stellarator build.
-
-    Arguments:
-        ang_list (list of double): user-supplied list of toroidal or poloidal
-            angles (rad).
-        num_ang (int): number of angles to include in stellarator build.
-
-    Returns:
-        ang_list_exp (list of double): interpolated list of angles (rad).
-    '''
-    ang_list = np.deg2rad(ang_list)
-
-    ang_list_exp = []
-
-    init_ang = ang_list[0]
-    final_ang = ang_list[-1]
-    ang_extent = final_ang - init_ang
-
-    ang_diff_avg = ang_extent/(num_ang - 1)
-
-    for ang, next_ang in zip(ang_list[:-1], ang_list[1:]):
-        n_ang = math.ceil((next_ang - ang)/ang_diff_avg)
-
-        ang_list_exp = np.append(
-            ang_list_exp,
-            np.linspace(ang, next_ang, num=n_ang + 1)[:-1]
-        )
-
-    ang_list_exp = np.append(ang_list_exp, ang_list[-1])
-
-    return ang_list_exp
 
 
 class InVesselBuild(object):
@@ -122,6 +89,9 @@ class InVesselBuild(object):
         if self.logger == None or not self.logger.hasHandlers():
             self.logger = log.init()
 
+        self.Surfaces = []
+        self.Components = []
+
         try:
             assert (self.repeat + 1) * self.build['phi_list'][-1] <= 360.0, (
                 'Total toroidal extent requested with repeated geometry '
@@ -138,11 +108,12 @@ class InVesselBuild(object):
                     'thickness_matrix': np.zeros((
                         len(self.build['phi_list']),
                         len(self.build['theta_list'])
-                    )),
-                    'h5m_tag': self.sol_h5m_tag
+                    ))
                 },
                 **self.build['radial_build']
             }
+            if self.sol_h5m_tag:
+                self.build['radial_build']['sol']['h5m_tag'] = self.sol_h5m_tag
 
         self.build['radial_build'] = {
             'plasma': {
@@ -154,16 +125,18 @@ class InVesselBuild(object):
             },
             **self.build['radial_build']
         }
+        if self.plasma_h5m_tag:
+            self.build['radial_build']['sol']['h5m_tag'] = self.plasma_h5m_tag
 
-        self.phi_list = expand_ang(self.build['phi_list'], self.num_phi)
-        self.theta_list = expand_ang(self.build['theta_list'], self.num_theta)
+        self.phi_list = expand_ang_list(self.build['phi_list'], self.num_phi)
+        self.theta_list = expand_ang_list(
+            self.build['theta_list'], self.num_theta
+        )
 
     def populate_surfaces(self):
         '''Populates Surface class objects representing the outer surface of
         each component specified in the radial build.
         '''
-        self.Surfaces = []
-
         offset_mat = np.zeros((
             len(self.build['phi_list']), len(self.build['theta_list'])
         ))
@@ -232,7 +205,6 @@ class InVesselBuild(object):
         '''
         self.logger.info(f'Constructing in-vessel components...')
 
-        self.Components = []
         interior_surface = None
 
         segment_angles = np.linspace(
@@ -245,7 +217,7 @@ class InVesselBuild(object):
             outer_surface = surface.generate_surface()
 
             if interior_surface is not None:
-                segment = segment = outer_surface.cut(interior_surface)
+                segment = outer_surface.cut(interior_surface)
             else:
                 segment = outer_surface
 
@@ -300,6 +272,8 @@ class Surface(object):
         self.offset_mat = offset_mat
         self.scale = scale
 
+        self.surface = None
+
     def populate_ribs(self):
         '''Populates Rib class objects for each toroidal angle specified in
         the surface.
@@ -320,9 +294,12 @@ class Surface(object):
     def generate_surface(self):
         '''Constructs a surface by lofting across a set of rib splines.
         '''
-        surface = cq.Solid.makeLoft([rib.generate_rib() for rib in self.Ribs])
+        if not self.surface:
+            self.surface = cq.Solid.makeLoft(
+                [rib.generate_rib() for rib in self.Ribs]
+            )
 
-        return surface
+        return self.surface
 
     def get_loci(self):
         '''Returns the set of point-loci defining the ribs in the surface.
@@ -411,12 +388,7 @@ class Rib(object):
 
         norm = np.cross(plane_norm, tangent)
 
-        return self.normalize(norm)
-
-    def normalize(self, vec_list):
-        '''Normalizes a set of vectors.
-        '''
-        return vec_list / np.linalg.norm(vec_list, axis=1)[:, np.newaxis]
+        return normalize(norm)
 
     def generate_rib(self):
         '''Constructs component rib by constructing a spline connecting all
