@@ -5,14 +5,14 @@ from pathlib import Path
 import subprocess
 import yaml
 import argparse
-from utils import normalize
+from src.utils import normalize
 
 m2cm = 100
 
+
 class MagnetSet(object):
-    '''
-    A representation of the magnet filaments, with methods for generating
-    step files and volumetric meshes
+    """A representation of the magnet filaments, with methods for generating
+    step files and volumetric meshes.
 
     Parameters:
         magnets (dict): dictionary of magnet parameters including
@@ -36,15 +36,14 @@ class MagnetSet(object):
         export_dir (str): directory to which to export output files.
         logger (object): logger object (defaults to None). If no logger is
             supplied, a default logger will be instantiated.
-    '''
+    """
 
     def __init__(
         self,
         magnets,
         toroidal_extent,
         export_dir,
-        logger
-
+        logger=None
     ):
         self.coils_file_path = magnets['file']
         self.start = magnets['start']
@@ -58,16 +57,15 @@ class MagnetSet(object):
         else:
             self.logger = logger
 
-        self.extract_filaments()
-        self.set_average_radial_distance()
-        self.extract_cross_section()
-        self.set_filtered_filaments()
+        self._extract_filaments()
+        self._set_average_radial_distance()
+        self._extract_cross_section()
+        self._set_filtered_filaments()
 
-    def extract_filaments(self):
-        # set self.filaments to np array, index filament, loci of filament,
-        # xyz of loci
-        # each filament is a list consisting of lists of xyz
-
+    def _extract_filaments(self):
+        """Extracts filament data from magnet coil data file.
+        (Internal function not intended to be called externally)
+        """
         with open(self.coils_file_path, 'r') as file:
             data = file.readlines()[self.start:]
 
@@ -106,8 +104,9 @@ class MagnetSet(object):
 
         self.filaments = np.array(filaments)
 
-    def set_average_radial_distance(self):
+    def _set_average_radial_distance(self):
         """Computes average radial distance of filament points.
+        (Internal function not intended to be called externally)
 
         Parameters:
             filaments (np array of list of list of float): list of filament
@@ -125,8 +124,9 @@ class MagnetSet(object):
 
         self.average_radial_distance = average_radial_distance
 
-    def extract_cross_section(self):
-        """Extract coil cross-section parameters
+    def _extract_cross_section(self):
+        """Extract coil cross-section parameters.
+        (Internal function not intended to be called externally)
 
         Parameters:
             cross_section (list or tuple of str, float, float): coil
@@ -206,10 +206,11 @@ class MagnetSet(object):
         self.shape_str = shape_str
         self.mag_len = mag_len
 
-    def set_filtered_filaments(self):
+    def _set_filtered_filaments(self):
         """Cleans filament data such that only filaments within the toroidal
         extent of the model are included and filaments are sorted by toroidal
         angle.
+        (Internal function not intended to be called externally)
 
         Parameters:
             filaments (np array of list of list of float): list of filament
@@ -266,8 +267,7 @@ class MagnetSet(object):
             x for _, x in sorted(zip(phi_arr, reduced_fils))]
 
     def create_magnet_coils(self):
-        """
-        Creates a list of MagnetCoil objects within the toroidal extent.
+        """Creates a list of MagnetCoil objects within the toroidal extent.
 
         sets:
             self.magnet_coils (list of MagnetCoil objects): List of objects 
@@ -277,9 +277,7 @@ class MagnetSet(object):
         magnet_coils = []
 
         for filament in self.filtered_filaments:
-            magnet_coil = MagnetCoil(filament,
-                                     self.shape,
-                                     self.shape_str)
+            magnet_coil = MagnetCoil(filament, self.shape, self.shape_str)
             magnet_coils.append(magnet_coil)
 
         self.magnet_coils = magnet_coils
@@ -287,9 +285,7 @@ class MagnetSet(object):
         return magnet_coils
 
     def _cut_magnets(self, volume_ids):
-        """
-        Cleanly cuts the magnets at the planes defining the toriodal extent
-
+        """Cleanly cuts the magnets at the planes defining the toriodal extent.
         (Internal function not intended to be called externally)
 
         Parameters:
@@ -332,10 +328,10 @@ class MagnetSet(object):
         return volume_ids
 
     def build_magnet_coils(self):
+        """Builds each filament in self.filtered_filaments in cubit, then cuts
+        to the toroidal extent using self._cut_magnets().
         """
-        Builds each filament in self.filtered_filaments in cubit, then
-        cuts to the toroidal extent using self._cut_magnets()
-        """
+        self.logger.info('Constructing magnets...')
 
         self.create_magnet_coils()
 
@@ -350,19 +346,19 @@ class MagnetSet(object):
         self.volume_ids = volume_ids
 
     def mesh_magnets(self):
-        """Creates tetrahedral mesh of magnet volumes, exports to
-        exodus and converts to h5m
+        """Creates tetrahedral mesh of magnet volumes, exports to exodus and
+        converts to h5m.
         """
         # Mesh magnet volumes
         for vol in self.volume_ids:
             cubit.cmd(f'volume {vol} scheme tetmesh')
             cubit.cmd(f'mesh volume {vol}')
 
-        self.logger.info('Exporting coil mesh...')
+        self.logger.info('Exporting magnet mesh...')
 
         # Define export paths
-        exo_path = Path(self.export_dir) / 'coil_mesh.exo'
-        h5m_path = Path(self.export_dir) / 'coil_mesh.h5m'
+        exo_path = Path(self.export_dir) / 'magnet_mesh.exo'
+        h5m_path = Path(self.export_dir) / 'magnet_mesh.h5m'
 
         # EXODUS export
         cubit.cmd(f'export mesh "{exo_path}" overwrite')
@@ -382,10 +378,12 @@ class MagnetCoil(object):
         self.shape = shape_
         self.shape_str = shape_str_
 
-    def orient_rectangle(self, path_origin, surf_id, t_vec, norm, rot_axis,
-                         rot_ang_norm):
+    def _orient_rectangle(
+        self, path_origin, surf_id, t_vec, norm, rot_axis, rot_ang_norm
+    ):
         """Orients rectangular cross-section in the normal plane such that its
         thickness direction faces the origin.
+        (Internal function not intended to be called externally)
 
         Arguments:
             path_origin (int): index of initial point in filament path.
@@ -431,7 +429,8 @@ class MagnetCoil(object):
         # origin
         rot_ang_orig = np.arccos(np.inner(pos_proj, t_vec_rot))
 
-        # Re-orient rotated cross-section such that thickness vector faces origin
+        # Re-orient rotated cross-section such that thickness vector faces
+        # origin
         cubit.cmd(
             f'rotate Surface {surf_id} angle {np.rad2deg(rot_ang_orig)} about '
             'origin 0 0 0 direction ' + ' '.join(str(i) for i in norm)
@@ -504,7 +503,7 @@ class MagnetCoil(object):
 
         # Conditionally orients rectangular cross-section
         if self.shape == 'rectangle':
-            self.orient_rectangle(
+            self._orient_rectangle(
                 path[0], surf_id, t_vec, tang, rot_axis, rot_ang_norm
             )
 
@@ -527,9 +526,9 @@ class MagnetCoil(object):
 
         return volume_id
 
+
 def parse_args():
-    """
-    Parser for running as a script
+    """Parser for running as a script
     """
     parser = argparse.ArgumentParser(prog='generateMagnetSet')
 
@@ -537,32 +536,34 @@ def parse_args():
 
     return parser.parse_args()
 
+
 def read_yaml_magnets(filename):
-    """
-    Read YAML file describing this case and extract data relevant for magnet
+    """Read YAML file describing this case and extract data relevant for magnet
     definition.
     """
     with open(filename) as yaml_file:
-        all_data =  yaml.safe_load(yaml_file)
+        all_data = yaml.safe_load(yaml_file)
 
     magnets = all_data['magnets']
     toroidal_extent = all_data['toroidal_extent']
     export_dir = all_data['export_dir']
     logger = all_data['logger']
-    
+
     return magnets, toroidal_extent, export_dir
 
+
 def generate_magnet_set():
-    """
-    Main method when run as cmd line script
+    """Main method when run as cmd line script
     """
     args = parse_args()
 
     magnets, toroidal_extent, export_dir = read_yaml_magnets(args.filename)
 
-    magnet_set = MagnetSet(magnets,toroidal_extent,export_dir)
+    magnet_set = MagnetSet(magnets, toroidal_extent, export_dir)
 
     magnet_set.build_magnet_coils()
     magnet_set.mesh_magnets()
 
-if __name__ == '__main__': generate_magnet_set()
+
+if __name__ == '__main__':
+    generate_magnet_set()

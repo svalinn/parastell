@@ -2,10 +2,8 @@ import cadquery as cq
 import read_vmec
 from src.utils import expand_ang_list, normalize
 import log
-
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
-
 import argparse
 import yaml
 
@@ -13,7 +11,7 @@ m2cm = 100
 
 
 class InVesselBuild(object):
-    '''Parametrically models fusion stellarator in-vessel components using
+    """Parametrically models fusion stellarator in-vessel components using
     plasma equilibrium data and user-defined parameters. In-vessel component
     geometries are determined by a user-defined radial build, in which
     thickness values are supplied in a grid of toroidal and poloidal angles,
@@ -62,7 +60,7 @@ class InVesselBuild(object):
             not excluded, 'sol' will be used (defaults to None).
         logger (object): logger object (defaults to None). If no logger is
             supplied, a default logger will be instantiated.
-    '''
+    """
 
     def __init__(
             self,
@@ -125,7 +123,8 @@ class InVesselBuild(object):
             **self.build['radial_build']
         }
         if self.plasma_h5m_tag:
-            self.build['radial_build']['sol']['h5m_tag'] = self.plasma_h5m_tag
+            self.build['radial_build']['plasma']['h5m_tag'] \
+                = self.plasma_h5m_tag
 
         self.phi_list = expand_ang_list(self.build['phi_list'], self.num_phi)
         self.theta_list = expand_ang_list(
@@ -133,9 +132,9 @@ class InVesselBuild(object):
         )
 
     def populate_surfaces(self):
-        '''Populates Surface class objects representing the outer surface of
+        """Populates Surface class objects representing the outer surface of
         each component specified in the radial build.
-        '''
+        """
         offset_mat = np.zeros((
             len(self.build['phi_list']), len(self.build['theta_list'])
         ))
@@ -159,7 +158,7 @@ class InVesselBuild(object):
                 layer_data['h5m_tag'] = name
 
             offset_mat += np.array(layer_data['thickness_matrix'])
-            interpolated_offset_mat = self.interpolate_offset_matrix(
+            interpolated_offset_mat = self._interpolate_offset_matrix(
                 offset_mat
             )
 
@@ -172,10 +171,11 @@ class InVesselBuild(object):
 
         [surface.populate_ribs() for surface in self.Surfaces]
 
-    def interpolate_offset_matrix(self, offset_mat):
-        '''Interpolates total offset for expanded angle lists using cubic spline
+    def _interpolate_offset_matrix(self, offset_mat):
+        """Interpolates total offset for expanded angle lists using cubic spline
         interpolation.
-        '''
+        (Internal function not intended to be called externally)
+        """
         interpolator = RegularGridInterpolator(
             (self.build['phi_list'], self.build['theta_list']),
             offset_mat,
@@ -191,17 +191,17 @@ class InVesselBuild(object):
         return interpolated_offset_mat
 
     def calculate_loci(self):
-        '''Calls calculate_loci method in Surface class for each component
+        """Calls calculate_loci method in Surface class for each component
         specified in the radial build.
-        '''
-        self.logger.info(f'Computing point cloud...')
+        """
+        self.logger.info(f'Computing in-vessel component point cloud...')
         [surface.calculate_loci() for surface in self.Surfaces]
 
     def generate_components(self):
-        '''Constructs a CAD solid for each component specified in the radial
+        """Constructs a CAD solid for each component specified in the radial
         build by cutting the interior surface solid from the outer surface
         solid for a given component.
-        '''
+        """
         self.logger.info(f'Constructing in-vessel components...')
 
         interior_surface = None
@@ -230,14 +230,14 @@ class InVesselBuild(object):
             interior_surface = outer_surface
 
     def get_loci(self):
-        '''Returns the set of point-loci defining the outer surfaces of the
+        """Returns the set of point-loci defining the outer surfaces of the
         components specified in the radial build.
-        '''
+        """
         return np.array([surface.get_loci() for surface in self.Surfaces])
 
 
 class Surface(object):
-    '''An object representing a surface formed by lofting across a set of
+    """An object representing a surface formed by lofting across a set of
     "ribs" located at different toroidal planes and offset from a reference
     surface.
 
@@ -253,7 +253,7 @@ class Surface(object):
             defined by s for each toroidal angle, poloidal angle pair on the
             surface [cm].
         scale (double): a scaling factor between the units of VMEC and [cm].
-    '''
+    """
 
     def __init__(
             self,
@@ -274,9 +274,9 @@ class Surface(object):
         self.surface = None
 
     def populate_ribs(self):
-        '''Populates Rib class objects for each toroidal angle specified in
+        """Populates Rib class objects for each toroidal angle specified in
         the surface.
-        '''
+        """
         self.Ribs = [
             Rib(
                 self.vmec, self.s, self.theta_list, phi, self.offset_mat[i, :],
@@ -286,13 +286,13 @@ class Surface(object):
         ]
 
     def calculate_loci(self):
-        '''Calls calculate_loci method in Rib class for each rib in the surface.
-        '''
+        """Calls calculate_loci method in Rib class for each rib in the surface.
+        """
         [rib.calculate_loci() for rib in self.Ribs]
 
     def generate_surface(self):
-        '''Constructs a surface by lofting across a set of rib splines.
-        '''
+        """Constructs a surface by lofting across a set of rib splines.
+        """
         if not self.surface:
             self.surface = cq.Solid.makeLoft(
                 [rib.generate_rib() for rib in self.Ribs]
@@ -301,13 +301,13 @@ class Surface(object):
         return self.surface
 
     def get_loci(self):
-        '''Returns the set of point-loci defining the ribs in the surface.
-        '''
+        """Returns the set of point-loci defining the ribs in the surface.
+        """
         return np.array([rib.rib_loci() for rib in self.Ribs])
 
 
 class Rib(object):
-    '''An object representing a curve formed by interpolating a spline through
+    """An object representing a curve formed by interpolating a spline through
     a set of points located in the same toroidal plane but differing poloidal
     angles and offset from a reference curve.
 
@@ -323,7 +323,7 @@ class Rib(object):
             defined by s for each toroidal angle, poloidal angle pair in the rib
             [cm].
         scale (double): a scaling factor between the units of VMEC and [cm].
-    '''
+    """
 
     def __init__(
             self,
@@ -342,25 +342,26 @@ class Rib(object):
         self.scale = scale
 
     def calculate_loci(self):
-        '''Generates Cartesian point-loci for stellarator rib.
-        '''
-        self.rib_loci = self.vmec2xyz()
+        """Generates Cartesian point-loci for stellarator rib.
+        """
+        self.rib_loci = self._vmec2xyz()
 
         if not np.all(self.offset_list == 0):
             self.rib_loci += (
-                self.offset_list[:, np.newaxis] * self.normals()
+                self.offset_list[:, np.newaxis] * self._normals()
             )
 
-    def vmec2xyz(self, poloidal_offset=0):
-        '''Return an N x 3 NumPy array containing the Cartesian coordinates of
+    def _vmec2xyz(self, poloidal_offset=0):
+        """Return an N x 3 NumPy array containing the Cartesian coordinates of
         the points at this toroidal angle and N different poloidal angles, each
         offset slightly.
+        (Internal function not intended to be called externally)
 
         Arguments:
             poloidal_offset (double) : some offset to apply to the full set of
                 poloidal angles for evaluating the location of the Cartesian
                 points (defaults to 0).
-        '''
+        """
         return self.scale * np.array(
             [
                 self.vmec.vmec2xyz(self.s, theta, self.phi)
@@ -368,18 +369,19 @@ class Rib(object):
             ]
         )
 
-    def normals(self):
-        '''Approximate the normal to the curve at each poloidal angle by first
+    def _normals(self):
+        """Approximate the normal to the curve at each poloidal angle by first
         approximating the tangent to the curve and then taking the
         cross-product of that tangent with a vector defined as normal to the
         plane at this toroidal angle.
+        (Internal function not intended to be called externally)
 
         Arguments:
             r_loci (np.array(double)): Cartesian point-loci of reference
                 surface rib [cm].
-        '''
+        """
         eps = 1e-4
-        next_pt_loci = self.vmec2xyz(eps)
+        next_pt_loci = self._vmec2xyz(eps)
 
         tangent = next_pt_loci - self.rib_loci
 
@@ -390,9 +392,9 @@ class Rib(object):
         return normalize(norm)
 
     def generate_rib(self):
-        '''Constructs component rib by constructing a spline connecting all
+        """Constructs component rib by constructing a spline connecting all
         specified Cartesian point-loci.
-        '''
+        """
         rib_loci = [cq.Vector(tuple(r)) for r in self.rib_loci]
         spline = cq.Edge.makeSpline(rib_loci).close()
         rib_spline = cq.Wire.assembleEdges([spline]).close()
@@ -401,8 +403,8 @@ class Rib(object):
 
 
 def parse_args():
-    '''Parser for running as a script.
-    '''
+    """Parser for running as a script.
+    """
     parser = argparse.ArgumentParser(prog='invessel_components')
 
     parser.add_argument('filename', help='YAML file defining this case')
@@ -411,9 +413,9 @@ def parse_args():
 
 
 def read_yaml_src(filename):
-    '''Read YAML file describing the stellarator in-vessel components and
+    """Read YAML file describing the stellarator in-vessel components and
     extract all data.
-    '''
+    """
     with open(filename) as yaml_file:
         all_data = yaml.safe_load(yaml_file)
 
@@ -427,8 +429,8 @@ def read_yaml_src(filename):
 
 
 def invessel_components():
-    '''Main method when run as a command line script.
-    '''
+    """Main method when run as a command line script.
+    """
     args = parse_args()
 
     (

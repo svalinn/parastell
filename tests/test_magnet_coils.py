@@ -1,44 +1,22 @@
 import src.magnet_coils as magnet_coils
-import logging
-import os
-
-logger = logging.getLogger('log')
-# Configure base logger message level
-logger.setLevel(logging.INFO)
-# Configure stream handler
-s_handler = logging.StreamHandler()
-# Configure file handler
-f_handler = logging.FileHandler('stellarator.log')
-# Define and set logging format
-format = logging.Formatter(
-    fmt='%(asctime)s: %(message)s',
-    datefmt='%H:%M:%S'
-)
-
-s_handler.setFormatter(format)
-f_handler.setFormatter(format)
-# Add handlers to logger
-logger.addHandler(s_handler)
-logger.addHandler(f_handler)
+from pathlib import Path
 
 toroidal_extent = 90
-
 export_dir = ''
 
 
 def test_rectangular_magnets():
 
     magnets = {
-    'file': './files_for_tests/coils.txt',
-    'cross_section': ['rectangle', 20, 60],
-    'start': 3,
-    'stop': None,
-    'sample': 6,
-    'name': 'magnet_coils',
-    'h5m_tag': 'magnets',
-    'meshing': False
+        'file': Path('files_for_tests') / 'coils.txt',
+        'cross_section': ['rectangle', 20, 60],
+        'start': 3,
+        'stop': None,
+        'sample': 6,
+        'name': 'magnets',
+        'h5m_tag': 'magnets',
+        'meshing': False
     }
-
 
     len_filaments_exp = 40
     average_radial_distance_exp = 1241.4516792609722
@@ -50,9 +28,9 @@ def test_rectangular_magnets():
 
     len_test_coil_filament_exp = 23
 
-    # no cubit required for these
-    test_coil_set = magnet_coils.MagnetSet(magnets, toroidal_extent,
-                                              export_dir, logger)
+    test_coil_set = magnet_coils.MagnetSet(
+        magnets, toroidal_extent, export_dir
+    )
 
     filaments = test_coil_set.filaments
     average_radial_distance = test_coil_set.average_radial_distance
@@ -72,19 +50,19 @@ def test_rectangular_magnets():
     assert mag_len == mag_len_exp
     assert len(test_coil_filament) == len_test_coil_filament_exp
 
+
 def test_circular_magnets():
 
     magnets = {
-    'file': './files_for_tests/coils.txt',
-    'cross_section': ['circle', 20],
-    'start': 3,
-    'stop': None,
-    'sample': 6,
-    'name': 'magnet_coils',
-    'h5m_tag': 'magnets',
-    'meshing': False
+        'file': Path('files_for_tests') / 'coils.txt',
+        'cross_section': ['circle', 20],
+        'start': 3,
+        'stop': None,
+        'sample': 6,
+        'name': 'magnets',
+        'h5m_tag': 'magnets',
+        'meshing': False
     }
-
 
     len_filaments_exp = 40
     average_radial_distance_exp = 1241.4516792609722
@@ -96,9 +74,9 @@ def test_circular_magnets():
 
     len_test_coil_filament_exp = 23
 
-    # no cubit required for these
-    test_coil_set = magnet_coils.MagnetSet(magnets, toroidal_extent,
-                                              export_dir, logger)
+    test_coil_set = magnet_coils.MagnetSet(
+        magnets, toroidal_extent, export_dir
+    )
 
     filaments = test_coil_set.filaments
     average_radial_distance = test_coil_set.average_radial_distance
@@ -118,33 +96,36 @@ def test_circular_magnets():
     assert mag_len == mag_len_exp
     assert len(test_coil_filament) == len_test_coil_filament_exp
 
+
 def test_magnet_meshing():
 
-    # requires cubit
+    if Path('magnet_mesh.exo').exists():
+        Path.unlink('magnet_mesh.exo')
 
-    # remove old mesh files (if they exist)
-    if os.path.exists('coil_mesh.exo'):
-        os.remove('coil_mesh.exo')
-
-    if os.path.exists('coil_mesh.h5m'):
-        os.remove('coil_mesh.h5m')
+    if Path('magnet_mesh.h5m').exists():
+        Path.unlink('magnet_mesh.h5m')
 
     magnets = {
-    'file': './files_for_tests/coils.txt',
-    'cross_section': ['circle', 20],
-    'start': 3,
-    'stop': None,
-    'sample': 6,
-    'name': 'magnet_coils',
-    'h5m_tag': 'magnets',
-    'meshing': False
+        'file': Path('files_for_tests') / 'coils.txt',
+        'cross_section': ['circle', 20],
+        'start': 3,
+        'stop': None,
+        'sample': 6,
+        'name': 'magnets',
+        'h5m_tag': 'magnets',
+        'meshing': True
     }
 
-    test_coil_set = magnet_coils.MagnetSet(magnets, toroidal_extent,
-                                              export_dir, logger)
-    
+    test_coil_set = magnet_coils.MagnetSet(
+        magnets, toroidal_extent, export_dir
+    )
+
     test_coil_set.build_magnet_coils()
     test_coil_set.mesh_magnets()
 
-    assert os.path.exists('coil_mesh.exo') == True
-    assert os.path.exists('coil_mesh.h5m') == True
+    assert Path('magnet_mesh.exo').exists() == True
+    assert Path('magnet_mesh.h5m').exists() == True
+
+    Path.unlink('magnet_mesh.exo')
+    Path.unlink('magnet_mesh.h5m')
+    Path.unlink('stellarator.log')

@@ -30,6 +30,7 @@ sol_h5m_tag = 'Vacuum'
 invessel_build = ivb.InVesselBuild(
     vmec, build, repeat, num_phi, num_theta, scale, plasma_h5m_tag, sol_h5m_tag
 )
+Path.unlink('stellarator.log')
 
 
 def test_ivb_basics():
@@ -58,5 +59,3 @@ def test_ivb_construction():
     invessel_build.generate_components()
 
     assert len(invessel_build.Components) == 3
-
-Path.unlink('stellarator.log')

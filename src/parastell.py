@@ -1,7 +1,7 @@
 import cubit
 import src.invessel_build as ivb
-import magnet_coils
-import source_mesh
+import src.magnet_coils as mc
+import src.sourcemesh as sm
 import log
 import cadquery as cq
 import cad_to_dagmc
@@ -18,7 +18,7 @@ m2cm = 100
 export_def = {
     'exclude': [],
     'graveyard': False,
-    'step_export': True,
+    '_step_export': True,
     'h5m_export': None,
     'dir': '',
     'h5m_filename': 'dagmc',
@@ -40,7 +40,7 @@ export_def = {
 
 
 class Stellarator(object):
-    '''Parametrically generates a fusion stellarator model using plasma
+    """Parametrically generates a fusion stellarator model using plasma
     equilibrium data and user-defined parameters. In-vessel component
     geometries are determined by a user-defined radial build, in which
     thickness values are supplied in a grid of toroidal and poloidal angles,
@@ -114,7 +114,7 @@ class Stellarator(object):
                     defaults to empty),
                 'graveyard': generate graveyard volume as additional component
                     (bool, defaults to False),
-                'step_export': export component STEP files (bool, defaults to
+                '_step_export': export component STEP files (bool, defaults to
                     True),
                 'h5m_export': export DAGMC-compatible neutronics H5M file using
                     Coreform Cubit or CAD-to-DAGMC. Acceptable values are None
@@ -166,7 +166,7 @@ class Stellarator(object):
             }
         logger (object): logger object (defaults to None). If no logger is
             supplied, a default logger will be instantiated.
-    '''
+    """
 
     def __init__(
             self,
@@ -199,17 +199,17 @@ class Stellarator(object):
 
         self.vmec = read_vmec.vmec_data(self.vmec_file)
 
-        self.check_input()
+        self._check_input()
 
         if (
             self.export_dict['h5m_export'] == 'cubit' or
             self.magnets is not None
         ):
-            self.init_cubit()
+            self._init_cubit()
 
-    def check_input(self):
-        '''Checks user input for errors.
-        '''
+    def _check_input(self):
+        """Checks user input for errors.
+        """
         if (
             self.export_dict['h5m_export'] not in
             [None, 'cubit', 'cad_to_dagmc']
@@ -221,7 +221,7 @@ class Stellarator(object):
 
         if (
             self.export_dict['h5m_export'] == 'cubit' and
-            not self.export_dict['step_export']
+            not self.export_dict['_step_export']
         ):
             raise ValueError('H5M export via Cubit requires STEP files')
 
@@ -231,9 +231,9 @@ class Stellarator(object):
                 'Inclusion of magnets in H5M model requires Cubit export'
             )
     
-    def init_cubit(self):
-        '''Initializes Coreform Cubit with the DAGMC plugin.
-        '''
+    def _init_cubit(self):
+        """Initializes Coreform Cubit with the DAGMC plugin.
+        """
         cubit_plugin_dir = (
             Path(os.path.dirname(inspect.getfile(cubit))) / Path('plugins')
         )
@@ -248,8 +248,8 @@ class Stellarator(object):
         ])
 
     def construct_invessel_build(self):
-        '''Construct InVesselBuild class object.
-        '''
+        """Construct InVesselBuild class object.
+        """
         self.invessel_build = ivb.InVesselBuild(
             self.vmec, self.build, self.repeat, self.num_phi, self.num_theta,
             self.scale, self.export_dict['plasma_h5m_tag'],
@@ -259,51 +259,53 @@ class Stellarator(object):
         self.invessel_build.calculate_loci()
         self.invessel_build.generate_components()
 
-    def construct_source_mesh(self):
-        '''Constructs SourceMesh class object.
-        '''
-        self.source_mesh = source_mesh.SourceMesh(self.vmec, self.source)
-
     def construct_magnets(self):
-        '''Constructs MagnetSet class object.
-        '''
-        self.magnet_set = magnet_coils.MagnetSet(
-            self.magnets, self.ivc_data.tot_tor_ext, self.export_dict['dir'],
-            self.logger)
+        """Constructs MagnetSet class object.
+        """
+        self.magnet_set = mc.MagnetSet(
+            self.magnets, (self.repeat + 1) * self.build['phi_list'][-1],
+            self.export_dict['dir'], self.logger
+        )
+        self.magnet_set.build_magnet_coils()
+        if self.magnets['meshing']:
+            self.magnet_set.mesh_magnets()
+
+    def construct_source_mesh(self):
+        """Constructs SourceMesh class object.
+        """
+        self.source_mesh = sm.SourceMesh(
+            self.vmec, self.source['num_s'], self.source['num_theta'],
+            self.source['num_phi'], self.source['tor_ext'], self.logger
+        )
+        self.source_mesh.create_vertices()
+        self.source_mesh.create_mesh()
+        self.source_mesh.write('source_mesh.h5m')
 
     def export_CAD_geometry(self):
-        '''Exports stellarator CAD geometry STEP and/or DAGMC neutronics H5M
+        """Exports stellarator CAD geometry STEP and/or DAGMC neutronics H5M
         files according to user-specification.
-        '''
-        self.construct_components_dict()
+        """
+        self._construct_components_dict()
 
-        if self.export_dict['step_export']:
+        if self.export_dict['_step_export']:
             self.logger.info('Exporting STEP files...')
-            for name, component in self.components.items():
-                export_path = (
-                    Path(self.export_dict['dir']) /
-                    Path(name).with_suffix('.step')
-                )
-                cq.exporters.export(
-                    component['solid'],
-                    str(export_path)
-                )
+            self._step_export()
 
         if self.export_dict['h5m_export'] == 'cubit':
             self.logger.info(
                 'Exporting DAGMC neutronics H5M file via Coreform Cubit...'
             )
-            self.cubit_export()
+            self._cubit_export()
 
         if self.export_dict['h5m_export'] == 'cad_to_dagmc':
             self.logger.info(
                 'Exporting DAGMC neutronics H5M file via CAD-to-DAGMC...'
             )
-            self.gmsh_export()
+            self._gmsh_export()
 
-    def construct_components_dict(self):
-        '''Constructs components dictionary for export routine.
-        '''
+    def _construct_components_dict(self):
+        """Constructs components dictionary for export routine.
+        """
         self.components = {}
 
         for component, (name, layer_data) in zip(
@@ -313,19 +315,52 @@ class Stellarator(object):
             self.components[name] = {}
             self.components[name]['h5m_tag'] = layer_data['h5m_tag']
             self.components[name]['solid'] = component
+        
+        if self.magnets:
+            name = self.magnets['name']
+            self.components[name] = {}
+            self.components[name]['h5m_tag'] = self.magnets['h5m_tag']
+            self.components[name]['vol_id'] = self.magnet_set.volume_ids
 
-    def cubit_export(self):
-        '''Exports DAGMC neutronics H5M file via Coreform Cubit.
-        '''
+    def _step_export(self):
+        """Export CAD solids as STEP files. In-vessel components are exported
+        via CadQuery while magnets are exported via Coreform Cubit.
+        """
+        for name, component in self.components.items():
+            if name == self.magnets['name']:
+                continue
+
+            export_path = (
+                Path(self.export_dict['dir']) /
+                Path(name).with_suffix('.step')
+            )
+            cq.exporters.export(
+                component['solid'],
+                str(export_path)
+            )
+        
+        if self.magnets:
+            export_path = (
+                Path(self.export_dict['dir']) /
+                Path(self.magnets['name']).with_suffix('.step')
+            )
+            cubit.cmd(
+                f'export step "{export_path}" overwrite'
+            )
+    
+    def _cubit_export(self):
+        """Exports DAGMC neutronics H5M file via Coreform Cubit.
+        """
 
         def legacy_export():
             """Exports DAGMC neutronics H5M file via legacy plug-in faceting
             method for Coreform Cubit.
             """
             if self.magnets is not None:
+                comp = self.components[self.magnets['name']]
                 cubit.cmd(
-                    f'group "mat:{self.magnets["h5m_tag"]}" add volume '
-                    + " ".join(str(i) for i in self.magnets['vol_id'])
+                    f'group "mat:{comp["h5m_tag"]}" add volume '
+                    + " ".join(str(i) for i in comp["vol_id"])
                 )
 
             for comp in self.components.values():
@@ -385,13 +420,14 @@ class Stellarator(object):
                 )
 
             if self.magnets is not None:
+                comp = self.components[self.magnets['name']]
                 cubit.cmd(
-                    f'create material "{self.magnets["h5m_tag"]}" '
+                    f'create material "{comp["h5m_tag"]}" '
                     + 'property_group "CUBIT-ABAQUS"'
                 )
 
-                block_number = min(self.magnets['vol_id'])
-                for vol in self.magnets['vol_id']:
+                block_number = min(comp['vol_id'])
+                for vol in comp['vol_id']:
                     cubit.cmd('set duplicate block elements off')
                     cubit.cmd(
                         f'block {block_number} add volume {vol}'
@@ -399,7 +435,7 @@ class Stellarator(object):
 
                 cubit.cmd(
                     f'block {block_number} material '
-                    + ''.join(("\'", self.magnets['h5m_tag'], "\'"))
+                    + ''.join(("\'", comp['h5m_tag'], "\'"))
                 )
 
             cubit.cmd(
@@ -481,6 +517,9 @@ class Stellarator(object):
             return inner_surface, outer_surface
 
         for name in self.components.keys():
+            if name == self.magnets['name']:
+                continue
+            
             import_path = (
                 Path(self.export_dict['dir']) / Path(name).with_suffix('.step')
             )
@@ -499,9 +538,9 @@ class Stellarator(object):
         else:
             legacy_export()
 
-    def gmsh_export(self):
-        '''Exports DAGMC neutronics H5M file via CAD-to-DAGMC.
-        '''
+    def _gmsh_export(self):
+        """Exports DAGMC neutronics H5M file via CAD-to-DAGMC.
+        """
         model = cad_to_dagmc.CadToDagmc()
         for comp in self.components.values():
             model.add_cadquery_object(
@@ -518,9 +557,9 @@ class Stellarator(object):
 
 
 def parse_args():
-    '''Parser for running as a script.
-    '''
-    parser = argparse.ArgumentParser(prog='sourcemesh')
+    """Parser for running as a script.
+    """
+    parser = argparse.ArgumentParser(prog='stellarator')
 
     parser.add_argument('filename', help='YAML file defining this case')
 
@@ -528,8 +567,8 @@ def parse_args():
 
 
 def read_yaml_src(filename):
-    '''Read YAML file describing the stellarator build and extract all data.
-    '''
+    """Read YAML file describing the stellarator build and extract all data.
+    """
     with open(filename) as yaml_file:
         all_data = yaml.safe_load(yaml_file)
 
@@ -542,8 +581,8 @@ def read_yaml_src(filename):
 
 
 def parastell():
-    '''Main method when run as a command line script.
-    '''
+    """Main method when run as a command line script.
+    """
     args = parse_args()
 
     (vmec_file, build, repeat, num_phi, num_theta, magnets, source, export,
@@ -553,6 +592,10 @@ def parastell():
         vmec_file, build, repeat, num_phi, num_theta, magnets, source, export,
         logger
     )
+    stellarator.construct_invessel_build()
+    stellarator.construct_magnets()
+    stellarator.export_CAD_geometry()
+    stellarator.construct_source_mesh()
 
 
 if __name__ == "__main__":
