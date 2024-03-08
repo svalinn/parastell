@@ -1,6 +1,6 @@
 import cadquery as cq
 import read_vmec
-from src.utils import *
+from src.utils import expand_ang_list, normalize
 import log
 
 import numpy as np
@@ -120,8 +120,7 @@ class InVesselBuild(object):
                 'thickness_matrix': np.zeros((
                     len(self.build['phi_list']),
                     len(self.build['theta_list'])
-                )),
-                'h5m_tag': self.plasma_h5m_tag
+                ))
             },
             **self.build['radial_build']
         }

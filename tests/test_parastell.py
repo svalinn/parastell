@@ -55,5 +55,3 @@ def test_export():
     Path.unlink('dagmc.h5m')
     Path.unlink('stellarator.log')
     Path.unlink('step_import.log')
-
-test_export()
