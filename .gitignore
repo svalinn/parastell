@@ -143,3 +143,5 @@ dmypy.json
 !coils.txt
 !wout_vmec.nc
 .vscode
+*.yaml
+!config.yaml
