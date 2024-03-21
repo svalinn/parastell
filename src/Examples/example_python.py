@@ -65,7 +65,7 @@ invessel_build = {
 magnets = {
     'coils_file_path': 'coils.txt',
     'start_line': 3,
-    'cross_section': ['circle', 25],
+    'cross_section': ['circle', 20],
     'toroidal_extent': 90.0,
     'sample_mod': 6,
     'scale': 100,
