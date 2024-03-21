@@ -1,12 +1,9 @@
+vmec_file: wout_vmec.nc
 
-VMEC_file: plas_eq.nc
-
-radial_build:
-  phi_list: [0.0, 22.5, 45.0, 67.5, 90.0]
-  theta_list: [0.0, 90.0, 180.0, 270.0, 360.0]
-  wall_s: 1.2
-  repeated: False 
-  components:
+invessel_build:
+  toroidal_angles: [0.0, 22.5, 45.0, 67.5, 90.0]
+  poloidal_angles: [0.0, 90.0, 180.0, 270.0, 360.0]
+  radial_build:
     first_wall:
       thickness_matrix:
         - [5, 5, 5, 5, 5]
@@ -35,21 +32,6 @@ radial_build:
         - [20, 20, 15, 20, 20]
         - [30, 20, 20, 25, 30]
         - [50, 25, 15, 25, 50]
-    manifolds:
-      thickness_matrix:
-        - [50, 50, 15, 50, 50]
-        - [20, 20, 15, 20, 20]
-        - [15, 15, 15, 15, 15]
-        - [20, 20, 20, 20, 20]
-        - [50, 50, 50, 50, 50]
-    gap:
-      thickness_matrix:
-        - [5, 5, 5, 5, 5]
-        - [5, 5, 5, 5, 5]
-        - [5, 5, 5, 5, 5]
-        - [5, 5, 5, 5, 5]
-        - [5, 5, 5, 5, 5]
-      h5m_tag: Vacuum
     vacuum_vessel:
       thickness_matrix:
         - [15, 15, 15, 15, 15]
@@ -57,52 +39,55 @@ radial_build:
         - [15, 15, 15, 15, 15]
         - [15, 15, 15, 15, 15]
         - [15, 15, 15, 15, 15]
-      h5m_tag: vac_vessel
-
-stellarator_parameters:
-  num_periods: 4
-  gen_periods: 1
-  num_phi: 61
-  num_theta: 61
+      mat_tag: vac_vessel
+  wall_s: 1.08
+  repeat: 0
+  num_ribs: 61
+  num_rib_pts: 61
+  scale: 100
+  export_cad_to_dagmc: False
+  plasma_mat_tag: Vacuum
+  sol_mat_tag: Vacuum
+  export_dir: ''
 
 magnet_coils:
-  file: coils.txt
-  cross_section: [circle, 20]
-  start: 3
-  stop: null
-  sample: 6
-  name: magnet_coils
-  h5m_tag: magnets
-  meshing: False
+  coils_file_path: coils.txt
+  start_line: 3
+  cross_section: [circle, 25.0]
+  toroidal_extent: 90.0
+  sample_mod: 6
+  scale: 100
+  step_filename: magnet_coils
+  mat_tag: magnet_coils
+  export_mesh: True
+  mesh_filename: magnet_mesh
+  export_dir: ''
 
-source_mesh_parameters:
+source_mesh:
   num_s: 11
   num_theta: 81
   num_phi: 61
-  tor_ext: 90.0
+  toroidal_extent: 90.0
+  scale: 100
+  filename: source_mesh
+  export_dir: ''
 
-export_parameters:
-  exclude: []
-  graveyard: False
-  dir: ""
-  step_export: True
-  h5m_export: "Cubit"
-  h5m_filename: "dagmc"
-  plas_h5m_tag: "Vacuum"
-  sol_h5m_tag: "Vacuum"
-# Note the following export parameters are used only for Cubit H5M exports
-  facet_tol: 1
-  len_tol: 5
-  norm_tol: null
-  skip_imprinting: False
-# Choose whether to use native Cubit meshing (v2023.11+) or legacy DAGMC
-# workflow
-  native_meshing: False
+dagmc_export:
+  # Choose whether to skip imprint procedure (default for ParaStell is False).
+  # Skipping the imprint procedure can reduce the duration of the DAGMC export
+  # but risks improperly merging surfaces if there is any overlap between the
+  # in-vessel component and magnet volumes.
+  skip_imprint: False
+  # Choose native Cubit or legacy DAGMC plug-in faceting method (default for
+  # ParaStell is True).
+  legacy_faceting: True
+  # The following parameters are for legacy DAGMC plug-in faceting.
+  faceting_tolerance: 1
+  length_tolerance: 5
+  normal_tolerance: null
+  # The following parameters are for native Cubit faceting.
   anisotropic_ratio: 100
   deviation_angle: 5
-# Note the following export parameters are used only for Gmsh H5M exports
-  min_mesh_size: 5.0
-  max_mesh_size: 20.0
-  volume_atol: 0.00001
-  center_atol: 0.00001
-  bounding_box_atol: 0.00001
+  # Define file path parameters
+  filename: dagmc
+  export_dir: ''

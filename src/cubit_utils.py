@@ -64,8 +64,8 @@ def export_step_cubit(filename, export_dir=''):
 
 
 def export_tet_mesh_cubit(volume_ids, filename, export_dir=''):
-    """Creates tetrahedral mesh of CAD volumes and exports to Exodus format via
-    Coreform Cubit and converts to H5M via MOAB.
+    """Creates tetrahedral mesh of CAD volumes, exporting to Exodus format via
+    Coreform Cubit and converting to H5M via MOAB.
 
     Arguments:
         volume_ids (iterable of int): iterable of Cubit volume IDs.
@@ -142,13 +142,14 @@ def merge_layer_surfaces(components_dict):
     # Tracks the surface id of the outer surface of the previous layer
     prev_outer_surface_id = None
 
-    for component in components_dict.keys():
-        vol_id = component['vol_id']
+    for data in components_dict.values():
         # Skip merging for magnets
-        if len(vol_id) > 1:
+        if isinstance(data['vol_id'], list):
             continue
 
-        inner_surface_id, outer_surface_id = orient_spline_surfaces(vol_id)
+        inner_surface_id, outer_surface_id = (
+            orient_spline_surfaces(data['vol_id'])
+        )
 
         # Conditionally skip merging (first iteration only)
         if prev_outer_surface_id is None:
@@ -160,9 +161,10 @@ def merge_layer_surfaces(components_dict):
             prev_outer_surface_id = outer_surface_id
 
 
-def export_h5m_cubit_legacy(
-    components_dict, filename='dagmc', export_dir='', skip_imprint=False,
-    faceting_tolerance=None, length_tolerance=None, normal_tolerance=None
+def export_dagmc_cubit_legacy(
+    components_dict, skip_imprint=False, faceting_tolerance=None,
+    length_tolerance=None, normal_tolerance=None, filename='dagmc',
+    export_dir=''
 ):
     """Exports DAGMC neutronics H5M file of ParaStell components via legacy
     plug-in faceting method for Coreform Cubit.
@@ -174,38 +176,37 @@ def export_h5m_cubit_legacy(
                 'component_name': {
                     'vol_id': Coreform Cubit volume ID(s) for component (int or
                         iterable of int)
-                    'h5m_tag': material tag for component (str)
-                    (additional keys are allowed)
+                    'mat_tag': DAGMC material tag for component (str)
                 }
             }
-        filename (str): name of H5M output file, excluding '.step' extension
-            (defaults to 'dagmc').
-        export_dir (str): directory to which to export the H5M output file
-            (defaults to empty string).
         skip_imprint (bool): flag for whether the export routine should skip
             the imprint procedure (defaults to False).
         faceting_tolerance (double): maximum distance a facet may be from
-            surface of CAD representation for H5M export (defaults to None).
-        length_tolerance (double): maximum length of facet edge for H5M export
+            surface of CAD representation for DAGMC export (defaults to None).
+        length_tolerance (double): maximum length of facet edge for DAGMC export
             (double, defaults to None).
         normal_tolerance (double): maximum change in angle between normal
             vector of adjacent facets (defaults to None).
+        filename (str): name of DAGMC output file, excluding '.h5m' extension
+            (defaults to 'dagmc').
+        export_dir (str): directory to which to export the DAGMC output file
+            (defaults to empty string).
     """
     if skip_imprint:
-        merge_layer_surfaces()
+        merge_layer_surfaces(components_dict)
 
     else:
         cubit.cmd('imprint volume all')
         cubit.cmd('merge volume all')
 
-    for component in components_dict.keys():
-        if len(component['vol_id']) > 1:
-            vol_id_str = " ".join(str(i) for i in component["vol_id"])
+    for data in components_dict.values():
+        if isinstance(data['vol_id'], list):
+            vol_id_str = " ".join(str(i) for i in data["vol_id"])
         else:
-            vol_id_str = str(component['vol_id'])
+            vol_id_str = str(data['vol_id'])
 
         cubit.cmd(
-            f'group "mat:{component["h5m_tag"]}" add volume {vol_id_str}'
+            f'group "mat:{data["mat_tag"]}" add volume {vol_id_str}'
         )
 
     facet_tol_str = ''
@@ -226,11 +227,12 @@ def export_h5m_cubit_legacy(
     )
 
 
-def export_h5m_cubit_native(
-    components_dict, filename='dagmc', export_dir='', skip_imprint=False,
-    anisotropic_ratio=100.0, deviation_angle=5.0
+def export_dagmc_cubit_native(
+    components_dict, skip_imprint=False, anisotropic_ratio=100.0,
+    deviation_angle=5.0, filename='dagmc', export_dir=''
 ):
-    """Exports DAGMC neutronics H5M file of ParaStell components via native faceting method for Coreform Cubit.
+    """Exports DAGMC neutronics H5M file of ParaStell components via native
+    faceting method for Coreform Cubit.
 
     Arguments:
         components_dict (dict): dictionary of ParaStell components. This
@@ -239,14 +241,9 @@ def export_h5m_cubit_native(
                 'component_name': {
                     'vol_id': Coreform Cubit volume ID(s) for component (int or
                         iterable of int)
-                    'h5m_tag': material tag for component (str)
-                    (additional keys are allowed)
+                    'mat_tag': DAGMC material tag for component (str)
                 }
             }
-        filename (str): name of H5M output file, excluding '.step' extension
-            (defaults to 'dagmc').
-        export_dir (str): directory to which to export the H5M output file
-            (defaults to empty string).
         skip_imprint (bool): flag for whether the export routine should skip
             the imprint procedure (defaults to False).
         anisotropic_ratio (double): controls edge length ratio of elements
@@ -254,32 +251,36 @@ def export_h5m_cubit_native(
         deviation_angle (double): controls deviation angle of facet from
             surface (i.e., lesser deviation angle results in more elements in
             areas with higher curvature) (defaults to 5.0).
+        filename (str): name of DAGMC output file, excluding '.h5m' extension
+            (defaults to 'dagmc').
+        export_dir (str): directory to which to export the DAGMC output file
+            (defaults to empty string).
     """
     if skip_imprint:
-        merge_layer_surfaces()
+        merge_layer_surfaces(components_dict)
     else:
         cubit.cmd('imprint volume all')
         cubit.cmd('merge volume all')
 
     cubit.cmd('set duplicate block elements off')
 
-    for component in components_dict.keys():
-        if len(component['vol_id']) > 1:
-            block_id = min(component['vol_id'])
-            vol_id_str = " ".join(str(i) for i in component["vol_id"])
+    for data in components_dict.values():
+        if isinstance(data['vol_id'], list):
+            block_id = min(data['vol_id'])
+            vol_id_str = " ".join(str(i) for i in data["vol_id"])
         else:
-            block_id = component['vol_id']
-            vol_id_str = str(component['vol_id'])
+            block_id = data['vol_id']
+            vol_id_str = str(data['vol_id'])
 
         cubit.cmd(
-            f'create material "{component["h5m_tag"]}" property_group '
+            f'create material "{data["mat_tag"]}" property_group '
             '"CUBIT-ABAQUS"'
         )
         cubit.cmd(
             f'block {block_id} add volume {vol_id_str}'
         )
         cubit.cmd(
-            f'block {block_id} material \'{component['h5m_tag']}\''
+            f'block {block_id} material \'{data["mat_tag"]}\''
         )
 
     cubit.cmd(

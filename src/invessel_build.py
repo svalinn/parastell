@@ -1,13 +1,15 @@
 import cadquery as cq
+import cad_to_dagmc
 import read_vmec
-from src.utils import expand_ang_list, normalize
+from src.utils import expand_ang_list, normalize, def_default_params
 import log
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
+from pathlib import Path
 import argparse
 import yaml
 
-m2cm = 100
+m2cm, _, invessel_build_def, _, _, _ = def_default_params()
 
 
 class InVesselBuild(object):
@@ -18,46 +20,49 @@ class InVesselBuild(object):
     and plasma equilibrium VMEC data.
 
     Arguments:
-        vmec (object): plasma equilibrium VMEC object from PyStell-UW.
-        build (dict): dictionary of list of toroidal and poloidal angles, as
-            well as dictionary of component names with corresponding thickness
-            matrix and optional material tag to use in H5M neutronics model.
-            The thickness matrix specifies component thickness at specified
-            (polidal angle, toroidal angle) pairs. This dictionary takes the
-            form
+        vmec (object): plasma equilibrium VMEC object as defined by the
+            PyStell-UW VMEC reader. Must have a method
+            'vmec2xyz(s, theta, phi)' that returns an (x,y,z) coordinate for
+            any closed flux surface label, s, poloidal angle, theta, and
+            toroidal angle, phi.
+        toroidal_angles (array of double): toroidal angles at which radial
+            build is specified.This list should always begin at 0.0 and it is
+            advised not to extend beyond one stellarator period. To build a
+            geometry that extends beyond one period, make use of the 'repeat'
+            parameter [deg].
+        poloidal_angles (array of double): poloidal angles at which radial
+            build is specified. This array should always span 360 degrees [deg].
+        radial_build (dict): dictionary representing the three-dimensional
+            radial build of in-vessel components, including
             {
-                'phi_list': toroidal angles at which radial build is specified.
-                    This list should always begin at 0.0 and it is advised not
-                    to extend past one stellarator period. To build a geometry
-                    that extends beyond one period, make use of the 'repeat'
-                    parameter (list of double, deg).
-                'theta_list': poloidal angles at which radial build is
-                    specified. This list should always span 360 degrees (list
-                    of double, deg).
-                'wall_s': closed flux surface label extrapolation at wall
-                    (double),
-                'radial_build': {
-                    'component': {
-                        'thickness_matrix': list of list of double (cm),
-                        'h5m_tag': h5m_tag (str)
-                    }
+                'component': {
+                    'thickness_matrix': 2-D matrix defining component
+                        thickness at (toroidal angle, poloidal angle)
+                        locations. Rows represent toroidal angles, columns
+                        represent poloidal angles, and each must be in the same
+                        order provided in toroidal_angles and poloidal_angles
+                        [cm](ndarray(double)).
+                    'mat_tag': DAGMC material tag for component in DAGMC
+                        neutronics model (str, defaults to None). If none is
+                        supplied, the 'component' key will be used.
                 }
-            }
-            If no alternate material tag is supplied for the H5M file, the
-            given component name will be used.
-        repeat (int): number of times to repeat build segment.
-        num_phi (int): number of phi geometric cross-sections to make for each
-            build segment (defaults to 61).
-        num_theta (int): number of points defining the geometric cross-section
-            (defaults to 61).
+            }.
+        wall_s (double): closed flux surface label extrapolation at wall.
+        repeat (int): number of times to repeat build segment for full model.
+        num_ribs (int): total number of ribs over which to loft for each build
+            segment (int, defaults to 61). Ribs are set at toroidal angles
+            interpolated between those specified in 'toroidal_angles' if this
+            value is greater than the number of entries in 'toroidal_angles'.
+        num_rib_pts (int): total number of points defining each rib spline
+            (int, defaults to 61). Points are set at poloidal angles
+            interpolated between those specified in 'poloidal_angles' if this
+            value is greater than the number of entries in 'poloidal_angles'.
         scale (double): a scaling factor between the units of VMEC and [cm]
             (defaults to m2cm = 100).
-        plasma_h5m_tag (str): optional alternate material tag to use for
-            plasma. If none is supplied and the plasma is not excluded,
-            'plasma' will be used (defaults to None).
-        sol_h5m_tag (str): optional alternate material tag to use for
-            scrape-off layer. If none is supplied and the scrape-off layer is
-            not excluded, 'sol' will be used (defaults to None).
+        plasma_mat_tag (str): alternate DAGMC material tag to use for plasma.
+            If none is supplied, 'plasma' will be used (defaults to None).
+        sol_mat_tag (str): alternate DAGMC material tag to use for scrape-off
+            layer. If none is supplied, 'sol' will be used (defaults to None).
         logger (object): logger object (defaults to None). If no logger is
             supplied, a default logger will be instantiated.
     """
@@ -65,23 +70,29 @@ class InVesselBuild(object):
     def __init__(
             self,
             vmec,
-            build,
-            repeat,
-            num_phi=61,
-            num_theta=61,
+            toroidal_angles,
+            poloidal_angles,
+            radial_build,
+            wall_s,
+            repeat=0,
+            num_ribs=61,
+            num_rib_pts=61,
             scale=m2cm,
-            plasma_h5m_tag=None,
-            sol_h5m_tag=None,
+            plasma_mat_tag=None,
+            sol_mat_tag=None,
             logger=None
     ):
         self.vmec = vmec
-        self.build = build
+        self.toroidal_angles = toroidal_angles
+        self.poloidal_angles = poloidal_angles
+        self.radial_build = radial_build
+        self.wall_s = wall_s
         self.repeat = repeat
-        self.num_phi = num_phi
-        self.num_theta = num_theta
+        self.num_ribs = num_ribs
+        self.num_rib_pts = num_rib_pts
         self.scale = scale
-        self.plasma_h5m_tag = plasma_h5m_tag
-        self.sol_h5m_tag = sol_h5m_tag
+        self.plasma_mat_tag = plasma_mat_tag
+        self.sol_mat_tag = sol_mat_tag
 
         self.logger = logger
         if self.logger == None or not self.logger.hasHandlers():
@@ -91,7 +102,7 @@ class InVesselBuild(object):
         self.Components = []
 
         try:
-            assert (self.repeat + 1) * self.build['phi_list'][-1] <= 360.0, (
+            assert (self.repeat + 1) * self.toroidal_angles[-1] <= 360.0, (
                 'Total toroidal extent requested with repeated geometry '
                 'exceeds 360 degrees. Please examine phi_list and the repeat '
                 'parameter.'
@@ -100,46 +111,73 @@ class InVesselBuild(object):
             self.logger.error(e.args[0])
             raise e
 
-        if self.build['wall_s'] != 1.0:
-            self.build['radial_build'] = {
+        if self.wall_s != 1.0:
+            self.radial_build = {
                 'sol': {
                     'thickness_matrix': np.zeros((
-                        len(self.build['phi_list']),
-                        len(self.build['theta_list'])
+                        len(self.toroidal_angles),
+                        len(self.poloidal_angles)
                     ))
                 },
-                **self.build['radial_build']
+                **self.radial_build
             }
-            if self.sol_h5m_tag:
-                self.build['radial_build']['sol']['h5m_tag'] = self.sol_h5m_tag
+            if self.sol_mat_tag:
+                self.radial_build['sol']['mat_tag'] = self.sol_mat_tag
 
-        self.build['radial_build'] = {
+        self.radial_build = {
             'plasma': {
                 'thickness_matrix': np.zeros((
-                    len(self.build['phi_list']),
-                    len(self.build['theta_list'])
+                    len(self.toroidal_angles),
+                    len(self.poloidal_angles)
                 ))
             },
-            **self.build['radial_build']
+            **self.radial_build
         }
-        if self.plasma_h5m_tag:
-            self.build['radial_build']['plasma']['h5m_tag'] \
-                = self.plasma_h5m_tag
+        if self.plasma_mat_tag:
+            self.radial_build['plasma']['mat_tag'] = self.plasma_mat_tag
 
-        self.phi_list = expand_ang_list(self.build['phi_list'], self.num_phi)
+        self.phi_list = expand_ang_list(self.toroidal_angles, self.num_ribs)
         self.theta_list = expand_ang_list(
-            self.build['theta_list'], self.num_theta
+            self.poloidal_angles, self.num_rib_pts
         )
 
+    def _interpolate_offset_matrix(self, offset_mat):
+        """Interpolates total offset for expanded angle lists using cubic spline
+        interpolation.
+        (Internal function not intended to be called externally)
+
+        Returns:
+            interpolated_offset_mat (np.ndarray(double)): expanded matrix
+                including interpolated offset values at additional rows and
+                columns [cm].
+        """
+        interpolator = RegularGridInterpolator(
+            (self.toroidal_angles, self.poloidal_angles),
+            offset_mat,
+            method='cubic'
+        )
+
+        interpolated_offset_mat = np.array([
+            [interpolator([np.rad2deg(phi), np.rad2deg(theta)])[0]
+             for theta in self.theta_list]
+            for phi in self.phi_list
+        ])
+
+        return interpolated_offset_mat
+    
     def populate_surfaces(self):
         """Populates Surface class objects representing the outer surface of
         each component specified in the radial build.
         """
+        self.logger.info(
+            'Populating surface objects for in-vessel components...'
+        )
+        
         offset_mat = np.zeros((
-            len(self.build['phi_list']), len(self.build['theta_list'])
+            len(self.toroidal_angles), len(self.poloidal_angles)
         ))
 
-        for name, layer_data in self.build['radial_build'].items():
+        for name, layer_data in self.radial_build.items():
             try:
                 assert np.all(np.array(layer_data['thickness_matrix']) >= 0), (
                     'Component thicknesses must be greater than or equal to 0. '
@@ -152,10 +190,10 @@ class InVesselBuild(object):
             if name == 'plasma':
                 s = 1.0
             else:
-                s = self.build['wall_s']
+                s = self.wall_s
 
-            if 'h5m_tag' not in layer_data:
-                layer_data['h5m_tag'] = name
+            if 'mat_tag' not in layer_data:
+                layer_data['mat_tag'] = name
 
             offset_mat += np.array(layer_data['thickness_matrix'])
             interpolated_offset_mat = self._interpolate_offset_matrix(
@@ -171,30 +209,12 @@ class InVesselBuild(object):
 
         [surface.populate_ribs() for surface in self.Surfaces]
 
-    def _interpolate_offset_matrix(self, offset_mat):
-        """Interpolates total offset for expanded angle lists using cubic spline
-        interpolation.
-        (Internal function not intended to be called externally)
-        """
-        interpolator = RegularGridInterpolator(
-            (self.build['phi_list'], self.build['theta_list']),
-            offset_mat,
-            method='cubic'
-        )
-
-        interpolated_offset_mat = np.array([
-            [interpolator([np.rad2deg(phi), np.rad2deg(theta)])[0]
-             for theta in self.theta_list]
-            for phi in self.phi_list
-        ])
-
-        return interpolated_offset_mat
-
     def calculate_loci(self):
         """Calls calculate_loci method in Surface class for each component
         specified in the radial build.
         """
-        self.logger.info(f'Computing in-vessel component point cloud...')
+        self.logger.info('Computing point cloud for in-vessel components...')
+        
         [surface.calculate_loci() for surface in self.Surfaces]
 
     def generate_components(self):
@@ -202,13 +222,15 @@ class InVesselBuild(object):
         build by cutting the interior surface solid from the outer surface
         solid for a given component.
         """
-        self.logger.info(f'Constructing in-vessel components...')
+        self.logger.info(
+            'Constructing CadQuery objects for in-vessel components...'
+        )
 
         interior_surface = None
 
         segment_angles = np.linspace(
-            self.build['phi_list'][-1],
-            self.repeat * self.build['phi_list'][-1],
+            self.toroidal_angles[-1],
+            self.repeat * self.toroidal_angles[-1],
             num=self.repeat
         )
 
@@ -235,6 +257,57 @@ class InVesselBuild(object):
         """
         return np.array([surface.get_loci() for surface in self.Surfaces])
 
+    def export_step(self, export_dir=''):
+        """Export CAD solids as STEP files via CadQuery.
+
+        Arguments:
+            export_dir (str): directory to which to export the STEP output files
+                (defaults to empty string).
+        """
+        self.logger.info('Exporting STEP files for in-vessel components...')
+        
+        self.export_dir = export_dir
+
+        for component, name in zip(
+            self.Components, self.radial_build.keys()
+        ):
+            export_path = (
+                Path(self.export_dir) / Path(name).with_suffix('.step')
+            )
+            cq.exporters.export(
+                component,
+                str(export_path)
+            )
+
+    def export_cad_to_dagmc(self, filename='dagmc', export_dir=''):
+        """Exports DAGMC neutronics H5M file of ParaStell in-vessel components
+        via CAD-to-DAGMC.
+
+        Arguments:
+            filename (str): name of DAGMC output file, excluding '.h5m'
+                extension (str, defaults to 'dagmc').
+            export_dir (str): directory to which to export the DAGMC output file
+                (defaults to empty string).
+        """
+        self.logger.info(
+            'Exporting DAGMC neutronics model of in-vessel components...'
+        )
+        
+        model = cad_to_dagmc.CadToDagmc()
+
+        for component, (_, layer_data) in zip(
+            self.Components, self.radial_build.items()
+        ):
+            model.add_cadquery_object(
+                component, material_tags=[layer_data['mat_tag']]
+            )
+
+        export_path = Path(export_dir) / Path(filename).with_suffix('.h5m')
+
+        model.export_dagmc_h5m_file(
+            filename=str(export_path)
+        )
+
 
 class Surface(object):
     """An object representing a surface formed by lofting across a set of
@@ -242,7 +315,11 @@ class Surface(object):
     surface.
 
     Arguments:
-        vmec (object): plasma equilibrium VMEC object from PyStell-UW.
+        vmec (object): plasma equilibrium VMEC object as defined by the
+            PyStell-UW VMEC reader. Must have a method
+            'vmec2xyz(s, theta, phi)' that returns an (x,y,z) coordinate for
+            any closed flux surface label, s, poloidal angle, theta, and
+            toroidal angle, phi.
         s (double): the normalized closed flux surface label defining the point
             of reference for offset.
         theta_list (np.array(double)): the set of poloidal angles specified for
@@ -312,7 +389,11 @@ class Rib(object):
     angles and offset from a reference curve.
 
     Arguments:
-        vmec (object): plasma equilibrium VMEC object from PyStell-UW.
+        vmec (object): plasma equilibrium VMEC object as defined by the
+            PyStell-UW VMEC reader. Must have a method
+            'vmec2xyz(s, theta, phi)' that returns an (x,y,z) coordinate for
+            any closed flux surface label, s, poloidal angle, theta, and
+            toroidal angle, phi.
         s (double): the normalized closed flux surface label defining the point
             of reference for offset.
         phi (np.array(double)): the toroidal angle defining the plane in which
@@ -340,16 +421,6 @@ class Rib(object):
         self.phi = phi
         self.offset_list = offset_list
         self.scale = scale
-
-    def calculate_loci(self):
-        """Generates Cartesian point-loci for stellarator rib.
-        """
-        self.rib_loci = self._vmec2xyz()
-
-        if not np.all(self.offset_list == 0):
-            self.rib_loci += (
-                self.offset_list[:, np.newaxis] * self._normals()
-            )
 
     def _vmec2xyz(self, poloidal_offset=0):
         """Return an N x 3 NumPy array containing the Cartesian coordinates of
@@ -390,6 +461,16 @@ class Rib(object):
         norm = np.cross(plane_norm, tangent)
 
         return normalize(norm)
+    
+    def calculate_loci(self):
+        """Generates Cartesian point-loci for stellarator rib.
+        """
+        self.rib_loci = self._vmec2xyz()
+
+        if not np.all(self.offset_list == 0):
+            self.rib_loci += (
+                self.offset_list[:, np.newaxis] * self._normals()
+            )
 
     def generate_rib(self):
         """Constructs component rib by constructing a spline connecting all
@@ -405,49 +486,56 @@ class Rib(object):
 def parse_args():
     """Parser for running as a script.
     """
-    parser = argparse.ArgumentParser(prog='invessel_components')
+    parser = argparse.ArgumentParser(prog='invessel_build')
 
-    parser.add_argument('filename', help='YAML file defining this case')
+    parser.add_argument(
+        'filename',
+        help='YAML file defining ParaStell in-vessel component configuration'
+    )
 
     return parser.parse_args()
 
 
-def read_yaml_src(filename):
-    """Read YAML file describing the stellarator in-vessel components and
-    extract all data.
+def read_yaml_config(filename):
+    """Read YAML file describing the stellarator in-vessel component
+    configuration and extract all data.
     """
     with open(filename) as yaml_file:
         all_data = yaml.safe_load(yaml_file)
 
-    # Extract data to define in-vessel components
-    return (
-        all_data['plasma_eq'], all_data['build'], all_data['repeat'],
-        all_data['num_phi'], all_data['num_theta'],
-        all_data['export']['plasma_h5m_tag'], all_data['export']['sol_h5m_tag'],
-        all_data['logger']
-    )
+    return all_data['vmec'], all_data['invessel_build']
 
 
-def invessel_components():
+def generate_invessel_build():
     """Main method when run as a command line script.
     """
     args = parse_args()
 
-    (
-        plasma_eq, build, repeat, num_phi, num_theta, plasma_h5m_tag,
-        sol_h5m_tag, logger
-    ) = read_yaml_src(args.filename)
+    vmec_file, invessel_build = read_yaml_config(args.filename)
 
-    vmec = read_vmec.vmec_data(plasma_eq)
+    vmec = read_vmec.vmec_data(vmec_file)
+
+    ivb_dict = invessel_build_def.copy()
+    ivb_dict.update(invessel_build)
 
     invessel_components = InVesselBuild(
-        vmec, build, repeat, num_phi, num_theta, m2cm, plasma_h5m_tag,
-        sol_h5m_tag, logger
+        vmec, ivb_dict['toroidal_angles'], ivb_dict['poloidal_angles'],
+        ivb_dict['radial_build'], ivb_dict['wall_s'], repeat=ivb_dict['repeat'],
+        num_ribs=ivb_dict['num_ribs'], num_rib_pts=ivb_dict['num_rib_pts'],
+        scale=ivb_dict['scale'], plasma_mat_tag=ivb_dict['plasma_mat_tag'],
+        sol_mat_tag=ivb_dict['sol_mat_tag']
     )
     invessel_components.populate_surfaces()
     invessel_components.calculate_loci()
     invessel_components.generate_components()
+    invessel_components.export_step(export_dir=ivb_dict['export_dir'])
+    
+    if ivb_dict['export_cad_to_dagmc']:
+        invessel_components.export_cad_to_dagmc(
+            filename=ivb_dict['dagmc_filename'],
+            export_dir=ivb_dict['export_dir']
+        )
 
 
 if __name__ == "__main__":
-    invessel_components()
+    generate_invessel_build()

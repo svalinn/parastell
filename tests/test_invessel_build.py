@@ -3,54 +3,62 @@ import read_vmec
 import numpy as np
 from pathlib import Path
 
+
+if Path('plasma.step').exists():
+    Path.unlink('plasma.step')
+if Path('sol.step').exists():
+    Path.unlink('sol.step')
+if Path('component.step').exists():
+    Path.unlink('component.step')
+if Path('dagmc.h5m').exists():
+    Path.unlink('dagmc.h5m')
+
 vmec_file = Path('files_for_tests') / 'wout_vmec.nc'
 vmec = read_vmec.vmec_data(vmec_file)
 
-phi_list = [0.0, 30.0, 60.0, 90.0]
-theta_list = [0.0, 120.0, 240.0, 360.0]
-
-build = {
-    'phi_list': phi_list,
-    'theta_list': theta_list,
-    'wall_s': 1.08,
-    'radial_build': {
-        'component': {
-            'thickness_matrix': np.ones((len(phi_list), len(theta_list)))*10
-        }
+toroidal_angles_exp = [0.0, 30.0, 60.0, 90.0]
+poloidal_angles_exp = [0.0, 120.0, 240.0, 360.0]
+radial_build = {
+    'component': {
+        'thickness_matrix': np.ones(
+            (len(toroidal_angles_exp), len(poloidal_angles_exp))
+        )*10
     }
 }
-
-repeat = 0
-num_phi = 61
-num_theta = 61
-scale = 100
-plasma_h5m_tag = 'Vacuum'
-sol_h5m_tag = 'Vacuum'
+wall_s_exp = 1.08
+repeat_exp = 0
+num_ribs_exp = 61
+num_rib_pts_exp = 61
+scale_exp = 100
+plasma_mat_tag_exp = 'Vacuum'
+sol_mat_tag_exp = 'Vacuum'
 
 invessel_build = ivb.InVesselBuild(
-    vmec, build, repeat, num_phi, num_theta, scale, plasma_h5m_tag, sol_h5m_tag
+    vmec, toroidal_angles_exp, poloidal_angles_exp, radial_build, wall_s_exp,
+    repeat=repeat_exp, num_ribs=num_ribs_exp, num_rib_pts=num_rib_pts_exp,
+    scale=scale_exp, plasma_mat_tag=plasma_mat_tag_exp,
+    sol_mat_tag=sol_mat_tag_exp
 )
-Path.unlink('stellarator.log')
 
 
 def test_ivb_basics():
 
     invessel_build.populate_surfaces()
 
-    assert np.allclose(invessel_build.build['phi_list'], build['phi_list'])
-    assert np.allclose(invessel_build.build['theta_list'], build['theta_list'])
-    assert invessel_build.build['wall_s'] == build['wall_s']
-    assert len(invessel_build.build['radial_build'].keys()) == 3
+    assert np.allclose(invessel_build.toroidal_angles, toroidal_angles_exp)
+    assert np.allclose(invessel_build.poloidal_angles, poloidal_angles_exp)
+    assert invessel_build.wall_s == wall_s_exp
+    assert len(invessel_build.radial_build.keys()) == 3
     assert (
-        invessel_build.build['radial_build']['plasma']['h5m_tag'] == 'Vacuum'
+        invessel_build.radial_build['plasma']['mat_tag'] == 'Vacuum'
     )
     assert (
-        invessel_build.build['radial_build']['sol']['h5m_tag'] == 'Vacuum'
+        invessel_build.radial_build['sol']['mat_tag'] == 'Vacuum'
     )
-    assert invessel_build.repeat == repeat
-    assert invessel_build.num_phi == num_phi
-    assert invessel_build.num_theta == num_theta
-    assert invessel_build.scale == scale
+    assert invessel_build.repeat == repeat_exp
+    assert invessel_build.num_ribs == num_ribs_exp
+    assert invessel_build.num_rib_pts == num_rib_pts_exp
+    assert invessel_build.scale == scale_exp
 
 
 def test_ivb_construction():
@@ -59,3 +67,24 @@ def test_ivb_construction():
     invessel_build.generate_components()
 
     assert len(invessel_build.Components) == 3
+
+
+def test_ivb_exports():
+    
+    invessel_build.export_step()
+    """
+    CAD-to-DAGMC export does not currently work; might be an incompatibility
+    between CadQuery and CAD-to-DAGMC versions.
+
+    invessel_build.export_cad_to_dagmc()
+    """
+    assert Path('plasma.step').exists() == True
+    assert Path('sol.step').exists() == True
+    assert Path('component.step').exists() == True
+    #assert Path('dagmc.h5m').exists() == True
+
+    Path.unlink('plasma.step')
+    Path.unlink('sol.step')
+    Path.unlink('component.step')
+    #Path.unlink('dagmc.h5m')
+    Path.unlink('stellarator.log')
