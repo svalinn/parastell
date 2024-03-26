@@ -10,7 +10,7 @@ This tool depends on:
 - [Coreform Cubit](https://coreform.com/products/downloads/) or [Cubit](https://cubit.sandia.gov/downloads/) by Sandia National Laboratories
 - [cad-to-dagmc](https://pypi.org/project/cad-to-dagmc/)
 - [Gmsh](https://pypi.org/project/gmsh/)
-
+- [YAML](https://pyyaml.org/wiki/PyYAML)
 ## Install with Mamba
 
 This guide will use the mamba package manager to install dependencies in a conda environment. Conda allows for easily installing and switching between different versions of software packages through the use of [environments](https://conda.io/projects/conda/en/latest/user-guide/concepts/environments.html).
@@ -51,8 +51,8 @@ Pip install remaining ParaStell dependencies.
 ```
 pip install cad-to-dagmc
 pip install gmsh
+pip install pyyaml
 ```
-
 ### Coreform Cubit
 Download and install version 2023.11 from [Coreform's Website](https://coreform.com/products/downloads/), then add the /Coreform-Cubit-2023.11/bin/ directory to the `PYTHONPATH` by adding a line to the .bashrc file like the following:
 
