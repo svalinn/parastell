@@ -77,6 +77,7 @@ def test_magnet_exports():
 
     circ_coil_set.build_magnet_coils()
     circ_coil_set.export_step()
+    circ_coil_set.mesh_magnets()
     circ_coil_set.export_mesh()
 
     assert Path('magnets.step').exists() == True

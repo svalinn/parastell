@@ -1,5 +1,5 @@
 import cubit
-from src.cubit_utils import init_cubit, export_step_cubit, export_tet_mesh_cubit
+from src.cubit_io import init_cubit, export_step_cubit, export_mesh_cubit
 import log
 import numpy as np
 import yaml
@@ -29,8 +29,8 @@ class MagnetSet(object):
             neutronics model (defaults to 'magnets').
         logger (object): logger object (defaults to None). If no logger is
             supplied, a default logger will be instantiated.
-        cubit_flag (bool): flag to indicate whether Coreform Cubit has been
-            initialized (defaults to False).
+        cubit_initialized (bool): flag to indicate whether Coreform Cubit has
+            been initialized (defaults to False).
     """
 
     def __init__(
@@ -43,7 +43,7 @@ class MagnetSet(object):
         scale=m2cm,
         mat_tag=None,
         logger=None,
-        cubit_flag=False
+        cubit_initialized=False
     ):
         self.coils_file_path = coils_file_path
         self.cross_section = cross_section
@@ -58,7 +58,7 @@ class MagnetSet(object):
         else:
             self.logger = logger
 
-        self.cubit_flag = init_cubit(cubit_flag)
+        self.cubit_initialized = init_cubit(cubit_initialized)
 
         self._extract_filaments()
         self._extract_cross_section()
@@ -342,6 +342,15 @@ class MagnetSet(object):
         self.step_filename = filename
         export_step_cubit(filename=filename, export_dir=export_dir)
 
+    def mesh_magnets(self):
+        """Creates tetrahedral mesh of magnet volumes via Coreform Cubit.
+        """
+        self.logger.info('Generating tetrahedral mesh of magnet coils...')
+        
+        for vol in self.volume_ids:
+            cubit.cmd(f'volume {vol} scheme tetmesh')
+            cubit.cmd(f'mesh volume {vol}')
+    
     def export_mesh(self, filename='magnet_mesh', export_dir=''):
         """Creates tetrahedral mesh of magnet volumes and exports H5M format
         via Coreform Cubit and  MOAB.
@@ -351,13 +360,9 @@ class MagnetSet(object):
             export_dir (str): directory to which to export the H5M output file
                 (defaults to empty string).
         """
-        self.logger.info(
-            'Exporting tetrahedral mesh H5M file for magnet coils...'
-        )
+        self.logger.info('Exporting mesh H5M file for magnet coils...')
         
-        export_tet_mesh_cubit(
-            self.volume_ids, filename=filename, export_dir=export_dir
-        )
+        export_mesh_cubit(filename=filename, export_dir=export_dir)
 
 
 class MagnetCoil(object):

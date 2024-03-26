@@ -60,8 +60,8 @@ def def_default_params():
 
     Returns:
         m2cm (float): factor to convert meters to cm.
-        cubit_flag (bool): flag to indicate whether Coreform Cubit has been
-            initialized.
+        cubit_initialized (bool): flag to indicate whether Coreform Cubit has
+            been initialized.
         invessel_build_def (dict): dictionary of in-vessel component
             parameters, including
             {
@@ -145,7 +145,7 @@ def def_default_params():
             }
     """
     m2cm = 100
-    cubit_flag = False
+    cubit_initialized = False
     invessel_build_def = {
         'repeat': 0,
         'num_ribs': 61,
@@ -184,6 +184,6 @@ def def_default_params():
     }
 
     return (
-        m2cm, cubit_flag, invessel_build_def, magnets_def, source_def,
+        m2cm, cubit_initialized, invessel_build_def, magnets_def, source_def,
         dagmc_export_def
     )

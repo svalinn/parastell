@@ -1,4 +1,4 @@
-import src.sourcemesh as sm
+import src.source_mesh as sm
 import read_vmec as rv
 import numpy as np
 from pathlib import Path
@@ -6,7 +6,7 @@ from pathlib import Path
 vmec_file = Path('files_for_tests') / 'wout_vmec.nc'
 
 
-def test_meshbasics():
+def test_mesh_basics():
 
     vmec = rv.vmec_data(vmec_file)
 

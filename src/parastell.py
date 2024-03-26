@@ -1,4 +1,5 @@
-from src.cubit_utils import (
+import cubit
+from src.cubit_io import (
     init_cubit, import_step_cubit, export_dagmc_cubit_legacy,
     export_dagmc_cubit_native
 )
@@ -12,7 +13,7 @@ import argparse
 import yaml
 
 (
-    _, cubit_flag, invessel_build_def, magnets_def, source_def,
+    _, cubit_initialized, invessel_build_def, magnets_def, source_def,
     dagmc_export_def
 ) = def_default_params()
 
@@ -117,7 +118,7 @@ class Stellarator(object):
         """
         ivb_dict = invessel_build_def.copy()
         ivb_dict.update(invessel_build)
-        
+
         self.invessel_build = ivb.InVesselBuild(
             self.vmec, ivb_dict['toroidal_angles'],
             ivb_dict['poloidal_angles'], ivb_dict['radial_build'],
@@ -131,7 +132,7 @@ class Stellarator(object):
         self.invessel_build.calculate_loci()
         self.invessel_build.generate_components()
         self.invessel_build.export_step(export_dir=ivb_dict['export_dir'])
-        
+
         if ivb_dict['export_cad_to_dagmc']:
             self.invessel_build.export_cad_to_dagmc(
                 filename=ivb_dict['dagmc_filename'],
@@ -174,17 +175,17 @@ class Stellarator(object):
                 For a rectangular cross-section, the list format is
                 ['rectangle' (str), width [cm](double), thickness [cm](double)]
         """
-        global cubit_flag
+        global cubit_initialized
 
         magnets_dict = magnets_def.copy()
         magnets_dict.update(magnets)
-        
+
         self.magnet_set = mc.MagnetSet(
             magnets_dict['coils_file_path'], magnets_dict['start_line'],
             magnets_dict['cross_section'], magnets_dict['toroidal_extent'],
             sample_mod=magnets_dict['sample_mod'], scale=magnets_dict['scale'],
             mat_tag=magnets_dict['mat_tag'], logger=self.logger,
-            cubit_flag=cubit_flag
+            cubit_initialized=cubit_initialized
         )
 
         self.magnet_set.build_magnet_coils()
@@ -194,12 +195,13 @@ class Stellarator(object):
         )
 
         if magnets_dict['export_mesh']:
+            self.magnet_set.mesh_magnets()
             self.magnet_set.export_mesh(
                 filename=magnets_dict['mesh_filename'],
                 export_dir=magnets_dict['export_dir']
             )
 
-        cubit_flag = self.magnet_set.cubit_flag
+        cubit_initialized = self.magnet_set.cubit_initialized
 
     def construct_source_mesh(self, source):
         """Constructs SourceMesh class object.
@@ -239,26 +241,6 @@ class Stellarator(object):
             export_dir=source_dict['export_dir']
         )
 
-    def _construct_components_dict(self):
-        """Constructs components dictionary for export routine.
-        (Internal function not intended to be called externally)
-        """
-        self.components = {}
-
-        if self.magnet_set is not None:
-            name = self.magnet_set.step_filename
-            self.components[name] = {}
-            self.components[name]['mat_tag'] = self.magnet_set.mat_tag
-            self.components[name]['vol_id'] = list(self.magnet_set.volume_ids)
-        
-        if self.invessel_build is not None:
-            for component, data in (
-                self.invessel_build.radial_build.items()
-            ):
-                self.components[component] = {}
-                self.components[component]['mat_tag'] = data['mat_tag']
-                self.components[component]['vol_id'] = data['vol_id']
-
     def _import_ivb_step(self):
         """Imports STEP files from in-vessel build into Coreform Cubit.
         (Internal function not intended to be called externally)
@@ -270,6 +252,67 @@ class Stellarator(object):
                 component, self.invessel_build.export_dir
             )
             data['vol_id'] = vol_id
+
+    def _construct_components_dict(self):
+        """Constructs components dictionary for export routine.
+        (Internal function not intended to be called externally)
+        """
+        self.components = {}
+
+        if self.magnet_set is not None:
+            name = self.magnet_set.step_filename
+            self.components[name] = {}
+            self.components[name]['mat_tag'] = self.magnet_set.mat_tag
+            self.components[name]['vol_id'] = list(self.magnet_set.volume_ids)
+
+        if self.invessel_build is not None:
+            for component, data in (
+                self.invessel_build.radial_build.items()
+            ):
+                self.components[component] = {}
+                self.components[component]['mat_tag'] = data['mat_tag']
+                self.components[component]['vol_id'] = data['vol_id']
+
+    def _tag_materials_legacy(self):
+        """Applies material tags to corresponding CAD volumes for legacy DAGMC
+        neutronics model export.
+        (Internal function not intended to be called externally)
+        """
+        for data in self.components.values():
+            if isinstance(data['vol_id'], list):
+                vol_id_str = " ".join(str(i) for i in data["vol_id"])
+            else:
+                vol_id_str = str(data['vol_id'])
+
+            cubit.cmd(
+                f'group "mat:{data["mat_tag"]}" add volume {vol_id_str}'
+            )
+
+    def _tag_materials_native(self):
+        """Applies material tags to corresponding CAD volumes for native DAGMC
+        neutronics model export.
+        (Internal function not intended to be called externally)
+        """
+        cubit.cmd('set duplicate block elements off')
+
+        for data in self.components.values():
+            if isinstance(data['vol_id'], list):
+                block_id = min(data['vol_id'])
+                vol_id_str = " ".join(str(i) for i in data["vol_id"])
+            else:
+                block_id = data['vol_id']
+                vol_id_str = str(data['vol_id'])
+
+            cubit.cmd(
+                f'create material "{data["mat_tag"]}" property_group '
+                '"CUBIT-ABAQUS"'
+            )
+            cubit.cmd(
+                f'block {block_id} add volume {vol_id_str}'
+            )
+            cubit.cmd(
+                f'block {block_id} material \'{data["mat_tag"]}\''
+            )
 
     def export_dagmc(self, dagmc_export=dagmc_export_def):
         """Exports DAGMC neutronics H5M file of ParaStell components via
@@ -306,22 +349,28 @@ class Stellarator(object):
         self.logger.info(
             'Exporting DAGMC neutronics model...'
         )
-        
-        global cubit_flag
-        
+
+        global cubit_initialized
+
         export_dict = dagmc_export_def.copy()
         export_dict.update(dagmc_export)
-        
-        cubit_flag = init_cubit(cubit_flag)
-        
+
+        cubit_initialized = init_cubit(cubit_initialized)
+
         if self.invessel_build:
             self._import_ivb_step()
-        
+
         self._construct_components_dict()
-        
+
+        if export_dict['skip_imprint']:
+            ivb.merge_layer_surfaces(self.components)
+        else:
+            cubit.cmd('imprint volume all')
+            cubit.cmd('merge volume all')
+
         if export_dict['legacy_faceting']:
+            self._tag_materials_legacy()
             export_dagmc_cubit_legacy(
-                self.components, skip_imprint=export_dict['skip_imprint'],
                 faceting_tolerance=export_dict['faceting_tolerance'],
                 length_tolerance=export_dict['length_tolerance'],
                 normal_tolerance=export_dict['normal_tolerance'],
@@ -329,8 +378,8 @@ class Stellarator(object):
                 export_dir=export_dict['export_dir'],
             )
         else:
+            self._tag_materials_native()
             export_dagmc_cubit_native(
-                self.components, skip_imprint=export_dict['skip_imprint'],
                 anisotropic_ratio=export_dict['anisotropic_ratio'],
                 deviation_angle=export_dict['deviation_angle'],
                 filename=export_dict['filename'],

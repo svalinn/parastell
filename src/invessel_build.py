@@ -1,3 +1,4 @@
+import cubit
 import cadquery as cq
 import cad_to_dagmc
 import read_vmec
@@ -10,6 +11,82 @@ import argparse
 import yaml
 
 m2cm, _, invessel_build_def, _, _, _ = def_default_params()
+
+
+def orient_spline_surfaces(volume_id):
+    """Extracts the inner and outer surface IDs for a given ParaStell in-vessel
+    component volume in Coreform Cubit.
+
+    Arguments:
+        volume_id (int): Cubit volume ID.
+
+    Returns:
+        inner_surface_id (int): Cubit ID of in-vessel component inner surface.
+        outer_surface_id (int): Cubit ID of in-vessel component outer surface.
+    """
+    surfaces = cubit.get_relatives('volume', volume_id, 'surface')
+
+    spline_surfaces = []
+    for surface in surfaces:
+        if cubit.get_surface_type(surface) == 'spline surface':
+            spline_surfaces.append(surface)
+
+    if len(spline_surfaces) == 1:
+        outer_surface_id = spline_surfaces[0]
+        inner_surface_id = None
+    else:
+        # The outer surface bounding box will have the larger maximum XY value
+        if (
+            cubit.get_bounding_box('surface', spline_surfaces[1])[4] >
+            cubit.get_bounding_box('surface', spline_surfaces[0])[4]
+        ):
+            outer_surface_id = spline_surfaces[1]
+            inner_surface_id = spline_surfaces[0]
+        else:
+            outer_surface_id = spline_surfaces[0]
+            inner_surface_id = spline_surfaces[1]
+
+    return inner_surface_id, outer_surface_id
+
+
+def merge_layer_surfaces(components_dict):
+    """Merges ParaStell in-vessel component surfaces in Coreform Cubit based on
+    surface IDs rather than imprinting and merging all. Assumes that the
+    components dictionary is ordered radially outward. Note that overlaps
+    between magnet volumes and in-vessel components will not be merged in this
+    workflow.
+
+    Arguments:
+        components_dict (dict): dictionary of ParaStell components. This
+            dictionary must have the form
+            {
+                'component_name': {
+                    'vol_id': Coreform Cubit volume ID(s) for component (int or
+                        iterable of int)
+                    (additional keys are allowed)
+                }
+            }
+    """
+    # Tracks the surface id of the outer surface of the previous layer
+    prev_outer_surface_id = None
+
+    for data in components_dict.values():
+        # Skip merging for magnets
+        if isinstance(data['vol_id'], list):
+            continue
+
+        inner_surface_id, outer_surface_id = (
+            orient_spline_surfaces(data['vol_id'])
+        )
+
+        # Conditionally skip merging (first iteration only)
+        if prev_outer_surface_id is None:
+            prev_outer_surface_id = outer_surface_id
+        else:
+            cubit.cmd(
+                f'merge surface {inner_surface_id} {prev_outer_surface_id}'
+            )
+            prev_outer_surface_id = outer_surface_id
 
 
 class InVesselBuild(object):
@@ -164,7 +241,7 @@ class InVesselBuild(object):
         ])
 
         return interpolated_offset_mat
-    
+
     def populate_surfaces(self):
         """Populates Surface class objects representing the outer surface of
         each component specified in the radial build.
@@ -172,7 +249,7 @@ class InVesselBuild(object):
         self.logger.info(
             'Populating surface objects for in-vessel components...'
         )
-        
+
         offset_mat = np.zeros((
             len(self.toroidal_angles), len(self.poloidal_angles)
         ))
@@ -214,7 +291,7 @@ class InVesselBuild(object):
         specified in the radial build.
         """
         self.logger.info('Computing point cloud for in-vessel components...')
-        
+
         [surface.calculate_loci() for surface in self.Surfaces]
 
     def generate_components(self):
@@ -265,7 +342,7 @@ class InVesselBuild(object):
                 (defaults to empty string).
         """
         self.logger.info('Exporting STEP files for in-vessel components...')
-        
+
         self.export_dir = export_dir
 
         for component, name in zip(
@@ -292,7 +369,7 @@ class InVesselBuild(object):
         self.logger.info(
             'Exporting DAGMC neutronics model of in-vessel components...'
         )
-        
+
         model = cad_to_dagmc.CadToDagmc()
 
         for component, (_, layer_data) in zip(
@@ -461,7 +538,7 @@ class Rib(object):
         norm = np.cross(plane_norm, tangent)
 
         return normalize(norm)
-    
+
     def calculate_loci(self):
         """Generates Cartesian point-loci for stellarator rib.
         """
@@ -529,7 +606,7 @@ def generate_invessel_build():
     invessel_components.calculate_loci()
     invessel_components.generate_components()
     invessel_components.export_step(export_dir=ivb_dict['export_dir'])
-    
+
     if ivb_dict['export_cad_to_dagmc']:
         invessel_components.export_cad_to_dagmc(
             filename=ivb_dict['dagmc_filename'],
