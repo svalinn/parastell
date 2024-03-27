@@ -176,13 +176,12 @@ class InVesselBuild(object):
         self.Surfaces = []
         self.Components = []
 
-        try:
-            assert (self.repeat + 1) * self.toroidal_angles[-1] <= 360.0, (
+        if (self.repeat + 1) * self.toroidal_angles[-1] > 360.0:
+            e = AssertionError(
                 'Total toroidal extent requested with repeated geometry '
                 'exceeds 360 degrees. Please examine phi_list and the repeat '
                 'parameter.'
             )
-        except AssertionError as e:
             self.logger.error(e.args[0])
             raise e
 
@@ -253,12 +252,11 @@ class InVesselBuild(object):
         ))
 
         for name, layer_data in self.radial_build.items():
-            try:
-                assert np.all(np.array(layer_data['thickness_matrix']) >= 0), (
+            if np.any(np.array(layer_data['thickness_matrix']) < 0):
+                e = AssertionError(
                     'Component thicknesses must be greater than or equal to 0. '
                     'Check thickness inputs for negative values.'
                 )
-            except AssertionError as e:
                 self.logger.error(e.args[0])
                 raise e
 
