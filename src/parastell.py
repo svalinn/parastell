@@ -45,11 +45,11 @@ class Stellarator(object):
         self.magnet_set = None
         self.source_mesh = None
 
-    def construct_invessel_build(self, invessel_build):
+    def construct_invessel_build(self, ivb_dict):
         """Construct InVesselBuild class object.
 
         Arguments:
-            invessel_build (dict): dictionary of in-vessel component
+            ivb_dict (dict): dictionary of in-vessel component
                 parameters, including
                 {
                     'toroidal_angles': toroidal angles at which radial build is
@@ -110,8 +110,6 @@ class Stellarator(object):
                         (str, defaults to empty string).
                 }
         """
-        ivb_dict = invessel_build_def.copy()
-        ivb_dict.update(invessel_build)
 
         self.invessel_build = ivb.InVesselBuild(
             self.vmec, ivb_dict['toroidal_angles'],
@@ -125,13 +123,6 @@ class Stellarator(object):
         self.invessel_build.populate_surfaces()
         self.invessel_build.calculate_loci()
         self.invessel_build.generate_components()
-        self.invessel_build.export_step(export_dir=ivb_dict['export_dir'])
-
-        if ivb_dict['export_cad_to_dagmc']:
-            self.invessel_build.export_cad_to_dagmc(
-                filename=ivb_dict['dagmc_filename'],
-                export_dir=ivb_dict['export_dir']
-            )
 
     def construct_magnets(self, magnets):
         """Constructs MagnetSet class object.
@@ -412,7 +403,19 @@ def parastell():
     ) = read_yaml_config(args.filename)
 
     stellarator = Stellarator(vmec_file)
-    stellarator.construct_invessel_build(invessel_build)
+
+    ivb_dict = invessel_build_def.copy()
+    ivb_dict.update(invessel_build)
+
+    stellarator.construct_invessel_build(ivb_dict)
+    stellarator.invessel_build.export_step(export_dir=ivb_dict['export_dir'])
+
+    if ivb_dict['export_cad_to_dagmc']:
+        stellarator.invessel_build.export_cad_to_dagmc(
+            filename=ivb_dict['dagmc_filename'],
+            export_dir=ivb_dict['export_dir']
+        )
+
     stellarator.construct_magnets(magnets)
     stellarator.construct_source_mesh(source)
     stellarator.export_dagmc(dagmc_export)
