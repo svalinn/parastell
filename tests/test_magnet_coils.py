@@ -78,11 +78,11 @@ def test_magnet_exports():
 
     circ_coil_set.build_magnet_coils()
     circ_coil_set.export_step()
-    assert Path('magnets.step').exists() == True
+    assert Path('magnets.step').exists()
 
     circ_coil_set.mesh_magnets()
     circ_coil_set.export_mesh()
-    assert Path('magnet_mesh.h5m').exists() == True
+    assert Path('magnet_mesh.h5m').exists()
 
     Path.unlink('magnets.step')
     Path.unlink('magnet_mesh.h5m')
