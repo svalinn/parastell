@@ -173,8 +173,8 @@ class InVesselBuild(object):
         if self.logger == None or not self.logger.hasHandlers():
             self.logger = log.init()
 
-        self.Surfaces = []
-        self.Components = []
+        self.Surfaces = {}
+        self.Components = {}
 
         if (self.repeat + 1) * self.toroidal_angles[-1] > 360.0:
             e = AssertionError(
@@ -273,14 +273,12 @@ class InVesselBuild(object):
                 offset_mat
             )
 
-            self.Surfaces.append(
-                Surface(
+            self.Surfaces[name] = Surface(
                     self.vmec, s, self.theta_list, self.phi_list,
                     interpolated_offset_mat, self.scale
                 )
-            )
-
-        [surface.populate_ribs() for surface in self.Surfaces]
+            
+        [surface.populate_ribs() for surface in self.Surfaces.values()]
 
     def calculate_loci(self):
         """Calls calculate_loci method in Surface class for each component
@@ -288,7 +286,7 @@ class InVesselBuild(object):
         """
         self.logger.info('Computing point cloud for in-vessel components...')
 
-        [surface.calculate_loci() for surface in self.Surfaces]
+        [surface.calculate_loci() for surface in self.Surfaces.values()]
 
     def generate_components(self):
         """Constructs a CAD solid for each component specified in the radial
@@ -307,7 +305,7 @@ class InVesselBuild(object):
             num=self.repeat
         )
 
-        for surface in self.Surfaces:
+        for name, surface in self.Surfaces.items():
             outer_surface = surface.generate_surface()
 
             if interior_surface is not None:
@@ -321,14 +319,14 @@ class InVesselBuild(object):
                 rot_segment = segment.rotate((0, 0, 0), (0, 0, 1), angle)
                 component = component.union(rot_segment)
 
-            self.Components.append(component)
+            self.Components[name] = component
             interior_surface = outer_surface
 
     def get_loci(self):
         """Returns the set of point-loci defining the outer surfaces of the
         components specified in the radial build.
         """
-        return np.array([surface.get_loci() for surface in self.Surfaces])
+        return np.array([surface.get_loci() for surface in self.Surfaces.values()])
 
     def export_step(self, export_dir=''):
         """Export CAD solids as STEP files via CadQuery.
@@ -341,9 +339,7 @@ class InVesselBuild(object):
 
         self.export_dir = export_dir
 
-        for component, name in zip(
-            self.Components, self.radial_build.keys()
-        ):
+        for name, component in self.Components.items():
             export_path = (
                 Path(self.export_dir) / Path(name).with_suffix('.step')
             )
@@ -368,11 +364,9 @@ class InVesselBuild(object):
 
         model = cad_to_dagmc.CadToDagmc()
 
-        for component, (_, layer_data) in zip(
-            self.Components, self.radial_build.items()
-        ):
+        for name, component in self.Components.items():
             model.add_cadquery_object(
-                component, material_tags=[layer_data['mat_tag']]
+                component, material_tags=[self.radial_build[name]['mat_tag]']]
             )
 
         export_path = Path(export_dir) / Path(filename).with_suffix('.h5m')
