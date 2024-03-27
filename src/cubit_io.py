@@ -10,6 +10,8 @@ initialized = False
 def init_cubit():
     """Initializes Coreform Cubit with the DAGMC plugin.
     """
+    global initialized
+    
     if not initialized:
         cubit_plugin_dir = (
             Path(os.path.dirname(inspect.getfile(cubit))) / Path('plugins')
