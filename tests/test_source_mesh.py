@@ -70,7 +70,7 @@ def test_export():
     source_mesh.create_mesh()
     source_mesh.export_mesh()
 
-    assert Path('source_mesh.h5m').exists() == True
+    assert Path('source_mesh.h5m').exists()
 
     Path.unlink('source_mesh.h5m')
     Path.unlink('stellarator.log')

@@ -1,5 +1,6 @@
-import src.magnet_coils as magnet_coils
 from pathlib import Path
+
+import src.magnet_coils as magnet_coils
 
 coils_file_path = Path('files_for_tests') / 'coils.txt'
 start_line = 3
@@ -77,10 +78,10 @@ def test_magnet_exports():
 
     circ_coil_set.build_magnet_coils()
     circ_coil_set.export_step()
+    assert Path('magnets.step').exists() == True
+
     circ_coil_set.mesh_magnets()
     circ_coil_set.export_mesh()
-
-    assert Path('magnets.step').exists() == True
     assert Path('magnet_mesh.h5m').exists() == True
 
     Path.unlink('magnets.step')
