@@ -49,47 +49,6 @@ def orient_spline_surfaces(volume_id):
 
     return inner_surface_id, outer_surface_id
 
-
-def merge_layer_surfaces(components_dict):
-    """Merges ParaStell in-vessel component surfaces in Coreform Cubit based on
-    surface IDs rather than imprinting and merging all. Assumes that the
-    components dictionary is ordered radially outward. Note that overlaps
-    between magnet volumes and in-vessel components will not be merged in this
-    workflow.
-
-    Arguments:
-        components_dict (dict): dictionary of ParaStell components. This
-            dictionary must have the form
-            {
-                'component_name': {
-                    'vol_id': Coreform Cubit volume ID(s) for component (int or
-                        iterable of int)
-                    (additional keys are allowed)
-                }
-            }
-    """
-    # Tracks the surface id of the outer surface of the previous layer
-    prev_outer_surface_id = None
-
-    for data in components_dict.values():
-        # Skip merging for magnets
-        if isinstance(data['vol_id'], list):
-            continue
-
-        inner_surface_id, outer_surface_id = (
-            orient_spline_surfaces(data['vol_id'])
-        )
-
-        # Conditionally skip merging (first iteration only)
-        if prev_outer_surface_id is None:
-            prev_outer_surface_id = outer_surface_id
-        else:
-            cubit.cmd(
-                f'merge surface {inner_surface_id} {prev_outer_surface_id}'
-            )
-            prev_outer_surface_id = outer_surface_id
-
-
 class InVesselBuild(object):
     """Parametrically models fusion stellarator in-vessel components using
     plasma equilibrium data and user-defined parameters. In-vessel component
@@ -330,6 +289,32 @@ class InVesselBuild(object):
         components specified in the radial build.
         """
         return np.array([surface.get_loci() for surface in self.Surfaces.values()])
+
+    def merge_layer_surfaces(self):
+        """Merges ParaStell in-vessel component surfaces in Coreform Cubit based on
+        surface IDs rather than imprinting and merging all. Assumes that the
+        radial_build dictionary is ordered radially outward. Note that overlaps
+        between magnet volumes and in-vessel components will not be merged in this
+        workflow.
+        """
+        # Tracks the surface id of the outer surface of the previous layer
+        prev_outer_surface_id = None
+
+        for data in self.invessel_build.radial_build.values():
+
+            inner_surface_id, outer_surface_id = (
+                orient_spline_surfaces(data['vol_id'])
+            )
+
+            # Conditionally skip merging (first iteration only)
+            if prev_outer_surface_id is None:
+                prev_outer_surface_id = outer_surface_id
+            else:
+                cubit.cmd(
+                    f'merge surface {inner_surface_id} {prev_outer_surface_id}'
+                )
+                prev_outer_surface_id = outer_surface_id
+
 
     def export_step(self, export_dir=''):
         """Export CAD solids as STEP files via CadQuery.

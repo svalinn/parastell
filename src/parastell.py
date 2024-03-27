@@ -12,6 +12,28 @@ import src.cubit_io as cubit_io
 from src.utils import invessel_build_def, magnets_def, source_def,
     dagmc_export_def
 
+
+def make_material_block(mat_tag, block_id, vol_id_str):
+    """Issue commands to make a material block using Cubit's
+    native capabilities.
+    
+    Arguments:
+       mat_tag (str) : name of material block
+       block_id (int) : block number
+       vol_id_str (str) : space-separated list of volume ids
+    """
+
+    cubit.cmd(
+        f'create material "{mat_tag}" property_group '
+        '"CUBIT-ABAQUS"'
+    )
+    cubit.cmd(
+        f'block {block_id} add volume {vol_id_str}'
+    )
+    cubit.cmd(
+        f'block {block_id} material \'{mat_tag}\''
+    )
+
 class Stellarator(object):
     """Parametrically generates a fusion stellarator reactor core model using
     plasma equilibrium data and user-defined parameters. In-vessel component
@@ -260,40 +282,22 @@ class Stellarator(object):
             )
             data['vol_id'] = vol_id
 
-    def _construct_components_dict(self):
-        """Constructs components dictionary for export routine.
-        (Internal function not intended to be called externally)
-        """
-        self.components = {}
-
-        if self.magnet_set is not None:
-            name = self.magnet_set.step_filename
-            self.components[name] = {}
-            self.components[name]['mat_tag'] = self.magnet_set.mat_tag
-            self.components[name]['vol_id'] = list(self.magnet_set.volume_ids)
-
-        if self.invessel_build is not None:
-            for name, data in (
-                self.invessel_build.radial_build.items()
-            ):
-                self.components[name] = {}
-                self.components[name]['mat_tag'] = data['mat_tag']
-                self.components[name]['vol_id'] = data['vol_id']
-
     def _tag_materials_legacy(self):
         """Applies material tags to corresponding CAD volumes for legacy DAGMC
         neutronics model export.
         (Internal function not intended to be called externally)
         """
-        for data in self.components.values():
-            if isinstance(data['vol_id'], list):
-                vol_id_str = " ".join(str(i) for i in data["vol_id"])
-            else:
-                vol_id_str = str(data['vol_id'])
-
+        if self.magnet_set:
+            vol_id_str = " ".join(str(i) for i in list(self.magnet_set.volume_ids))
             cubit.cmd(
-                f'group "mat:{data["mat_tag"]}" add volume {vol_id_str}'
+                f'group "mat:{self.magnet_set.mat_tag}" add volume {vol_id_str}'
             )
+
+        if self.invessel_build:
+            for data in self.invessel_build.radial_build.values():
+                cubit.cmd(
+                    f'group "mat:{data['mat_tag']}" add volume {data['vol_id']}'
+                )
 
     def _tag_materials_native(self):
         """Applies material tags to corresponding CAD volumes for native DAGMC
@@ -302,24 +306,18 @@ class Stellarator(object):
         """
         cubit.cmd('set duplicate block elements off')
 
-        for data in self.components.values():
-            if isinstance(data['vol_id'], list):
-                block_id = min(data['vol_id'])
-                vol_id_str = " ".join(str(i) for i in data["vol_id"])
-            else:
+        if self.magnet_set:
+            vol_list = list(self.magnet_set.volume_ids)
+            block_id = min(vol_list)
+            vol_id_str = " ".join(str(i) for i in vol_list)
+            make_material_block(self.magnet_set.mat_tag, block_id, vol_id_str)
+        
+        if self.invessel_build:
+            for data in self.invessel_build.radial_build.values():
                 block_id = data['vol_id']
-                vol_id_str = str(data['vol_id'])
+                vol_id_str = str(block_id)
+                make_material_block(data['mat_tag'], block_id, vol_id_str)
 
-            cubit.cmd(
-                f'create material "{data["mat_tag"]}" property_group '
-                '"CUBIT-ABAQUS"'
-            )
-            cubit.cmd(
-                f'block {block_id} add volume {vol_id_str}'
-            )
-            cubit.cmd(
-                f'block {block_id} material \'{data["mat_tag"]}\''
-            )
 
     def export_dagmc(self, dagmc_export=dagmc_export_def):
         """Exports DAGMC neutronics H5M file of ParaStell components via
@@ -365,10 +363,8 @@ class Stellarator(object):
         if self.invessel_build:
             self._import_ivb_step()
 
-        self._construct_components_dict()
-
         if export_dict['skip_imprint']:
-            ivb.merge_layer_surfaces(self.components)
+            self.invessel_build.merge_layer_surfaces()
         else:
             cubit.cmd('imprint volume all')
             cubit.cmd('merge volume all')
