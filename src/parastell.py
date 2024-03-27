@@ -5,13 +5,10 @@ import yaml
 import cubit
 import read_vmec
 
-from src.cubit_io import (
-    init_cubit, import_step_cubit, export_dagmc_cubit_legacy,
-    export_dagmc_cubit_native
-)
 import src.invessel_build as ivb
 import src.magnet_coils as mc
 import src.source_mesh as sm
+import src.cubit_io as cubit_io
 from src.utils import invessel_build_def, magnets_def, source_def,
     dagmc_export_def
 
@@ -172,7 +169,6 @@ class Stellarator(object):
                 For a rectangular cross-section, the list format is
                 ['rectangle' (str), width [cm](double), thickness [cm](double)]
         """
-        global cubit_initialized
 
         magnets_dict = magnets_def.copy()
         magnets_dict.update(magnets)
@@ -181,8 +177,7 @@ class Stellarator(object):
             magnets_dict['coils_file_path'], magnets_dict['start_line'],
             magnets_dict['cross_section'], magnets_dict['toroidal_extent'],
             sample_mod=magnets_dict['sample_mod'], scale=magnets_dict['scale'],
-            mat_tag=magnets_dict['mat_tag'], logger=self.logger,
-            cubit_initialized=cubit_initialized
+            mat_tag=magnets_dict['mat_tag'], logger=self.logger
         )
 
         self.magnet_set.build_magnet_coils()
@@ -197,8 +192,6 @@ class Stellarator(object):
                 filename=magnets_dict['mesh_filename'],
                 export_dir=magnets_dict['export_dir']
             )
-
-        cubit_initialized = self.magnet_set.cubit_initialized
 
     def construct_source_mesh(self, source):
         """Constructs SourceMesh class object.
@@ -245,7 +238,7 @@ class Stellarator(object):
         for component, data in (
             self.invessel_build.radial_build.items()
         ):
-            vol_id = import_step_cubit(
+            vol_id = cubit_io.import_step_cubit(
                 component, self.invessel_build.export_dir
             )
             data['vol_id'] = vol_id
@@ -343,16 +336,14 @@ class Stellarator(object):
                         (str, defaults to empty string).
                 }
         """
+        cubit_io.init_cubit()
+        
         self.logger.info(
             'Exporting DAGMC neutronics model...'
         )
 
-        global cubit_initialized
-
         export_dict = dagmc_export_def.copy()
         export_dict.update(dagmc_export)
-
-        cubit_initialized = init_cubit(cubit_initialized)
 
         if self.invessel_build:
             self._import_ivb_step()
@@ -367,7 +358,7 @@ class Stellarator(object):
 
         if export_dict['legacy_faceting']:
             self._tag_materials_legacy()
-            export_dagmc_cubit_legacy(
+            cubit_io.export_dagmc_cubit_legacy(
                 faceting_tolerance=export_dict['faceting_tolerance'],
                 length_tolerance=export_dict['length_tolerance'],
                 normal_tolerance=export_dict['normal_tolerance'],
@@ -376,7 +367,7 @@ class Stellarator(object):
             )
         else:
             self._tag_materials_native()
-            export_dagmc_cubit_native(
+            cubit_io.export_dagmc_cubit_native(
                 anisotropic_ratio=export_dict['anisotropic_ratio'],
                 deviation_angle=export_dict['deviation_angle'],
                 filename=export_dict['filename'],

@@ -5,7 +5,7 @@ import argparse
 import numpy as np
 
 import cubit
-from src.cubit_io import init_cubit, export_step_cubit, export_mesh_cubit
+import src.cubit_io as cubit_io 
 from src.utils import normalize, m2cm, magnets_def
 
 class MagnetSet(object):
@@ -28,8 +28,6 @@ class MagnetSet(object):
             neutronics model (defaults to 'magnets').
         logger (object): logger object (defaults to None). If no logger is
             supplied, a default logger will be instantiated.
-        cubit_initialized (bool): flag to indicate whether Coreform Cubit has
-            been initialized (defaults to False).
     """
 
     def __init__(
@@ -42,7 +40,6 @@ class MagnetSet(object):
         scale=m2cm,
         mat_tag=None,
         logger=None,
-        cubit_initialized=False
     ):
         self.coils_file_path = coils_file_path
         self.cross_section = cross_section
@@ -57,7 +54,7 @@ class MagnetSet(object):
         else:
             self.logger = logger
 
-        self.cubit_initialized = init_cubit(cubit_initialized)
+        cubit_io.init_cubit()
 
         self._extract_filaments()
         self._extract_cross_section()
@@ -339,7 +336,7 @@ class MagnetSet(object):
         self.logger.info('Exporting STEP file for magnet coils...')
 
         self.step_filename = filename
-        export_step_cubit(filename=filename, export_dir=export_dir)
+        cubit_io.export_step_cubit(filename=filename, export_dir=export_dir)
 
     def mesh_magnets(self):
         """Creates tetrahedral mesh of magnet volumes via Coreform Cubit.
@@ -361,7 +358,7 @@ class MagnetSet(object):
         """
         self.logger.info('Exporting mesh H5M file for magnet coils...')
         
-        export_mesh_cubit(filename=filename, export_dir=export_dir)
+        cubit_io.export_mesh_cubit(filename=filename, export_dir=export_dir)
 
 
 class MagnetCoil(object):
