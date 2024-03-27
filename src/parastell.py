@@ -125,7 +125,12 @@ class Stellarator(object):
         self.invessel_build.generate_components()
 
     def export_invessel_build(self, ivb_dict):
+        """Export Invessel Build components
 
+        Arguments:
+            ivb_dict (dict): dictionary of in-vessel component
+                parameters - see construct_invessel_build()
+        """
         self.invessel_build.export_step(export_dir=ivb_dict['export_dir'])
 
         if ivb_dict['export_cad_to_dagmc']:
@@ -181,6 +186,12 @@ class Stellarator(object):
         self.magnet_set.build_magnet_coils()
 
     def export_magnets(self, magnets_dict):
+        """Export magnet components
+
+        Arguments:
+            magnets_dict (dict): dictionary of magnet component
+                parameters - see construct_magnets()
+        """
 
         self.magnet_set.export_step(
             filename=magnets_dict['step_filename'],
@@ -227,6 +238,12 @@ class Stellarator(object):
         self.source_mesh.create_mesh()
 
     def export_source_mesh(self, source_dict):
+        """Export source mesh
+
+        Arguments:
+            source_dict (dict): dictionary of source mesh parameters
+                see construct_source_mesh()
+        """
 
         self.source_mesh.export_mesh(
             filename=source_dict['filename'],
