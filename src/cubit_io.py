@@ -1,8 +1,9 @@
-import cubit
 from pathlib import Path
 import os
 import inspect
 import subprocess
+
+import cubit
 
 initialized = False
 

@@ -1,4 +1,10 @@
+import log
+import argparse
+import yaml
+
 import cubit
+import read_vmec
+
 from src.cubit_io import (
     init_cubit, import_step_cubit, export_dagmc_cubit_legacy,
     export_dagmc_cubit_native
@@ -8,10 +14,6 @@ import src.magnet_coils as mc
 import src.source_mesh as sm
 from src.utils import invessel_build_def, magnets_def, source_def,
     dagmc_export_def
-import log
-import read_vmec
-import argparse
-import yaml
 
 class Stellarator(object):
     """Parametrically generates a fusion stellarator reactor core model using

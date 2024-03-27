@@ -1,15 +1,17 @@
+import log
+import argparse
+import yaml
+from pathlib import Path
+
+import numpy as np
+from scipy.interpolate import RegularGridInterpolator
+
 import cubit
 import cadquery as cq
 import cad_to_dagmc
 import read_vmec
-from src.utils import expand_ang_list, normalize, m2cm, invessel_build_def
-import log
-import numpy as np
-from scipy.interpolate import RegularGridInterpolator
-from pathlib import Path
-import argparse
-import yaml
 
+from src.utils import expand_ang_list, normalize, m2cm, invessel_build_def
 
 def orient_spline_surfaces(volume_id):
     """Extracts the inner and outer surface IDs for a given ParaStell in-vessel
@@ -22,6 +24,7 @@ def orient_spline_surfaces(volume_id):
         inner_surface_id (int): Cubit ID of in-vessel component inner surface.
         outer_surface_id (int): Cubit ID of in-vessel component outer surface.
     """
+    
     surfaces = cubit.get_relatives('volume', volume_id, 'surface')
 
     spline_surfaces = []

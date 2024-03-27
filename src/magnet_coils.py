@@ -1,9 +1,11 @@
-import cubit
-from src.cubit_io import init_cubit, export_step_cubit, export_mesh_cubit
 import log
-import numpy as np
 import yaml
 import argparse
+
+import numpy as np
+
+import cubit
+from src.cubit_io import init_cubit, export_step_cubit, export_mesh_cubit
 from src.utils import normalize, m2cm, magnets_def
 
 class MagnetSet(object):
