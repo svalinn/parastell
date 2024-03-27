@@ -254,11 +254,9 @@ class Stellarator(object):
         """Imports STEP files from in-vessel build into Coreform Cubit.
         (Internal function not intended to be called externally)
         """
-        for component, data in (
-            self.invessel_build.radial_build.items()
-        ):
+        for name, data in self.invessel_build.radial_build.items():
             vol_id = cubit_io.import_step_cubit(
-                component, self.invessel_build.export_dir
+                name, self.invessel_build.export_dir
             )
             data['vol_id'] = vol_id
 
@@ -275,12 +273,12 @@ class Stellarator(object):
             self.components[name]['vol_id'] = list(self.magnet_set.volume_ids)
 
         if self.invessel_build is not None:
-            for component, data in (
+            for name, data in (
                 self.invessel_build.radial_build.items()
             ):
-                self.components[component] = {}
-                self.components[component]['mat_tag'] = data['mat_tag']
-                self.components[component]['vol_id'] = data['vol_id']
+                self.components[name] = {}
+                self.components[name]['mat_tag'] = data['mat_tag']
+                self.components[name]['vol_id'] = data['vol_id']
 
     def _tag_materials_legacy(self):
         """Applies material tags to corresponding CAD volumes for legacy DAGMC
@@ -444,6 +442,7 @@ def parastell():
     magnets_dict.update(magnets)
 
     stellarator.construct_magnets(magnets)
+    stellarator.export_magnets(magnets)
 
     # Source Mesh
     source_dict = source_def.copy()
