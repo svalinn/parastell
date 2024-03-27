@@ -1,14 +1,11 @@
 import argparse
 import yaml
 import log
-from src.utils import def_default_params
+from src.utils import m2cm, source_def
 import read_vmec
 import numpy as np
 from pymoab import core, types
 from pathlib import Path
-
-m2cm, _, _, _, source_def, _ = def_default_params()
-
 
 def rxn_rate(s):
     """Calculates fusion reaction rate in plasma.

@@ -2,15 +2,13 @@ import cubit
 import cadquery as cq
 import cad_to_dagmc
 import read_vmec
-from src.utils import expand_ang_list, normalize, def_default_params
+from src.utils import expand_ang_list, normalize, m2cm, invessel_build_def
 import log
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
 from pathlib import Path
 import argparse
 import yaml
-
-m2cm, _, invessel_build_def, _, _, _ = def_default_params()
 
 
 def orient_spline_surfaces(volume_id):

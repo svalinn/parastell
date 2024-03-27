@@ -4,10 +4,7 @@ import log
 import numpy as np
 import yaml
 import argparse
-from src.utils import normalize, def_default_params
-
-m2cm, _, _, magnets_def, _, _ = def_default_params()
-
+from src.utils import normalize, m2cm, magnets_def
 
 class MagnetSet(object):
     """An object representing a set of modular stellarator magnet coils.
