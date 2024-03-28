@@ -69,10 +69,10 @@ def test_parastell():
     assert Path('plasma.step').exists()
     assert Path('sol.step').exists()
     assert Path('component.step').exists()
-    assert Path('magnets.step').exists()
 
     stellarator.construct_magnets(magnets)
     stellarator.export_magnets(magnets)
+    assert Path('magnets.step').exists()
     assert Path('magnet_mesh.h5m').exists()
 
     stellarator.construct_source_mesh(source)
