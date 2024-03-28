@@ -296,7 +296,7 @@ class Stellarator(object):
         if self.invessel_build:
             for data in self.invessel_build.radial_build.values():
                 cubit.cmd(
-                    f'group "mat:{data['mat_tag']}" add volume {data['vol_id']}'
+                    f'group "mat:{data["mat_tag"]}" add volume {data["vol_id"]}'
                 )
 
     def _tag_materials_native(self):
