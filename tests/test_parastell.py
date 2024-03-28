@@ -1,6 +1,8 @@
-import src.parastell as ps
-import numpy as np
 from pathlib import Path
+
+import numpy as np
+
+import src.parastell as ps
 
 
 if Path('plasma.step').exists():
@@ -63,17 +65,22 @@ stellarator = ps.Stellarator(vmec_file)
 def test_parastell():
 
     stellarator.construct_invessel_build(invessel_build)
-    stellarator.construct_magnets(magnets)
-    stellarator.construct_source_mesh(source)
-    stellarator.export_dagmc()
+    stellarator.export_invessel_build(invessel_build)
+    assert Path('plasma.step').exists()
+    assert Path('sol.step').exists()
+    assert Path('component.step').exists()
 
-    assert Path('plasma.step').exists() == True
-    assert Path('sol.step').exists() == True
-    assert Path('component.step').exists() == True
-    assert Path('magnets.step').exists() == True
-    assert Path('magnet_mesh.h5m').exists() == True
-    assert Path('source_mesh.h5m').exists() == True
-    assert Path('dagmc.h5m').exists() == True
+    stellarator.construct_magnets(magnets)
+    stellarator.export_magnets(magnets)
+    assert Path('magnets.step').exists()
+    assert Path('magnet_mesh.h5m').exists()
+
+    stellarator.construct_source_mesh(source)
+    stellarator.export_source_mesh(source)
+    assert Path('source_mesh.h5m').exists()
+
+    stellarator.export_dagmc()
+    assert Path('dagmc.h5m').exists()
 
     Path.unlink('plasma.step')
     Path.unlink('sol.step')

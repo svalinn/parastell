@@ -1,17 +1,17 @@
+import log
+import argparse
+import yaml
+from pathlib import Path
+
+import numpy as np
+from scipy.interpolate import RegularGridInterpolator
+
 import cubit
 import cadquery as cq
 import cad_to_dagmc
 import read_vmec
-from src.utils import expand_ang_list, normalize, def_default_params
-import log
-import numpy as np
-from scipy.interpolate import RegularGridInterpolator
-from pathlib import Path
-import argparse
-import yaml
 
-m2cm, _, invessel_build_def, _, _, _ = def_default_params()
-
+from src.utils import expand_ang_list, normalize, m2cm, invessel_build_def
 
 def orient_spline_surfaces(volume_id):
     """Extracts the inner and outer surface IDs for a given ParaStell in-vessel
@@ -24,6 +24,7 @@ def orient_spline_surfaces(volume_id):
         inner_surface_id (int): Cubit ID of in-vessel component inner surface.
         outer_surface_id (int): Cubit ID of in-vessel component outer surface.
     """
+    
     surfaces = cubit.get_relatives('volume', volume_id, 'surface')
 
     spline_surfaces = []
@@ -47,47 +48,6 @@ def orient_spline_surfaces(volume_id):
             inner_surface_id = spline_surfaces[1]
 
     return inner_surface_id, outer_surface_id
-
-
-def merge_layer_surfaces(components_dict):
-    """Merges ParaStell in-vessel component surfaces in Coreform Cubit based on
-    surface IDs rather than imprinting and merging all. Assumes that the
-    components dictionary is ordered radially outward. Note that overlaps
-    between magnet volumes and in-vessel components will not be merged in this
-    workflow.
-
-    Arguments:
-        components_dict (dict): dictionary of ParaStell components. This
-            dictionary must have the form
-            {
-                'component_name': {
-                    'vol_id': Coreform Cubit volume ID(s) for component (int or
-                        iterable of int)
-                    (additional keys are allowed)
-                }
-            }
-    """
-    # Tracks the surface id of the outer surface of the previous layer
-    prev_outer_surface_id = None
-
-    for data in components_dict.values():
-        # Skip merging for magnets
-        if isinstance(data['vol_id'], list):
-            continue
-
-        inner_surface_id, outer_surface_id = (
-            orient_spline_surfaces(data['vol_id'])
-        )
-
-        # Conditionally skip merging (first iteration only)
-        if prev_outer_surface_id is None:
-            prev_outer_surface_id = outer_surface_id
-        else:
-            cubit.cmd(
-                f'merge surface {inner_surface_id} {prev_outer_surface_id}'
-            )
-            prev_outer_surface_id = outer_surface_id
-
 
 class InVesselBuild(object):
     """Parametrically models fusion stellarator in-vessel components using
@@ -175,16 +135,15 @@ class InVesselBuild(object):
         if self.logger == None or not self.logger.hasHandlers():
             self.logger = log.init()
 
-        self.Surfaces = []
-        self.Components = []
+        self.Surfaces = {}
+        self.Components = {}
 
-        try:
-            assert (self.repeat + 1) * self.toroidal_angles[-1] <= 360.0, (
+        if (self.repeat + 1) * self.toroidal_angles[-1] > 360.0:
+            e = AssertionError(
                 'Total toroidal extent requested with repeated geometry '
                 'exceeds 360 degrees. Please examine phi_list and the repeat '
                 'parameter.'
             )
-        except AssertionError as e:
             self.logger.error(e.args[0])
             raise e
 
@@ -255,12 +214,11 @@ class InVesselBuild(object):
         ))
 
         for name, layer_data in self.radial_build.items():
-            try:
-                assert np.all(np.array(layer_data['thickness_matrix']) >= 0), (
+            if np.any(np.array(layer_data['thickness_matrix']) < 0):
+                e = AssertionError(
                     'Component thicknesses must be greater than or equal to 0. '
                     'Check thickness inputs for negative values.'
                 )
-            except AssertionError as e:
                 self.logger.error(e.args[0])
                 raise e
 
@@ -277,14 +235,12 @@ class InVesselBuild(object):
                 offset_mat
             )
 
-            self.Surfaces.append(
-                Surface(
+            self.Surfaces[name] = Surface(
                     self.vmec, s, self.theta_list, self.phi_list,
                     interpolated_offset_mat, self.scale
                 )
-            )
-
-        [surface.populate_ribs() for surface in self.Surfaces]
+            
+        [surface.populate_ribs() for surface in self.Surfaces.values()]
 
     def calculate_loci(self):
         """Calls calculate_loci method in Surface class for each component
@@ -292,7 +248,7 @@ class InVesselBuild(object):
         """
         self.logger.info('Computing point cloud for in-vessel components...')
 
-        [surface.calculate_loci() for surface in self.Surfaces]
+        [surface.calculate_loci() for surface in self.Surfaces.values()]
 
     def generate_components(self):
         """Constructs a CAD solid for each component specified in the radial
@@ -311,7 +267,7 @@ class InVesselBuild(object):
             num=self.repeat
         )
 
-        for surface in self.Surfaces:
+        for name, surface in self.Surfaces.items():
             outer_surface = surface.generate_surface()
 
             if interior_surface is not None:
@@ -325,14 +281,40 @@ class InVesselBuild(object):
                 rot_segment = segment.rotate((0, 0, 0), (0, 0, 1), angle)
                 component = component.union(rot_segment)
 
-            self.Components.append(component)
+            self.Components[name] = component
             interior_surface = outer_surface
 
     def get_loci(self):
         """Returns the set of point-loci defining the outer surfaces of the
         components specified in the radial build.
         """
-        return np.array([surface.get_loci() for surface in self.Surfaces])
+        return np.array([surface.get_loci() for surface in self.Surfaces.values()])
+
+    def merge_layer_surfaces(self):
+        """Merges ParaStell in-vessel component surfaces in Coreform Cubit based on
+        surface IDs rather than imprinting and merging all. Assumes that the
+        radial_build dictionary is ordered radially outward. Note that overlaps
+        between magnet volumes and in-vessel components will not be merged in this
+        workflow.
+        """
+        # Tracks the surface id of the outer surface of the previous layer
+        prev_outer_surface_id = None
+
+        for data in self.invessel_build.radial_build.values():
+
+            inner_surface_id, outer_surface_id = (
+                orient_spline_surfaces(data['vol_id'])
+            )
+
+            # Conditionally skip merging (first iteration only)
+            if prev_outer_surface_id is None:
+                prev_outer_surface_id = outer_surface_id
+            else:
+                cubit.cmd(
+                    f'merge surface {inner_surface_id} {prev_outer_surface_id}'
+                )
+                prev_outer_surface_id = outer_surface_id
+
 
     def export_step(self, export_dir=''):
         """Export CAD solids as STEP files via CadQuery.
@@ -345,9 +327,7 @@ class InVesselBuild(object):
 
         self.export_dir = export_dir
 
-        for component, name in zip(
-            self.Components, self.radial_build.keys()
-        ):
+        for name, component in self.Components.items():
             export_path = (
                 Path(self.export_dir) / Path(name).with_suffix('.step')
             )
@@ -372,11 +352,9 @@ class InVesselBuild(object):
 
         model = cad_to_dagmc.CadToDagmc()
 
-        for component, (_, layer_data) in zip(
-            self.Components, self.radial_build.items()
-        ):
+        for name, component in self.Components.items():
             model.add_cadquery_object(
-                component, material_tags=[layer_data['mat_tag']]
+                component, material_tags=[self.radial_build[name]['mat_tag]']]
             )
 
         export_path = Path(export_dir) / Path(filename).with_suffix('.h5m')

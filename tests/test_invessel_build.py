@@ -1,8 +1,10 @@
-import src.invessel_build as ivb
-import read_vmec
-import numpy as np
 from pathlib import Path
 
+import numpy as np
+
+import read_vmec
+
+import src.invessel_build as ivb
 
 if Path('plasma.step').exists():
     Path.unlink('plasma.step')
@@ -78,13 +80,11 @@ def test_ivb_exports():
 
     invessel_build.export_cad_to_dagmc()
     """
-    assert Path('plasma.step').exists() == True
-    assert Path('sol.step').exists() == True
-    assert Path('component.step').exists() == True
-    #assert Path('dagmc.h5m').exists() == True
+    assert Path('plasma.step').exists() 
+    assert Path('sol.step').exists() 
+    assert Path('component.step').exists() 
 
     Path.unlink('plasma.step')
     Path.unlink('sol.step')
     Path.unlink('component.step')
-    #Path.unlink('dagmc.h5m')
     Path.unlink('stellarator.log')
