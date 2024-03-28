@@ -67,11 +67,11 @@ class Stellarator(object):
         self.magnet_set = None
         self.source_mesh = None
 
-    def construct_invessel_build(self, ivb_dict):
+    def construct_invessel_build(self, invessel_build):
         """Construct InVesselBuild class object.
 
         Arguments:
-            ivb_dict (dict): dictionary of in-vessel component
+            invessel_build (dict): dictionary of in-vessel component
                 parameters, including
                 {
                     'toroidal_angles': toroidal angles at which radial build is
@@ -132,6 +132,8 @@ class Stellarator(object):
                         (str, defaults to empty string).
                 }
         """
+        ivb_dict = invessel_build_def.copy()
+        ivb_dict.update(invessel_build)
 
         self.invessel_build = ivb.InVesselBuild(
             self.vmec, ivb_dict['toroidal_angles'],
@@ -146,13 +148,16 @@ class Stellarator(object):
         self.invessel_build.calculate_loci()
         self.invessel_build.generate_components()
 
-    def export_invessel_build(self, ivb_dict):
+    def export_invessel_build(self, invessel_build):
         """Export Invessel Build components
 
         Arguments:
-            ivb_dict (dict): dictionary of in-vessel component
+            invessel_build (dict): dictionary of in-vessel component
                 parameters - see construct_invessel_build()
         """
+        ivb_dict = invessel_build_def.copy()
+        ivb_dict.update(invessel_build)
+        
         self.invessel_build.export_step(export_dir=ivb_dict['export_dir'])
 
         if ivb_dict['export_cad_to_dagmc']:
@@ -161,11 +166,11 @@ class Stellarator(object):
                 export_dir=ivb_dict['export_dir']
             )
 
-    def construct_magnets(self, magnets_dict):
+    def construct_magnets(self, magnets):
         """Constructs MagnetSet class object.
 
         Arguments:
-            magnets_dict (dict): dictionary of magnet parameters, including
+            magnets (dict): dictionary of magnet parameters, including
                 {
                     'coils_file_path': path to coil filament data file (str).
                     'start_line': starting line index for data in file (int).
@@ -197,6 +202,8 @@ class Stellarator(object):
                 For a rectangular cross-section, the list format is
                 ['rectangle' (str), width [cm](double), thickness [cm](double)]
         """
+        magnets_dict = magnets_def.copy()
+        magnets_dict.update(magnets)
 
         self.magnet_set = mc.MagnetSet(
             magnets_dict['coils_file_path'], magnets_dict['start_line'],
@@ -207,13 +214,15 @@ class Stellarator(object):
 
         self.magnet_set.build_magnet_coils()
 
-    def export_magnets(self, magnets_dict):
+    def export_magnets(self, magnets):
         """Export magnet components
 
         Arguments:
-            magnets_dict (dict): dictionary of magnet component
+            magnets (dict): dictionary of magnet component
                 parameters - see construct_magnets()
         """
+        magnets_dict = magnets_def.copy()
+        magnets_dict.update(magnets)
 
         self.magnet_set.export_step(
             filename=magnets_dict['step_filename'],
@@ -228,7 +237,7 @@ class Stellarator(object):
             )
 
 
-    def construct_source_mesh(self, source_dict):
+    def construct_source_mesh(self, source):
         """Constructs SourceMesh class object.
 
         Arguments:
@@ -250,6 +259,9 @@ class Stellarator(object):
                         (str, defaults to empty string).
                 }
         """
+        source_dict = source_def.copy()
+        source_dict.update(source)
+
         self.source_mesh = sm.SourceMesh(
             self.vmec, source_dict['num_s'], source_dict['num_theta'],
             source_dict['num_phi'], source_dict['toroidal_extent'],
@@ -259,13 +271,15 @@ class Stellarator(object):
         self.source_mesh.create_vertices()
         self.source_mesh.create_mesh()
 
-    def export_source_mesh(self, source_dict):
+    def export_source_mesh(self, source):
         """Export source mesh
 
         Arguments:
-            source_dict (dict): dictionary of source mesh parameters
+            source (dict): dictionary of source mesh parameters
                 see construct_source_mesh()
         """
+        source_dict = source_def.copy()
+        source_dict.update(source)
 
         self.source_mesh.export_mesh(
             filename=source_dict['filename'],
@@ -357,6 +371,9 @@ class Stellarator(object):
             'Exporting DAGMC neutronics model...'
         )
 
+        export_dict = dagmc_export_def.copy()
+        export_dict.update(dagmc_export)
+
         if self.invessel_build:
             self._import_ivb_step()
 
@@ -424,30 +441,19 @@ def parastell():
     stellarator = Stellarator(vmec_file)
 
     # Invessel Build
-    ivb_dict = invessel_build_def.copy()
-    ivb_dict.update(invessel_build)
-
-    stellarator.construct_invessel_build(ivb_dict)
-    stellarator.export_invessel_build(ivb_dict)
+    stellarator.construct_invessel_build(invessel_build)
+    stellarator.export_invessel_build(invessel_build)
 
     # Magnets
-    magnets_dict = magnets_def.copy()
-    magnets_dict.update(magnets)
-
     stellarator.construct_magnets(magnets)
     stellarator.export_magnets(magnets)
 
     # Source Mesh
-    source_dict = source_def.copy()
-    source_dict.update(source)
-
-    stellarator.construct_source_mesh(source_dict)
-    stellarator.export_source_mesh(source_dict)
-
-    export_dict = dagmc_export_def.copy()
-    export_dict.update(dagmc_export)
+    stellarator.construct_source_mesh(source)
+    stellarator.export_source_mesh(source)
     
-    stellarator.export_dagmc(export_dict)
+    # DAGMC export
+    stellarator.export_dagmc(dagmc_export)
 
 
 if __name__ == "__main__":
