@@ -1,22 +1,18 @@
-import cubit
 from pathlib import Path
 import os
 import inspect
 import subprocess
 
+import cubit
 
-def init_cubit(cubit_initialized=False):
+initialized = False
+
+def init_cubit():
     """Initializes Coreform Cubit with the DAGMC plugin.
-
-    Arguments:
-        cubit_initialized (bool): flag to indicate whether Coreform Cubit has
-            been initialized.
-
-    Returns:
-        cubit_initialized (bool): flag to indicate whether Coreform Cubit has
-            been initialized.
     """
-    if not cubit_initialized:
+    global initialized
+    
+    if not initialized:
         cubit_plugin_dir = (
             Path(os.path.dirname(inspect.getfile(cubit))) / Path('plugins')
         )
@@ -29,9 +25,7 @@ def init_cubit(cubit_initialized=False):
             '-commandplugindir',
             str(cubit_plugin_dir)
         ])
-        cubit_initialized = True
-
-    return cubit_initialized
+        initialized = True
 
 
 def import_step_cubit(filename, import_dir):
@@ -61,6 +55,8 @@ def export_step_cubit(filename, export_dir=''):
         export_dir (str): directory to which to export the STEP output file
             (defaults to empty string).
     """
+    init_cubit()
+
     export_path = Path(export_dir) / Path(filename).with_suffix('.step')
     cubit.cmd(f'export step "{export_path}" overwrite')
 
@@ -74,6 +70,8 @@ def export_mesh_cubit(filename, export_dir=''):
         export_dir (str): directory to which to export the H5M output file
             (defaults to empty string).
     """
+    init_cubit()
+    
     exo_path = Path(export_dir) / Path(filename).with_suffix('.exo')
     h5m_path = Path(export_dir) / Path(filename).with_suffix('.h5m')
 
@@ -101,6 +99,8 @@ def export_dagmc_cubit_legacy(
         export_dir (str): directory to which to export the DAGMC output file
             (defaults to empty string).
     """
+    init_cubit()
+    
     tol_str = ''
 
     if faceting_tolerance is not None:
@@ -134,6 +134,8 @@ def export_dagmc_cubit_native(
         export_dir (str): directory to which to export the DAGMC output file
             (defaults to empty string).
     """
+    init_cubit()
+    
     cubit.cmd(
         f'set trimesher coarse on ratio {anisotropic_ratio} '
         f'angle {deviation_angle}'

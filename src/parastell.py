@@ -1,22 +1,38 @@
-import cubit
-from src.cubit_io import (
-    init_cubit, import_step_cubit, export_dagmc_cubit_legacy,
-    export_dagmc_cubit_native
-)
-import src.invessel_build as ivb
-import src.magnet_coils as mc
-import src.source_mesh as sm
-from src.utils import def_default_params
 import log
-import read_vmec
 import argparse
 import yaml
 
-(
-    _, cubit_initialized, invessel_build_def, magnets_def, source_def,
-    dagmc_export_def
-) = def_default_params()
+import cubit
+import read_vmec
 
+import src.invessel_build as ivb
+import src.magnet_coils as mc
+import src.source_mesh as sm
+import src.cubit_io as cubit_io
+from src.utils import ( invessel_build_def, magnets_def, source_def,
+    dagmc_export_def )
+
+
+def make_material_block(mat_tag, block_id, vol_id_str):
+    """Issue commands to make a material block using Cubit's
+    native capabilities.
+    
+    Arguments:
+       mat_tag (str) : name of material block
+       block_id (int) : block number
+       vol_id_str (str) : space-separated list of volume ids
+    """
+
+    cubit.cmd(
+        f'create material "{mat_tag}" property_group '
+        '"CUBIT-ABAQUS"'
+    )
+    cubit.cmd(
+        f'block {block_id} add volume {vol_id_str}'
+    )
+    cubit.cmd(
+        f'block {block_id} material \'{mat_tag}\''
+    )
 
 class Stellarator(object):
     """Parametrically generates a fusion stellarator reactor core model using
@@ -51,11 +67,11 @@ class Stellarator(object):
         self.magnet_set = None
         self.source_mesh = None
 
-    def construct_invessel_build(self, invessel_build):
+    def construct_invessel_build(self, ivb_dict):
         """Construct InVesselBuild class object.
 
         Arguments:
-            invessel_build (dict): dictionary of in-vessel component
+            ivb_dict (dict): dictionary of in-vessel component
                 parameters, including
                 {
                     'toroidal_angles': toroidal angles at which radial build is
@@ -116,8 +132,6 @@ class Stellarator(object):
                         (str, defaults to empty string).
                 }
         """
-        ivb_dict = invessel_build_def.copy()
-        ivb_dict.update(invessel_build)
 
         self.invessel_build = ivb.InVesselBuild(
             self.vmec, ivb_dict['toroidal_angles'],
@@ -131,6 +145,14 @@ class Stellarator(object):
         self.invessel_build.populate_surfaces()
         self.invessel_build.calculate_loci()
         self.invessel_build.generate_components()
+
+    def export_invessel_build(self, ivb_dict):
+        """Export Invessel Build components
+
+        Arguments:
+            ivb_dict (dict): dictionary of in-vessel component
+                parameters - see construct_invessel_build()
+        """
         self.invessel_build.export_step(export_dir=ivb_dict['export_dir'])
 
         if ivb_dict['export_cad_to_dagmc']:
@@ -139,11 +161,11 @@ class Stellarator(object):
                 export_dir=ivb_dict['export_dir']
             )
 
-    def construct_magnets(self, magnets):
+    def construct_magnets(self, magnets_dict):
         """Constructs MagnetSet class object.
 
         Arguments:
-            magnets (dict): dictionary of magnet parameters, including
+            magnets_dict (dict): dictionary of magnet parameters, including
                 {
                     'coils_file_path': path to coil filament data file (str).
                     'start_line': starting line index for data in file (int).
@@ -175,20 +197,24 @@ class Stellarator(object):
                 For a rectangular cross-section, the list format is
                 ['rectangle' (str), width [cm](double), thickness [cm](double)]
         """
-        global cubit_initialized
-
-        magnets_dict = magnets_def.copy()
-        magnets_dict.update(magnets)
 
         self.magnet_set = mc.MagnetSet(
             magnets_dict['coils_file_path'], magnets_dict['start_line'],
             magnets_dict['cross_section'], magnets_dict['toroidal_extent'],
             sample_mod=magnets_dict['sample_mod'], scale=magnets_dict['scale'],
-            mat_tag=magnets_dict['mat_tag'], logger=self.logger,
-            cubit_initialized=cubit_initialized
+            mat_tag=magnets_dict['mat_tag'], logger=self.logger
         )
 
         self.magnet_set.build_magnet_coils()
+
+    def export_magnets(self, magnets_dict):
+        """Export magnet components
+
+        Arguments:
+            magnets_dict (dict): dictionary of magnet component
+                parameters - see construct_magnets()
+        """
+
         self.magnet_set.export_step(
             filename=magnets_dict['step_filename'],
             export_dir=magnets_dict['export_dir']
@@ -201,13 +227,12 @@ class Stellarator(object):
                 export_dir=magnets_dict['export_dir']
             )
 
-        cubit_initialized = self.magnet_set.cubit_initialized
 
-    def construct_source_mesh(self, source):
+    def construct_source_mesh(self, source_dict):
         """Constructs SourceMesh class object.
 
         Arguments:
-            source (dict): dictionary of source mesh parameters including
+            source_dict (dict): dictionary of source mesh parameters including
                 {
                     'num_s': number of closed flux surfaces for vertex
                         locations in each toroidal plane (int).
@@ -225,9 +250,6 @@ class Stellarator(object):
                         (str, defaults to empty string).
                 }
         """
-        source_dict = source_def.copy()
-        source_dict.update(source)
-
         self.source_mesh = sm.SourceMesh(
             self.vmec, source_dict['num_s'], source_dict['num_theta'],
             source_dict['num_phi'], source_dict['toroidal_extent'],
@@ -236,6 +258,15 @@ class Stellarator(object):
 
         self.source_mesh.create_vertices()
         self.source_mesh.create_mesh()
+
+    def export_source_mesh(self, source_dict):
+        """Export source mesh
+
+        Arguments:
+            source_dict (dict): dictionary of source mesh parameters
+                see construct_source_mesh()
+        """
+
         self.source_mesh.export_mesh(
             filename=source_dict['filename'],
             export_dir=source_dict['export_dir']
@@ -245,48 +276,28 @@ class Stellarator(object):
         """Imports STEP files from in-vessel build into Coreform Cubit.
         (Internal function not intended to be called externally)
         """
-        for component, data in (
-            self.invessel_build.radial_build.items()
-        ):
-            vol_id = import_step_cubit(
-                component, self.invessel_build.export_dir
+        for name, data in self.invessel_build.radial_build.items():
+            vol_id = cubit_io.import_step_cubit(
+                name, self.invessel_build.export_dir
             )
             data['vol_id'] = vol_id
-
-    def _construct_components_dict(self):
-        """Constructs components dictionary for export routine.
-        (Internal function not intended to be called externally)
-        """
-        self.components = {}
-
-        if self.magnet_set is not None:
-            name = self.magnet_set.step_filename
-            self.components[name] = {}
-            self.components[name]['mat_tag'] = self.magnet_set.mat_tag
-            self.components[name]['vol_id'] = list(self.magnet_set.volume_ids)
-
-        if self.invessel_build is not None:
-            for component, data in (
-                self.invessel_build.radial_build.items()
-            ):
-                self.components[component] = {}
-                self.components[component]['mat_tag'] = data['mat_tag']
-                self.components[component]['vol_id'] = data['vol_id']
 
     def _tag_materials_legacy(self):
         """Applies material tags to corresponding CAD volumes for legacy DAGMC
         neutronics model export.
         (Internal function not intended to be called externally)
         """
-        for data in self.components.values():
-            if isinstance(data['vol_id'], list):
-                vol_id_str = " ".join(str(i) for i in data["vol_id"])
-            else:
-                vol_id_str = str(data['vol_id'])
-
+        if self.magnet_set:
+            vol_id_str = " ".join(str(i) for i in list(self.magnet_set.volume_ids))
             cubit.cmd(
-                f'group "mat:{data["mat_tag"]}" add volume {vol_id_str}'
+                f'group "mat:{self.magnet_set.mat_tag}" add volume {vol_id_str}'
             )
+
+        if self.invessel_build:
+            for data in self.invessel_build.radial_build.values():
+                cubit.cmd(
+                    f'group "mat:{data["mat_tag"]}" add volume {data["vol_id"]}'
+                )
 
     def _tag_materials_native(self):
         """Applies material tags to corresponding CAD volumes for native DAGMC
@@ -295,24 +306,18 @@ class Stellarator(object):
         """
         cubit.cmd('set duplicate block elements off')
 
-        for data in self.components.values():
-            if isinstance(data['vol_id'], list):
-                block_id = min(data['vol_id'])
-                vol_id_str = " ".join(str(i) for i in data["vol_id"])
-            else:
+        if self.magnet_set:
+            vol_list = list(self.magnet_set.volume_ids)
+            block_id = min(vol_list)
+            vol_id_str = " ".join(str(i) for i in vol_list)
+            make_material_block(self.magnet_set.mat_tag, block_id, vol_id_str)
+        
+        if self.invessel_build:
+            for data in self.invessel_build.radial_build.values():
                 block_id = data['vol_id']
-                vol_id_str = str(data['vol_id'])
+                vol_id_str = str(block_id)
+                make_material_block(data['mat_tag'], block_id, vol_id_str)
 
-            cubit.cmd(
-                f'create material "{data["mat_tag"]}" property_group '
-                '"CUBIT-ABAQUS"'
-            )
-            cubit.cmd(
-                f'block {block_id} add volume {vol_id_str}'
-            )
-            cubit.cmd(
-                f'block {block_id} material \'{data["mat_tag"]}\''
-            )
 
     def export_dagmc(self, dagmc_export=dagmc_export_def):
         """Exports DAGMC neutronics H5M file of ParaStell components via
@@ -346,31 +351,24 @@ class Stellarator(object):
                         (str, defaults to empty string).
                 }
         """
+        cubit_io.init_cubit()
+        
         self.logger.info(
             'Exporting DAGMC neutronics model...'
         )
 
-        global cubit_initialized
-
-        export_dict = dagmc_export_def.copy()
-        export_dict.update(dagmc_export)
-
-        cubit_initialized = init_cubit(cubit_initialized)
-
         if self.invessel_build:
             self._import_ivb_step()
 
-        self._construct_components_dict()
-
         if export_dict['skip_imprint']:
-            ivb.merge_layer_surfaces(self.components)
+            self.invessel_build.merge_layer_surfaces()
         else:
             cubit.cmd('imprint volume all')
             cubit.cmd('merge volume all')
 
         if export_dict['legacy_faceting']:
             self._tag_materials_legacy()
-            export_dagmc_cubit_legacy(
+            cubit_io.export_dagmc_cubit_legacy(
                 faceting_tolerance=export_dict['faceting_tolerance'],
                 length_tolerance=export_dict['length_tolerance'],
                 normal_tolerance=export_dict['normal_tolerance'],
@@ -379,7 +377,7 @@ class Stellarator(object):
             )
         else:
             self._tag_materials_native()
-            export_dagmc_cubit_native(
+            cubit_io.export_dagmc_cubit_native(
                 anisotropic_ratio=export_dict['anisotropic_ratio'],
                 deviation_angle=export_dict['deviation_angle'],
                 filename=export_dict['filename'],
@@ -424,10 +422,32 @@ def parastell():
     ) = read_yaml_config(args.filename)
 
     stellarator = Stellarator(vmec_file)
-    stellarator.construct_invessel_build(invessel_build)
+
+    # Invessel Build
+    ivb_dict = invessel_build_def.copy()
+    ivb_dict.update(invessel_build)
+
+    stellarator.construct_invessel_build(ivb_dict)
+    stellarator.export_invessel_build(ivb_dict)
+
+    # Magnets
+    magnets_dict = magnets_def.copy()
+    magnets_dict.update(magnets)
+
     stellarator.construct_magnets(magnets)
-    stellarator.construct_source_mesh(source)
-    stellarator.export_dagmc(dagmc_export)
+    stellarator.export_magnets(magnets)
+
+    # Source Mesh
+    source_dict = source_def.copy()
+    source_dict.update(source)
+
+    stellarator.construct_source_mesh(source_dict)
+    stellarator.export_source_mesh(source_dict)
+
+    export_dict = dagmc_export_def.copy()
+    export_dict.update(dagmc_export)
+    
+    stellarator.export_dagmc(export_dict)
 
 
 if __name__ == "__main__":
