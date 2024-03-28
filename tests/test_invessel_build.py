@@ -2,9 +2,12 @@ from pathlib import Path
 
 import numpy as np
 
+# import this before read_vmec to deal with conflicting 
+# dependencies correctly
+import src.invessel_build as ivb
+
 import read_vmec
 
-import src.invessel_build as ivb
 
 if Path('plasma.step').exists():
     Path.unlink('plasma.step')
