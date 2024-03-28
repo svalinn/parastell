@@ -3,6 +3,8 @@ from pathlib import Path
 import numpy as np
 
 import src.parastell as ps
+from src.utils import ( invessel_build_def, magnets_def, source_def,
+    dagmc_export_def )
 
 
 if Path('plasma.step').exists():
@@ -64,22 +66,33 @@ stellarator = ps.Stellarator(vmec_file)
 
 def test_parastell():
 
-    stellarator.construct_invessel_build(invessel_build)
-    stellarator.export_invessel_build(invessel_build)
+    ivb_dict = invessel_build_def.copy()
+    ivb_dict.update(invessel_build)
+
+    stellarator.construct_invessel_build(ivb_dict)
+    stellarator.export_invessel_build(ivb_dict)
     assert Path('plasma.step').exists()
     assert Path('sol.step').exists()
     assert Path('component.step').exists()
 
-    stellarator.construct_magnets(magnets)
-    stellarator.export_magnets(magnets)
+    magnet_dict = magnets_def.copy()
+    magnet_dict.update(magnets)
+
+    stellarator.construct_magnets(magnet_dict)
+    stellarator.export_magnets(magnet_dict)
     assert Path('magnets.step').exists()
     assert Path('magnet_mesh.h5m').exists()
 
-    stellarator.construct_source_mesh(source)
-    stellarator.export_source_mesh(source)
+    source_dict = source_def.copy()
+    source_dict.update(source)
+
+    stellarator.construct_source_mesh(source_dict)
+    stellarator.export_source_mesh(source_dict)
     assert Path('source_mesh.h5m').exists()
 
-    stellarator.export_dagmc()
+    export_dict = dagmc_export_def.copy()
+
+    stellarator.export_dagmc(export_dict)
     assert Path('dagmc.h5m').exists()
 
     Path.unlink('plasma.step')

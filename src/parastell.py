@@ -357,9 +357,6 @@ class Stellarator(object):
             'Exporting DAGMC neutronics model...'
         )
 
-        export_dict = dagmc_export_def.copy()
-        export_dict.update(dagmc_export)
-
         if self.invessel_build:
             self._import_ivb_step()
 
@@ -447,8 +444,10 @@ def parastell():
     stellarator.construct_source_mesh(source_dict)
     stellarator.export_source_mesh(source_dict)
 
+    export_dict = dagmc_export_def.copy()
+    export_dict.update(dagmc_export)
     
-    stellarator.export_dagmc(dagmc_export)
+    stellarator.export_dagmc(export_dict)
 
 
 if __name__ == "__main__":
