@@ -140,7 +140,6 @@ dmypy.json
 *.cub5
 *.h5
 *.exo
-!coils.txt
 !wout_vmec.nc
 .vscode
 *.yaml
