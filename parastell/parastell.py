@@ -1,15 +1,16 @@
-import log
 import argparse
 import yaml
 
 import cubit
 import read_vmec
 
-import src.invessel_build as ivb
-import src.magnet_coils as mc
-import src.source_mesh as sm
-import src.cubit_io as cubit_io
-from src.utils import ( invessel_build_def, magnets_def, source_def,
+from . import log
+
+from . import invessel_build as ivb
+from . import magnet_coils as mc
+from . import source_mesh as sm
+from . import cubit_io as cubit_io
+from .utils import ( invessel_build_def, magnets_def, source_def,
     dagmc_export_def )
 
 

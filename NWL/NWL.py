@@ -93,7 +93,7 @@ def NWL_geom(
     """
     import parastell as ps
     import source_mesh as sm
-    import log
+    import parastell.log as log
     import read_vmec
     import cubit
     from scipy.interpolate import RegularGridInterpolator

@@ -51,7 +51,7 @@ invessel_build:
   export_dir: ''
 
 magnet_coils:
-  coils_file_path: coils.txt
+  coils_file_path: coils.example
   start_line: 3
   cross_section: [circle, 20.0]
   toroidal_extent: 90.0

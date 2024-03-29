@@ -1,12 +1,13 @@
-import log
 import yaml
 import argparse
 
 import numpy as np
 
 import cubit
-import src.cubit_io as cubit_io 
-from src.utils import normalize, m2cm, magnets_def
+
+from . import log
+from . import cubit_io as cubit_io 
+from .utils import normalize, m2cm, magnets_def
 
 class MagnetSet(object):
     """An object representing a set of modular stellarator magnet coils.

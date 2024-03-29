@@ -2,7 +2,7 @@ from pathlib import Path
 
 import numpy as np
 
-import src.parastell as ps
+import parastell.parastell as ps
 
 
 if Path('plasma.step').exists():
@@ -44,7 +44,7 @@ invessel_build = {
 }
 
 magnets = {
-    'coils_file_path': Path('files_for_tests') / 'coils.txt',
+    'coils_file_path': Path('files_for_tests') / 'coils.example',
     'start_line': 3,
     'cross_section': ['circle', 20],
     'toroidal_extent': 90.0,
