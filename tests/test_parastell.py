@@ -2,7 +2,7 @@ from pathlib import Path
 
 import numpy as np
 
-from .. import parastell as ps
+import parastell.parastell as ps
 
 
 if Path('plasma.step').exists():

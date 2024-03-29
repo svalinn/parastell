@@ -1,4 +1,4 @@
-from .. import source_mesh as sm
+import parastell.source_mesh as sm
 import read_vmec as rv
 import numpy as np
 from pathlib import Path

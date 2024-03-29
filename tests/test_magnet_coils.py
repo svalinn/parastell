@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from .. import magnet_coils as magnet_coils
+import parastell.magnet_coils as magnet_coils
 
-coils_file_path = Path('files_for_tests') / 'coils.txt'
+coils_file_path = Path('files_for_tests') / 'coils.example'
 start_line = 3
 rect_cross_section = ['rectangle', 20, 60]
 circ_cross_section = ['circle', 25]

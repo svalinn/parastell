@@ -4,7 +4,7 @@ import numpy as np
 
 # import this before read_vmec to deal with conflicting 
 # dependencies correctly
-from .. import invessel_build as ivb
+import parastell.invessel_build as ivb
 
 import read_vmec
 
