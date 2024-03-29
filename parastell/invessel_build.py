@@ -558,7 +558,7 @@ def read_yaml_config(filename):
     with open(filename) as yaml_file:
         all_data = yaml.safe_load(yaml_file)
 
-    return all_data['vmec'], all_data['invessel_build']
+    return all_data['vmec_file'], all_data['invessel_build']
 
 
 def generate_invessel_build():
