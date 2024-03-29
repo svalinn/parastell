@@ -1,6 +1,6 @@
 import numpy as np
 
-import parastell as ps
+import parastell.parastell as ps
 
 # Define directory to export all output files to
 export_dir = ''
@@ -63,7 +63,7 @@ invessel_build = {
 
 # Define magnet coil parameters
 magnets = {
-    'coils_file_path': 'coils.txt',
+    'coils_file_path': 'coils.example',
     'start_line': 3,
     'cross_section': ['circle', 20],
     'toroidal_extent': 90.0,

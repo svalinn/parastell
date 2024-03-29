@@ -1,7 +1,7 @@
 import yaml
 import numpy as np
 
-import parastell as ps
+import parastell.parastell as ps
 
 # Load configuration from YAML file
 config_file = 'config.yaml'
