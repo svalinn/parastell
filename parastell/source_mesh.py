@@ -1,13 +1,13 @@
 import argparse
 import yaml
-import log
 from pathlib import Path
 
 import numpy as np
 from pymoab import core, types
 import read_vmec
 
-from src.utils import m2cm, source_def
+from . import log as log
+from .utils import m2cm, source_def
 
 def rxn_rate(s):
     """Calculates fusion reaction rate in plasma.

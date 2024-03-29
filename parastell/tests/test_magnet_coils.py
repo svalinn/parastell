@@ -1,6 +1,6 @@
 from pathlib import Path
 
-import src.magnet_coils as magnet_coils
+from .. import magnet_coils as magnet_coils
 
 coils_file_path = Path('files_for_tests') / 'coils.txt'
 start_line = 3

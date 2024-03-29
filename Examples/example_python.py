@@ -1,6 +1,6 @@
-import src.parastell as ps
 import numpy as np
 
+import parastell as ps
 
 # Define directory to export all output files to
 export_dir = ''

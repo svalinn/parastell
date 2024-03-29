@@ -1,4 +1,3 @@
-import log
 import argparse
 import yaml
 from pathlib import Path
@@ -11,7 +10,8 @@ import cadquery as cq
 import cad_to_dagmc
 import read_vmec
 
-from src.utils import expand_ang_list, normalize, m2cm, invessel_build_def
+from . import log
+from .utils import expand_ang_list, normalize, m2cm, invessel_build_def
 
 def orient_spline_surfaces(volume_id):
     """Extracts the inner and outer surface IDs for a given ParaStell in-vessel
