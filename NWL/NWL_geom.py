@@ -1,6 +1,4 @@
-import NWL.NWL as NWL
-import numpy as np
-
+import NWL
 
 # Define first wall geometry parameters
 plas_eq = 'plas_eq.nc'

@@ -1,6 +1,4 @@
-import NWL.NWL as NWL
-import numpy as np
-
+import NWL
 
 # Define first wall geometry and plotting parameters
 source_file = 'surface_source.h5'
@@ -9,7 +7,7 @@ plas_eq = 'plas_eq.nc'
 tor_ext = 90.0
 pol_ext = 360.0
 num_phi = 101
-num_theta = 101
+num_theta = 100
 wall_s = 1.2
 num_levels = 10
 

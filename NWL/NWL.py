@@ -384,17 +384,46 @@ def plot(NWL_mat, phi_pts, theta_pts, num_levels):
 
     levels = np.linspace(np.min(NWL_mat), np.max(NWL_mat), num = num_levels)
     fig, ax = plt.subplots()
-    CF = ax.contourf(phi_pts, theta_pts, NWL_mat, levels = levels)
+    CF = ax.contourf(phi_pts, theta_pts, NWL_mat.T, levels = levels)
     cbar = plt.colorbar(CF)
     cbar.ax.set_ylabel('NWL (MW)')
     plt.xlabel('Toroidal Angle (degrees)')
     plt.ylabel('Poloidal Angle (degrees)')
     fig.savefig('NWL.png')
 
+def area_from_corners(corners):
+    """
+    Calculate an approximation of the area defined by 4 xyz points
+
+    Arguments:
+        corners (4x3 numpy array): list of 4 (x,y,z) points
+
+    Returns:
+        area (float): approximation of area
+    """
+    # triangle 1
+    v1 = corners[3] - corners[0]
+    v2 = corners[2] - corners[0]
+
+    v3 = np.cross(v1,v2)
+
+    area1 = np.sqrt(np.sum(np.square(v3)))/2
+
+    # triangle 2
+    v1 = corners[1] - corners[0]
+    v2 = corners[3] - corners[0]
+
+    v3 = np.cross(v1,v2)
+
+    area2 = np.sqrt(np.sum(np.square(v3)))/2
+
+    area = area1 + area2
+
+    return area
 
 def NWL_plot(
-    source_file, ss_file, plas_eq, tor_ext, pol_ext, wall_s, num_phi = 101,
-    num_theta = 101, num_levels = 10
+    source_file, ss_file, plas_eq, tor_ext, pol_ext, wall_s, num_phi = 100,
+    num_theta = 101, num_levels = 10, num_crossings = None
     ):
     """Computes and plots NWL.
 
@@ -408,6 +437,8 @@ def NWL_plot(
         num_phi (int): number of toroidal angle bins (defaults to 101).
         num_theta (int): number of poloidal angle bins (defaults to 101).
         num_levels (int): number of contour regions (defaults to 10).
+        num_particles (int): number of crossings to use from the surface source.
+            If none, then all crossings will be used
     """
     import read_vmec
     
@@ -415,6 +446,9 @@ def NWL_plot(
     pol_ext = np.deg2rad(pol_ext)
     
     coords = extract_coords(source_file)
+
+    if num_crossings is not None:
+        coords = coords[0:num_crossings]
     
     # Load plasma equilibrium data
     vmec = read_vmec.vmec_data(plas_eq)
@@ -451,6 +485,41 @@ def NWL_plot(
     # Define number of source particles
     num_parts = len(coords)
 
-    NWL_mat = count_mat*n_energy*eV2J*SS*J2MJ/num_parts
+    neutron_crossing_mat = count_mat*n_energy*eV2J*SS*J2MJ/num_parts
+
+    # construct array of bin boundaries
+    bin_arr = np.zeros((num_phi+1, num_theta+1, 3))
+
+    for phi_bin, phi in enumerate(phi_bins):
+        for theta_bin, theta in enumerate(theta_bins):
+            
+            if theta < theta_min:
+                theta = theta_min
+            elif theta > theta_max:
+                theta = theta_max
+
+            if phi < phi_min:
+                phi = phi_min
+            elif phi > phi_max:
+                phi = phi_max
+
+            x,y,z = vmec.vmec2xyz(wall_s,theta,phi)
+            bin_arr[phi_bin, theta_bin, :] = [x,y,z]
+
+    # construct area array
+    area_array = np.zeros((num_phi, num_theta))
+
+    for phi_index in range(num_phi):
+        for theta_index in range(num_theta):
+            # each bin has 4 (x,y,z) corners
+            corner1 = bin_arr[phi_index, theta_index]
+            corner2 = bin_arr[phi_index, theta_index+1]
+            corner3 = bin_arr[phi_index+1, theta_index+1]
+            corner4 = bin_arr[phi_index+1, theta_index]
+            corners = np.array([corner1,corner2,corner3,corner4])
+            area = area_from_corners(corners)
+            area_array[phi_index,theta_index] = area
+
+    NWL_mat = neutron_crossing_mat/area_array
 
     plot(NWL_mat, phi_pts, theta_pts, num_levels)
