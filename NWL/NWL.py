@@ -396,7 +396,8 @@ def area_from_corners(corners):
     Calculate an approximation of the area defined by 4 xyz points
 
     Arguments:
-        corners (4x3 numpy array): list of 4 (x,y,z) points
+        corners (4x3 numpy array): list of 4 (x,y,z) points. Connecting the 
+            points in the order given should result in a polygon
 
     Returns:
         area (float): approximation of area
