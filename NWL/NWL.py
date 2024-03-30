@@ -404,15 +404,15 @@ def area_from_corners(corners):
     """
     # triangle 1
     v1 = corners[3] - corners[0]
-    v2 = corners[2] - corners[0]
+    v2 = corners[1] - corners[0]
 
     v3 = np.cross(v1,v2)
 
     area1 = np.sqrt(np.sum(np.square(v3)))/2
 
     # triangle 2
-    v1 = corners[1] - corners[0]
-    v2 = corners[3] - corners[0]
+    v1 = corners[3] - corners[2]
+    v2 = corners[1] - corners[2]
 
     v3 = np.cross(v1,v2)
 
@@ -438,7 +438,7 @@ def NWL_plot(
         num_phi (int): number of toroidal angle bins (defaults to 101).
         num_theta (int): number of poloidal angle bins (defaults to 101).
         num_levels (int): number of contour regions (defaults to 10).
-        num_particles (int): number of crossings to use from the surface source.
+        num_crossings (int): number of crossings to use from the surface source.
             If none, then all crossings will be used
     """
     import read_vmec
@@ -493,16 +493,6 @@ def NWL_plot(
 
     for phi_bin, phi in enumerate(phi_bins):
         for theta_bin, theta in enumerate(theta_bins):
-            
-            if theta < theta_min:
-                theta = theta_min
-            elif theta > theta_max:
-                theta = theta_max
-
-            if phi < phi_min:
-                phi = phi_min
-            elif phi > phi_max:
-                phi = phi_max
 
             x,y,z = vmec.vmec2xyz(wall_s,theta,phi)
             bin_arr[phi_bin, theta_bin, :] = [x,y,z]
