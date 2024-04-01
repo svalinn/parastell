@@ -40,9 +40,9 @@ RUN wget -O /cubit.deb https://f002.backblazeb2.com/file/cubit-downloads/Corefor
 RUN dpkg -i cubit.deb
 
 # parastell env
-COPY ./parastell_env.yml /parastell_env.yml
+COPY ./environment.yml /environment.yml
 
-RUN conda env create -f parastell_env.yml
+RUN conda env create -f environment.yml
 
 WORKDIR /opt
 
