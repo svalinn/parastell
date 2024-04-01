@@ -404,15 +404,15 @@ def area_from_corners(corners):
     """
     # triangle 1
     v1 = corners[3] - corners[0]
-    v2 = corners[1] - corners[0]
+    v2 = corners[2] - corners[0]
 
     v3 = np.cross(v1,v2)
 
     area1 = np.sqrt(np.sum(np.square(v3)))/2
 
     # triangle 2
-    v1 = corners[3] - corners[2]
-    v2 = corners[1] - corners[2]
+    v1 = corners[1] - corners[0]
+    v2 = corners[2] - corners[0]
 
     v3 = np.cross(v1,v2)
 
@@ -512,5 +512,4 @@ def NWL_plot(
             area_array[phi_index,theta_index] = area
 
     NWL_mat = neutron_crossing_mat/area_array
-
     plot(NWL_mat, phi_pts, theta_pts, num_levels)
