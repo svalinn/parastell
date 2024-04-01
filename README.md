@@ -14,18 +14,29 @@ ParaStell depends on:
 - [PyStell-UW](https://github.com/aaroncbader/pystell_uw) developed by @aaroncbader 
 - [CAD-to-DAGMC](https://github.com/fusion-energy/cad_to_dagmc)
 
-## Install using Mamba
+## Install Python Dependencies
 
-This guide will use the Mamba package manager to install dependencies in a Conda environment. Conda provides straight-forward installation of Python packages and switching between different collections of Python packages through the use of [environments](https://conda.io/projects/conda/en/latest/user-guide/concepts/environments.html).
+This guide will use the conda and mamba package managers to install Python dependencies. Conda provides straight-forward installation of Python packages and switching between different collections of Python packages through the use of [environments](https://conda.io/projects/conda/en/latest/user-guide/concepts/environments.html).
 
 If you have not already installed conda, you can use one of the following installers to do so:
 - [Miniforge](https://github.com/conda-forge/miniforge)
 - [Miniconda](https://docs.conda.io/en/latest/miniconda.html)
 - [Anaconda](https://www.anaconda.com/)
 
-Mamba is available via conda (note that Miniforge ships with mamba already installed).
+Mamba is a faster, more reliable conda alternative that is fully compatible with conda packages. Mamba is available via conda (note that Miniforge ships with mamba already installed).
 
-Begin by creating a new conda environment, installing mamba if needed. Note that ParaStell's dependencies are sensitive to Python version; ensure that Python 3.11.6 is installed.
+### Option 1: Using the ParaStell Environment File
+
+A working conda environment with all ParaStell Python dependencies can be found in this repository's `environment.yml` file. To create the corresponding `parastell_env` conda environment on your machine, create the environment from the `environment.yml` file and activate the new environment:
+
+```
+conda env create -f environment.yml
+conda activate parastell_env
+```
+
+### Option 2: Manually Creating the ParaStell Environment
+
+Alternatively, to create the environment manually, begin by creating a new conda environment, installing mamba if needed. Note that ParaStell's dependencies are sensitive to Python version; ensure that Python 3.11.6 is installed.
 
 ```
 conda create --name parastell_env python=3.11.6
@@ -35,48 +46,46 @@ conda install -c conda-forge mamba
 
 The subsequent mamba and pip install commands should be run with this environment activated.
 
-### Installing Dependencies using Mamba and Pip
-Mamba install ParaStell and PyStell-UW dependencies available on conda-forge.
+Mamba install ParaStell and PyStell-UW Python dependencies available on `conda-forge`:
 
 ```
 mamba install -c conda-forge numpy scipy scikit-learn cadquery cad_to_dagmc matplotlib
 mamba install -c conda-forge moab=5.5.0=nompi_tempest_*
 ```
 
-Pip install remaining ParaStell and PyStell-UW dependencies.
+Pip install the remaining ParaStell and PyStell-UW Python dependencies:
 
 ```
 pip install netCDF4
 pip install pyyaml
 ```
-### Coreform Cubit
-Download and install version 2023.11 from [Coreform's Website](https://coreform.com/products/downloads/), then add the /Coreform-Cubit-2023.11/bin/ directory to the `PYTHONPATH` by adding a line to the .bashrc file like the following:
+
+## Install Coreform Cubit
+Download and install version 2023.11 from [Coreform's Website](https://coreform.com/products/downloads/), then add the `/Coreform-Cubit-2023.11/bin/` directory to your `PYTHONPATH` by adding a line similar to the following to your `.bashrc` file:
 
 ```
 export PYTHONPATH=$PYTHONPATH:$HOME/Coreform-Cubit-2023.11/bin/
 ```
 
-Replace $HOME with the path to the Cubit directory on your system. Additional information about adding modules to the `PYTHONPATH` can be found [here](https://www.tutorialspoint.com/How-to-set-python-environment-variable-PYTHONPATH-on-Linux).
+Replace `$HOME` with the path to the Coreform Cubit directory on your system. Additional information about adding modules to your `PYTHONPATH` can be found [here](https://www.tutorialspoint.com/How-to-set-python-environment-variable-PYTHONPATH-on-Linux).
 While it is possible to use ParaStell with older versions of Cubit, additional steps not in this guide may be required.
 
-If you do not have a Cubit license, you may be able to get one through [Cubit Learn](https://coreform.com/products/coreform-cubit/free-meshing-software/) at no cost.
+If you do not have a Coreform Cubit license, you may be able to get one through [Cubit Learn](https://coreform.com/products/coreform-cubit/free-meshing-software/) at no cost.
 
-### PyStell-UW
-Download and extract the repository for PyStell-UW using
+## Install PyStell-UW
+Download and extract the PyStell-UW repository:
 
 ```
 git clone https://github.com/aaroncbader/pystell_uw.git
 ```
 
-or download the and extract the zip from [pystell_uw](https://github.com/aaroncbader/pystell_uw). Once extracted, add the directory to the `PYTHONPATH`.
+or download the and extract the ZIP file from [PyStell-UW](https://github.com/aaroncbader/pystell_uw). Once extracted, add the repository directory to your `PYTHONPATH`.
 
-### ParaStell
-Download and extract the repository for ParaStell using
+## Install ParaStell
+Download and extract the ParaStell repository:
 
 ```
 git clone git@github.com:svalinn/parastell.git
 ```
 
-or download the zip from the repository home page. Once extracted, add the directory to the `PYTHONPATH`.
-
-
+or download the ZIP file from the repository home page. Once extracted, add the repository directory to your `PYTHONPATH`.
