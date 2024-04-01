@@ -1,7 +1,7 @@
 FROM continuumio/miniconda3
 
 ENV TZ=America/Chicago
-ENV PYTHONPATH=/opt/Coreform-Cubit-2024.3/bin/
+ENV PYTHONPATH=/opt/Coreform-Cubit-2023.11/bin/
 ENV PYTHONPATH=$PYTHONPATH:/opt/pystell_uw
 ENV PYTHONPATH=$PYTHONPATH:/opt/parastell
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
@@ -34,7 +34,7 @@ RUN apt-get install -y libgl1-mesa-glx \
                         libxinerama1
 
 # download cubit
-RUN wget -O /cubit.deb https://f002.backblazeb2.com/file/cubit-downloads/Coreform-Cubit/Releases/Linux/Coreform-Cubit-2024.3%2B46968-Lin64.deb
+RUN wget -O /cubit.deb https://f002.backblazeb2.com/file/cubit-downloads/Coreform-Cubit/Releases/Linux/Coreform-Cubit-2023.11%2B43088-Lin64.deb
 
 # install cubit
 RUN dpkg -i cubit.deb
