@@ -1,5 +1,5 @@
 ## ParaStell
-Parametric 3-D CAD modeling toolset for stellarator fusion devices. This open-source Python package uses plasma equilibrium VMEC data and CadQuery to model in-vessel components of varying thickness in low-fidelity from a user-specified radial build. Furthermore, coil filament point-locus data corresponding to VMEC data and Coreform Cubit are used to model magnet coils of user-specified cross-section. Additional neutronics support includes the use of VMEC data and MOAB to generate tetrahedral neutron source definitions and Coreform Cubit to generate DAGMC geometries for use in Monte Carlo radiation transport software.
+Parametric 3-D CAD modeling toolset for stellarator fusion devices. This open-source Python package uses plasma equilibrium VMEC data and CadQuery to model in-vessel components of varying thickness in low-fidelity from a user-specified radial build. Furthermore, coil filament point-locus data and Coreform Cubit are used to model magnet coils of user-specified cross-section. Additional neutronics support includes the use of VMEC data and MOAB to generate tetrahedral neutron source definitions and Coreform Cubit to generate DAGMC geometries for use in Monte Carlo radiation transport software.
 
 ## Dependencies
 ParaStell depends on:
@@ -16,16 +16,12 @@ ParaStell depends on:
 
 ## Install Python Dependencies
 
-This guide will use the conda and mamba package managers to install Python dependencies. Conda provides straight-forward installation of Python packages and switching between different collections of Python packages through the use of [environments](https://conda.io/projects/conda/en/latest/user-guide/concepts/environments.html).
+This guide will use the conda package manager to install Python dependencies. Conda provides straight-forward installation of Python packages and switching between different collections of Python packages through the use of [environments](https://conda.io/projects/conda/en/latest/user-guide/concepts/environments.html).
 
 If you have not already installed conda, you can use one of the following installers to do so:
 - [Miniforge](https://github.com/conda-forge/miniforge)
 - [Miniconda](https://docs.conda.io/en/latest/miniconda.html)
 - [Anaconda](https://www.anaconda.com/)
-
-Mamba is a faster, more reliable conda alternative that is fully compatible with conda packages. Mamba is available via conda (note that Miniforge ships with mamba already installed).
-
-### Option 1: Using the ParaStell Environment File
 
 A working conda environment with all ParaStell Python dependencies can be found in this repository's `environment.yml` file. To create the corresponding `parastell_env` conda environment on your machine, create the environment from the `environment.yml` file and activate the new environment:
 
@@ -34,31 +30,7 @@ conda env create -f environment.yml
 conda activate parastell_env
 ```
 
-### Option 2: Manually Creating the ParaStell Environment
-
-Alternatively, to create the environment manually, begin by creating a new conda environment, installing mamba if needed. Note that ParaStell's dependencies are sensitive to Python version; ensure that Python 3.11.6 is installed.
-
-```
-conda create --name parastell_env python=3.11.6
-conda activate parastell_env
-conda install -c conda-forge mamba
-```
-
-The subsequent mamba and pip install commands should be run with this environment activated.
-
-Mamba install ParaStell and PyStell-UW Python dependencies available on `conda-forge`:
-
-```
-mamba install -c conda-forge numpy scipy scikit-learn cadquery cad_to_dagmc matplotlib
-mamba install -c conda-forge moab=5.5.0=nompi_tempest_*
-```
-
-Pip install the remaining ParaStell and PyStell-UW Python dependencies:
-
-```
-pip install netCDF4
-pip install pyyaml
-```
+Alternatively, view `INSTALL.md` for instructions on manually installing these Python dependencies using mamba.
 
 ## Install Coreform Cubit
 Download and install version 2023.11 from [Coreform's Website](https://coreform.com/products/downloads/), then add the `/Coreform-Cubit-2023.11/bin/` directory to your `PYTHONPATH` by adding a line similar to the following to your `.bashrc` file:
