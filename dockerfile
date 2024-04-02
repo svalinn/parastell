@@ -1,9 +1,6 @@
 FROM continuumio/miniconda3
 
 ENV TZ=America/Chicago
-ENV PYTHONPATH=/opt/Coreform-Cubit-2023.11/bin/
-ENV PYTHONPATH=$PYTHONPATH:/opt/pystell_uw
-ENV PYTHONPATH=$PYTHONPATH:/opt/parastell
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 RUN apt-get update -y
 RUN apt-get upgrade -y
@@ -38,17 +35,22 @@ RUN wget -O /cubit.deb https://f002.backblazeb2.com/file/cubit-downloads/Corefor
 
 # install cubit
 RUN dpkg -i cubit.deb
+ENV PYTHONPATH=/opt/Coreform-Cubit-2023.11/bin/
 
 # parastell env
 COPY ./environment.yml /environment.yml
-
 RUN conda env create -f environment.yml
+RUN echo "source activate parastell_env" >> ~/.bashrc
 
 WORKDIR /opt
 
+# install pystell_uw
 RUN git clone https://github.com/aaroncbader/pystell_uw.git
+ENV PYTHONPATH=$PYTHONPATH:/opt/pystell_uw
 
+# install parastell
 RUN git clone https://github.com/svalinn/parastell.git
+ENV PYTHONPATH=$PYTHONPATH:/opt/parastell
 
 WORKDIR /
 

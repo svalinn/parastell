@@ -17,3 +17,4 @@ dependencies:
   - pip:
       - netcdf4
       - pyyaml
+      - pytest
