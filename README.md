@@ -66,12 +66,21 @@ or download the ZIP file from the repository home page. Once extracted, add the 
 While ParaStell can imported as a module to make use of its Python API, each ParaStell class has a corresponding command-line executable to alternatively call ParaStell functionality via command line. These executables use a YAML configuration file as a command-line argument to define input parameters.
 
 To make use of this feature, add the ParaStell `executables` directory to your `PATH` by adding a line similar to the following to your `.bashrc` file:
+
 ```bash
 export PATH = $PATH:$HOME/parastell/executables/
 ```
+
 Replace `$HOME` with the path to the ParaStell repository directory on your system. Information about adding directories to your `PATH` can be found [here](https://phoenixnap.com/kb/linux-add-to-path).
 
 Next, give each file in the `executables` directory file execution permission:
+
 ```bash
 chmod -R u+x $HOME/parastell/executables/
+```
+
+Now, each executable can be run from command line with a corresponding YAML file argument. For example, for the `Stellarator` class:
+
+```bash
+stellarator.py config.yaml
 ```
