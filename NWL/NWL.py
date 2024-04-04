@@ -427,7 +427,7 @@ def NWL_plot(
     source_file, ss_file, plas_eq, tor_ext, pol_ext, wall_s, num_phi = 100,
     num_theta = 101, num_levels = 10, num_crossings = None
     ):
-    """Computes and plots NWL.
+    """Computes and plots NWL. Assumes toroidal extent is less than 360 degrees
 
     Arguments:
         source_file (str): path to OpenMC surface source file.
@@ -470,6 +470,12 @@ def NWL_plot(
         bins = [num_phi, num_theta],
         range = [[phi_min, phi_max], [theta_min, theta_max]]
     )
+
+    # adjust endpoints to eliminate overlap
+    phi_bins[0] = 0
+    phi_bins[-1] = tor_ext
+    theta_bins[0] = -pol_ext/2
+    theta_bins[-1] = pol_ext/2
 
     # Compute centroids of bin dimensions
     phi_pts = np.linspace(0, tor_ext, num = num_phi)
