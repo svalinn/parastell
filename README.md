@@ -53,7 +53,7 @@ git clone --single-branch --branch old https://github.com/aaroncbader/pystell_uw
 
 or download the and extract the ZIP file from [PyStell-UW](https://github.com/aaroncbader/pystell_uw/tree/old). Once extracted, add the repository directory to your `PYTHONPATH`.
 
-Note that the `old` branch of PyStell-UW is necessary because there are complications with its `master` branch that prevent its successful integration with ParaStell.
+Note that the `old` branch of PyStell-UW is necessary for compatibility with the current version of ParaStell. There are complications with the `master` branch of PyStell-UW that prevent its successful integration with ParaStell.
 
 ## Install ParaStell
 Download and extract the ParaStell repository:
