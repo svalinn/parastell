@@ -1,4 +1,4 @@
-import NWL.NWL as NWL
+import NWL as NWL
 import numpy as np
 
 
@@ -8,8 +8,8 @@ ss_file = 'strengths.txt'
 plas_eq = 'plas_eq.nc'
 tor_ext = 90.0
 pol_ext = 360.0
-num_phi = 101
-num_theta = 101
+num_phi = 80
+num_theta = 90
 wall_s = 1.2
 num_levels = 10
 

@@ -1,4 +1,4 @@
-import NWL.NWL as NWL
+import NWL as NWL
 import numpy as np
 
 

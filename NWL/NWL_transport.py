@@ -1,4 +1,4 @@
-import NWL.NWL as NWL
+import NWL as NWL
 
 
 # Define simulation parameters
