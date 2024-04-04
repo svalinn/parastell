@@ -48,7 +48,7 @@ If you do not have a Coreform Cubit license, you may be able to get one through 
 Download and extract the PyStell-UW repository:
 
 ```
-git clone https://github.com/aaroncbader/pystell_uw.git
+git clone --single-branch --branch old https://github.com/aaroncbader/pystell_uw.git
 ```
 
 or download the and extract the ZIP file from [PyStell-UW](https://github.com/aaroncbader/pystell_uw). Once extracted, add the repository directory to your `PYTHONPATH`.
