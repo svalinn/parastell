@@ -386,7 +386,7 @@ def plot(NWL_mat, phi_pts, theta_pts, num_levels):
     fig, ax = plt.subplots()
     CF = ax.contourf(phi_pts, theta_pts, NWL_mat.T, levels = levels)
     cbar = plt.colorbar(CF)
-    cbar.ax.set_ylabel('NWL (MW)')
+    cbar.ax.set_ylabel('NWL (MW/m2)')
     plt.xlabel('Toroidal Angle (degrees)')
     plt.ylabel('Poloidal Angle (degrees)')
     fig.savefig('NWL.png')
