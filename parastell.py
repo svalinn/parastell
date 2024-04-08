@@ -391,10 +391,11 @@ def exports(export, components, magnets, logger):
         for comp in components.values():
             model.add_cadquery_object(
                 comp['solid'],
-                material_tags = [comp['h5m_tag']]
             )
+        material_tags = [comp['h5m_tag'] for comp in components.values()]
         model.export_dagmc_h5m_file(
-            filename = dir / filename.with_suffix('.h5m')
+            filename = dir / filename.with_suffix('.h5m'),
+            material_tags = material_tags
         )
 
 
