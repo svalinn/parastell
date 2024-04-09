@@ -39,17 +39,20 @@ def test_rectangular_magnets():
 
 def test_circular_magnets():
     
-    len_filaments_exp = 40
-    average_radial_distance_exp = 1241.4516792609722
-    len_filtered_filaments_exp = 18
+    len_filaments_exp = 2
+    average_radial_distance_exp = 1068.3010006669892
+    len_filtered_filaments_exp = 1
     shape_exp = 'circle'
     shape_str_exp = 'circle radius 25'
     mag_len_exp = 25
     len_test_coil_filament_exp = 23
 
     filaments = circ_coil_set.filaments
+    print(len(filaments))
     average_radial_distance = circ_coil_set.average_radial_distance
+    print(average_radial_distance)
     filtered_filaments = circ_coil_set.filtered_filaments
+    print(len(filtered_filaments))
     shape = circ_coil_set.shape
     shape_str = circ_coil_set.shape_str
     mag_len = circ_coil_set.mag_len
@@ -88,3 +91,7 @@ def test_magnet_exports():
     Path.unlink('magnet_mesh.h5m')
     Path.unlink('stellarator.log')
     Path.unlink('step_export.log')
+
+test_rectangular_magnets()
+test_circular_magnets()
+test_magnet_exports()

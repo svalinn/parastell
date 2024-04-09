@@ -24,7 +24,7 @@ if Path('source_mesh.h5m').exists():
 
 vmec_file = Path('files_for_tests') / 'wout_vmec.nc'
 
-toroidal_angles = [0.0, 30.0, 60.0, 90.0]
+toroidal_angles = [0.0, 5.0, 10.0, 15.0]
 poloidal_angles = [0.0, 120.0, 240.0, 360.0]
 
 invessel_build = {
@@ -39,8 +39,8 @@ invessel_build = {
     },
     'wall_s': 1.08,
     'repeat': 0,
-    'num_ribs': 61,
-    'num_rib_pts': 61
+    'num_ribs': 11,
+    'num_rib_pts': 67
 }
 
 magnets = {

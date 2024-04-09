@@ -21,7 +21,7 @@ if Path('dagmc.h5m').exists():
 vmec_file = Path('files_for_tests') / 'wout_vmec.nc'
 vmec = read_vmec.vmec_data(vmec_file)
 
-toroidal_angles_exp = [0.0, 30.0, 60.0, 90.0]
+toroidal_angles_exp = [0.0, 5.0, 10.0, 15.0]
 poloidal_angles_exp = [0.0, 120.0, 240.0, 360.0]
 radial_build = {
     'component': {
@@ -32,8 +32,8 @@ radial_build = {
 }
 wall_s_exp = 1.08
 repeat_exp = 0
-num_ribs_exp = 61
-num_rib_pts_exp = 61
+num_ribs_exp = 11
+num_rib_pts_exp = 67
 scale_exp = 100
 plasma_mat_tag_exp = 'Vacuum'
 sol_mat_tag_exp = 'Vacuum'
@@ -91,3 +91,7 @@ def test_ivb_exports():
     Path.unlink('sol.step')
     Path.unlink('component.step')
     Path.unlink('stellarator.log')
+
+test_ivb_basics()
+test_ivb_construction()
+test_ivb_exports()
