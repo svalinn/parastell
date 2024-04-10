@@ -53,10 +53,7 @@ def orient_spline_surfaces(volume_id):
 
 class InVesselBuild(object):
     """Parametrically models fusion stellarator in-vessel components using
-    plasma equilibrium data and user-defined parameters. In-vessel component
-    geometries are determined by a user-defined radial build, in which
-    thickness values are supplied in a grid of toroidal and poloidal angles,
-    and plasma equilibrium VMEC data.
+    plasma equilibrium VMEC data and a user-defined radial build.
 
     Arguments:
         vmec (object): plasma equilibrium VMEC object as defined by the
@@ -64,31 +61,8 @@ class InVesselBuild(object):
             'vmec2xyz(s, theta, phi)' that returns an (x,y,z) coordinate for
             any closed flux surface label, s, poloidal angle, theta, and
             toroidal angle, phi.
-        toroidal_angles (array of double): toroidal angles at which radial
-            build is specified.This list should always begin at 0.0 and it is
-            advised not to extend beyond one stellarator period. To build a
-            geometry that extends beyond one period, make use of the 'repeat'
-            parameter [deg].
-        poloidal_angles (array of double): poloidal angles at which radial
-            build is specified. This array should always span 360 degrees [deg].
-        wall_s (double): closed flux surface label extrapolation at wall.
-        radial_build (dict): dictionary representing the three-dimensional
-            radial build of in-vessel components, including
-            {
-                'component': {
-                    'thickness_matrix': 2-D matrix defining component
-                        thickness at (toroidal angle, poloidal angle)
-                        locations. Rows represent toroidal angles, columns
-                        represent poloidal angles, and each must be in the same
-                        order provided in toroidal_angles and poloidal_angles
-                        [cm](ndarray(double)).
-                    'mat_tag': DAGMC material tag for component in DAGMC
-                        neutronics model (str, defaults to None). If none is
-                        supplied, the 'component' key will be used.
-                }
-            }.
-        logger (object): logger object (defaults to None). If no logger is
-            supplied, a default logger will be instantiated.
+        radial_build (object): RadialBuild class object with all attributes
+            defined.
     """
 
     def __init__(
@@ -98,9 +72,9 @@ class InVesselBuild(object):
             logger=None
     ):
 
+        self.logger = logger
         self.vmec = vmec
         self.radial_build = radial_build
-        self.logger = logger
         
         self.repeat = 0
         self.num_ribs = int(2*radial_build.toroidal_angles[-1]/3) + 1
@@ -228,9 +202,6 @@ class InVesselBuild(object):
                 s = 1.0
             else:
                 s = self.radial_build.wall_s
-
-            if 'mat_tag' not in layer_data:
-                layer_data['mat_tag'] = name
 
             offset_mat += np.array(layer_data['thickness_matrix'])
             interpolated_offset_mat = self._interpolate_offset_matrix(
@@ -544,7 +515,37 @@ class Rib(object):
     
 
 class RadialBuild(object):
-    """
+    """Parametrically defines ParaStell in-vessel component geometries.
+    In-vessel component thicknesses are defined on a grid of toroidal and
+    poloidal angles, and the first wall profile is defined by a closed flux
+    surface extrapolation.
+
+    Arguments:
+        toroidal_angles (array of double): toroidal angles at which radial
+            build is specified.This list should always begin at 0.0 and it is
+            advised not to extend beyond one stellarator period. To build a
+            geometry that extends beyond one period, make use of the 'repeat'
+            parameter [deg].
+        poloidal_angles (array of double): poloidal angles at which radial
+            build is specified. This array should always span 360 degrees [deg].
+        wall_s (double): closed flux surface label extrapolation at wall.
+        radial_build (dict): dictionary representing the three-dimensional
+            radial build of in-vessel components, including
+            {
+                'component': {
+                    'thickness_matrix': 2-D matrix defining component
+                        thickness at (toroidal angle, poloidal angle)
+                        locations. Rows represent toroidal angles, columns
+                        represent poloidal angles, and each must be in the same
+                        order provided in toroidal_angles and poloidal_angles
+                        [cm](ndarray(double)).
+                    'mat_tag': DAGMC material tag for component in DAGMC
+                        neutronics model (str, defaults to None). If none is
+                        supplied, the 'component' key will be used.
+                }
+            }.
+        logger (object): logger object (defaults to None). If no logger is
+            supplied, a default logger will be instantiated.
     """
 
     def __init__(
@@ -555,11 +556,11 @@ class RadialBuild(object):
         radial_build,
         logger=None
     ):
+        self.logger = logger
         self.toroidal_angles = toroidal_angles
         self.poloidal_angles = poloidal_angles
         self.wall_s = wall_s
         self.radial_build = radial_build
-        logger = logger
 
         self.plasma_mat_tag = 'Vacuum'
         self.sol_mat_tag = 'Vacuum'
@@ -611,6 +612,9 @@ class RadialBuild(object):
             )
             self._logger.error(e.args[0])
             raise e
+        
+        if hasattr(self, 'radial_build'):
+            self.radial_build = self.radial_build
     
     @property
     def radial_build(self):
@@ -619,7 +623,9 @@ class RadialBuild(object):
     @radial_build.setter
     def radial_build(self, build_dict):
         self._radial_build = build_dict
-        if self._wall_s != 1.0:
+        if self._wall_s == 1.0 and 'sol' in self._radial_build:
+            del self.radial_build['sol']
+        elif self._wall_s > 1.0 and 'sol' not in self._radial_build:
             self._radial_build = {
                 'sol': {
                     'thickness_matrix': np.zeros((
@@ -638,6 +644,24 @@ class RadialBuild(object):
             },
             **self._radial_build
         }
+        for name, component in self._radial_build.items():
+            if (
+                component['thickness_matrix'].shape !=
+                (len(self._toroidal_angles), len(self._poloidal_angles))
+            ):
+                e = AssertionError(
+                    f'The dimensions of {name}\'s thickness matrix '
+                    f'{component["thickness_matrix"].shape} must match the '
+                    'dimensions defined by the toroidal and poloidal angle '
+                    'lists '
+                    f'{len(self._toroidal_angles),len(self._poloidal_angles)}, '
+                    'which define the rows and columns of the matrix, '
+                    'respectively.'
+                )
+                self._logger.error(e.args[0])
+                raise e
+            if 'mat_tag' not in component:
+                self._set_mat_tag(name, name)
 
     @property
     def logger(self):
@@ -656,7 +680,7 @@ class RadialBuild(object):
     @plasma_mat_tag.setter
     def plasma_mat_tag(self, mat_tag):
         self._plasma_mat_tag = mat_tag
-        self._radial_build['plasma']['mat_tag'] = self._plasma_mat_tag
+        self._set_mat_tag('plasma', self._plasma_mat_tag)
 
     @property
     def sol_mat_tag(self):
@@ -665,7 +689,13 @@ class RadialBuild(object):
     @sol_mat_tag.setter
     def sol_mat_tag(self, mat_tag):
         self._sol_mat_tag = mat_tag
-        self._radial_build['sol']['mat_tag'] = self._sol_mat_tag
+        self._set_mat_tag('sol', self._sol_mat_tag)
+
+    def _set_mat_tag(self, name, mat_tag):
+        """Sets material tag for a given component.
+        (Internal function not intended to be called externally)
+        """
+        self._radial_build[name]['mat_tag'] = mat_tag
 
 
 def parse_args():
