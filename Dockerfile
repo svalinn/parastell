@@ -50,7 +50,7 @@ RUN git clone https://github.com/aaroncbader/pystell_uw.git
 ENV PYTHONPATH=$PYTHONPATH:/opt/pystell_uw
 
 # install parastell
-RUN git clone https://github.com/svalinn/parastell.git &&
+RUN git clone https://github.com/svalinn/parastell.git && \
     git checkout gh_action
 ENV PYTHONPATH=$PYTHONPATH:/opt/parastell
 
