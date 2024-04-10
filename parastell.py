@@ -1,7 +1,7 @@
 import magnet_coils
 import source_mesh
 import log
-import read_vmec
+import src.pystell.read_vmec as read_vmec
 import cadquery as cq
 import cubit
 import cad_to_dagmc
@@ -795,7 +795,7 @@ def parastell(
     logger.info('New stellarator build')
     
     # Load plasma equilibrium data
-    vmec = read_vmec.vmec_data(plas_eq)
+    vmec = read_vmec.VMECData(plas_eq)
 
     components = {}
     
