@@ -1,0 +1,5 @@
+#
+# Ports 5053 and 5132 must be open in your firewall for outgoing connections.
+#
+CUSTOMER Wisc isv=csimsoft server=@SERVER@ port=5053 password=@PASSWORD@
+

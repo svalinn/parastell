@@ -36,6 +36,7 @@ RUN wget -O /cubit.deb https://f002.backblazeb2.com/file/cubit-downloads/Corefor
 # install cubit
 RUN dpkg -i cubit.deb
 ENV PYTHONPATH=/opt/Coreform-Cubit-2023.11/bin/
+COPY ./rlmcloud.in /opt/Coreform-Cubit-2023.11/bin/licenses
 
 # parastell env
 COPY ./environment.yml /environment.yml
