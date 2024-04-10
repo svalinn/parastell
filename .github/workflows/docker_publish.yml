@@ -35,11 +35,11 @@ jobs:
           cache-to: type=registry,ref=ghcr.io/svalinn/parastell:ci-layer-cache,mode=max
           file: Dockerfile
           push: true
-          tags: ghcr.io/svalinn/parstell:ci-testing
+          tags: ghcr.io/svalinn/parstell-ci
 
   test-dependency-img:
     needs: build-dependency-img
-    runs-on: ghcr.io/svalinn/parastell:ci-testing
+    runs-on: ghcr.io/svalinn/parastell-ci
 
     name: Testing CI image
     steps:
