@@ -54,7 +54,7 @@ class SourceMesh(object):
     intensity evaluated at each vertex.
 
     Parameters:
-        vmec (object): plasma equilibrium VMEC object as defined by the
+        vmec_obj (object): plasma equilibrium VMEC object as defined by the
             PyStell-UW VMEC reader. Must have a method
             'vmec2xyz(s, theta, phi)' that returns an (x,y,z) coordinate for
             any closed flux surface label, s, poloidal angle, theta, and
@@ -66,38 +66,56 @@ class SourceMesh(object):
         num_phi (int) : number of toroidal angles for planes of vertices.
         toroidal_extent (float) : extent of source mesh in toroidal direction
             [deg].
-        scale (double): a scaling factor between the units of VMEC and [cm]
-            (defaults to m2cm = 100).
         logger (object): logger object (defaults to None). If no logger is
             supplied, a default logger will be instantiated.
     """
 
     def __init__(
             self,
-            vmec,
+            vmec_obj,
             num_s,
             num_theta,
             num_phi,
             toroidal_extent,
-            scale=m2cm,
             logger=None
     ):
 
-        self.vmec = vmec
+        self.logger = logger
+        self.vmec_obj = vmec_obj
         self.num_s = num_s
         self.num_theta = num_theta
         self.num_phi = num_phi
-        self.toroidal_extent = np.deg2rad(toroidal_extent)
-        self.scale = scale
-        
-        if logger == None or not logger.hasHandlers():
-            self.logger = log.init()
-        else:
-            self.logger = logger
+        self.toroidal_extent = toroidal_extent
+
+        self.scale = m2cm
         
         self.strengths = []
 
         self._create_mbc()
+
+    @property
+    def toroidal_extent(self):
+        return self._toroidal_extent
+    
+    @toroidal_extent.setter
+    def toroidal_extent(self, angle):
+        self._toroidal_extent = np.deg2rad(angle)
+        if self._toroidal_extent > 360.0:
+            e = ValueError(
+                'Toroidal extent cannot exceed 360.0 degrees.'
+            )
+            self._logger.error(e.args[0])
+            raise e
+
+    @property
+    def logger(self):
+        return self._logger
+    
+    @logger.setter
+    def logger(self, logger_object):
+        self._logger = logger_object
+        if self._logger == None or not self._logger.hasHandlers():
+            self._logger = log.init()
 
     def _create_mbc(self):
         """Creates PyMOAB core instance with source strength tag.
@@ -127,16 +145,16 @@ class SourceMesh(object):
         mesh at the 0 == 2 * pi wrap so that everything
         is closed and consistent.
         """
-        self.logger.info('Computing source mesh point cloud...')
+        self._logger.info('Computing source mesh point cloud...')
         
-        phi_list = np.linspace(0, self.toroidal_extent, num=self.num_phi)
+        phi_list = np.linspace(0, self._toroidal_extent, num=self.num_phi)
         # don't include magnetic axis in list of s values
         s_list = np.linspace(0.0, 1.0, num=self.num_s)[1:]
         # don't include repeated entry at 0 == 2*pi
         theta_list = np.linspace(0, 2*np.pi, num=self.num_theta)[:-1]
 
         # don't include repeated entry at 0 == 2*pi
-        if self.toroidal_extent == 2*np.pi:
+        if self._toroidal_extent == 2*np.pi:
             phi_list = phi_list[:-1]
 
         self.verts_per_ring = theta_list.shape[0]
@@ -153,7 +171,7 @@ class SourceMesh(object):
         for phi in phi_list:
             # vertex coordinates on magnetic axis
             self.coords[vert_idx, :] = np.array(
-                self.vmec.vmec2xyz(0, 0, phi)) * self.scale
+                self.vmec_obj.vmec2xyz(0, 0, phi)) * self.scale
             self.coords_s[vert_idx] = 0
 
             vert_idx += 1
@@ -162,7 +180,8 @@ class SourceMesh(object):
             for s in s_list:
                 for theta in theta_list:
                     self.coords[vert_idx, :] = np.array(
-                        self.vmec.vmec2xyz(s, theta, phi)) * self.scale
+                        self.vmec_obj.vmec2xyz(s, theta, phi)
+                    ) * self.scale
                     self.coords_s[vert_idx] = s
 
                     vert_idx += 1
@@ -248,7 +267,7 @@ class SourceMesh(object):
         ma_offset = phi_idx * self.verts_per_plane
 
         # Wrap around if final plane and it is 2*pi
-        if self.toroidal_extent == 2*np.pi and phi_idx == self.num_phi - 1:
+        if self._toroidal_extent == 2*np.pi and phi_idx == self.num_phi - 1:
             ma_offset = 0
 
         # Compute index offset from closed flux surface
@@ -340,7 +359,7 @@ class SourceMesh(object):
     def create_mesh(self):
         """Creates volumetric source mesh in real space.
         """
-        self.logger.info('Constructing source mesh...')
+        self._logger.info('Constructing source mesh...')
 
         self.mesh_set = self.mbc.create_meshset()
         self.mbc.add_entity(self.mesh_set, self.verts)
@@ -359,7 +378,7 @@ class SourceMesh(object):
         """Use PyMOAB interface to write source mesh with source strengths
         tagged.
         """
-        self.logger.info('Exporting source mesh H5M file...')
+        self._logger.info('Exporting source mesh H5M file...')
         
         export_path = Path(export_dir) / Path(filename).with_suffix('.h5m')
         self.mbc.write_file(str(export_path))
@@ -393,16 +412,16 @@ def generate_source_mesh():
     """
     args = parse_args()
 
-    vmec_file, source = read_yaml_src(args.filename)
+    vmec_file, source_dict = read_yaml_src(args.filename)
 
-    vmec = read_vmec.VMECData(vmec_file)
-
-    source_dict = source_def.copy()
-    source_dict.update(source)
+    vmec_obj = read_vmec.VMECData(vmec_file)
 
     source_mesh = SourceMesh(
-        vmec, source_dict['num_s'], source_dict['num_theta'],
-        source_dict['num_phi'], source_dict['toroidal_extent'],
+        vmec_obj,
+        source_dict['num_s'],
+        source_dict['num_theta'],
+        source_dict['num_phi'],
+        source_dict['toroidal_extent'],
         scale=source_dict['scale']
     )
 

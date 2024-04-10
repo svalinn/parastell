@@ -63,6 +63,8 @@ class InVesselBuild(object):
             toroidal angle, phi.
         radial_build (object): RadialBuild class object with all attributes
             defined.
+        logger (object): logger object (defaults to None). If no logger is
+            supplied, a default logger will be instantiated.
     """
 
     def __init__(
@@ -711,25 +713,31 @@ def generate_invessel_build():
     """
     args = parse_args()
 
-    vmec_file, invessel_build = read_yaml_config(args.filename)
+    vmec_file, ivb_dict = read_yaml_config(args.filename)
 
     vmec_obj = read_vmec.VMECData(vmec_file)
 
-    invessel_build = {
-        'vmec_obj': vmec_obj,
-        **invessel_build
-    }
+    radial_build = RadialBuild(
+        ivb_dict['toroidal_angles'],
+        ivb_dict['poloidal_angles'],
+        ivb_dict['wall_s'],
+        ivb_dict['radial_build_dict']
+    )
 
-    invessel_components = InVesselBuild(**invessel_build)
+    invessel_components = InVesselBuild(
+        vmec_obj,
+        radial_build
+    )
+
     invessel_components.populate_surfaces()
     invessel_components.calculate_loci()
     invessel_components.generate_components()
-    invessel_components.export_step(export_dir=invessel_build['export_dir'])
+    invessel_components.export_step(export_dir=ivb_dict['export_dir'])
 
-    if invessel_build['export_cad_to_dagmc']:
+    if ivb_dict['export_cad_to_dagmc']:
         invessel_components.export_cad_to_dagmc(
-            filename=invessel_build['dagmc_filename'],
-            export_dir=invessel_build['export_dir']
+            filename=ivb_dict['dagmc_filename'],
+            export_dir=ivb_dict['export_dir']
         )
 
 
