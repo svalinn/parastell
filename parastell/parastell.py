@@ -2,7 +2,7 @@ import argparse
 import yaml
 
 import cubit
-import read_vmec
+import src.pystell.read_vmec as read_vmec
 
 from . import log
 
@@ -62,7 +62,7 @@ class Stellarator(object):
         if self.logger == None or not self.logger.hasHandlers():
             self.logger = log.init()
 
-        self.vmec = read_vmec.vmec_data(self.vmec_file)
+        self.vmec = read_vmec.VMECData(self.vmec_file)
 
         self.invessel_build = None
         self.magnet_set = None

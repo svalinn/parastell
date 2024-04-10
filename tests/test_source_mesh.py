@@ -2,7 +2,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-import read_vmec as rv
+import src.pystell.read_vmec as read_vmec
 
 import parastell.source_mesh as sm
 
@@ -20,7 +20,7 @@ def source_mesh():
 
     vmec_file = Path('files_for_tests') / 'wout_vmec.nc'
 
-    vmec = rv.vmec_data(vmec_file)
+    vmec = read_vmec.VMECData(vmec_file)
 
     num_s_exp = 4
     num_theta_exp = 8
