@@ -7,7 +7,7 @@ from pymoab import core, types
 import src.pystell.read_vmec as read_vmec
 
 from . import log as log
-from .utils import m2cm, source_def
+from .utils import m2cm
 
 def rxn_rate(s):
     """Calculates fusion reaction rate in plasma.

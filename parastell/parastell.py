@@ -1,5 +1,6 @@
 import argparse
 import yaml
+from pathlib import Path
 
 import cubit
 import src.pystell.read_vmec as read_vmec
@@ -55,17 +56,41 @@ class Stellarator(object):
             vmec_file,
             logger=None
     ):
-        self.vmec_file = vmec_file
-
+        
         self.logger = logger
-        if self.logger == None or not self.logger.hasHandlers():
-            self.logger = log.init()
+        self.vmec_file = vmec_file
 
         self.vmec = read_vmec.VMECData(self.vmec_file)
 
         self.invessel_build = None
         self.magnet_set = None
         self.source_mesh = None
+
+    @property
+    def vmec_file(self):
+        return self._vmec_file
+    
+    @vmec_file.setter
+    def vmec_file(self, file):
+        self._vmec_file = file
+        if Path(self._vmec_file).suffix != '.nc':
+            e = AssertionError(
+                'Plasma equilibrium VMEC data file input has extension '
+                f'\'{Path(self._vmec_file).suffix}\'. File format must be '
+                'netCDF (\'.nc\').'
+            )
+            self._logger.error(e.args[0])
+            raise e
+
+    @property
+    def logger(self):
+        return self._logger
+    
+    @logger.setter
+    def logger(self, logger_object):
+        self._logger = logger_object
+        if self._logger == None or not self._logger.hasHandlers():
+            self._logger = log.init()
 
     def set_invessel_build_dict(self, invessel_build):
         """Sets in-vessel build dictionary, using default values for keys not

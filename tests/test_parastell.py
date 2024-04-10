@@ -24,6 +24,8 @@ def remove_files():
         Path.unlink('dagmc.h5m')
     if Path('source_mesh.h5m').exists():
         Path.unlink('source_mesh.h5m')
+    if Path('stellarator.log').exists():
+        Path.unlink('stellarator.log')
     if Path('step_import.log').exists():
         Path.unlink('step_import.log')
     if Path('step_export.log').exists():
