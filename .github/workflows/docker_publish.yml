@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - 'Dockefile'
+      - 'Dockerfile'
       - '.github/workflows/docker_publish.yml'
 
 jobs:
@@ -56,7 +56,7 @@ jobs:
           sed -e "s/@SERVER@/${rlmSERVER}/" -e "s/@PASSWORD@/${rlmPASSWD}/" /opt/Coreform-Cubit-2023.11/bin/licenses/rlmcloud.in > /opt/Coreform-Cubit-2023.11/bin/licenses/rlmcloud.lic
           cd /opt/parastell/tests
           pytest -v .
-          
+
 
 
 
