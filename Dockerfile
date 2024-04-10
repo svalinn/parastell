@@ -1,4 +1,4 @@
-FROM continuumio/miniconda3
+FROM continuumio/miniconda3 as parastell-deps
 
 ENV TZ=America/Chicago
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
@@ -49,11 +49,14 @@ WORKDIR /opt
 RUN git clone https://github.com/aaroncbader/pystell_uw.git
 ENV PYTHONPATH=$PYTHONPATH:/opt/pystell_uw
 
+WORKDIR /
+
+from parastell-deps as parastell
+
 # install parastell
 RUN git clone https://github.com/svalinn/parastell.git && \
     cd parastell && \
     git checkout gh_action
 ENV PYTHONPATH=$PYTHONPATH:/opt/parastell
 
-WORKDIR /
 
