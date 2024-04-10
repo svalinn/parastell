@@ -60,7 +60,7 @@ class Stellarator(object):
         self.logger = logger
         self.vmec_file = vmec_file
 
-        self.vmec = read_vmec.VMECData(self.vmec_file)
+        self.vmec_obj = read_vmec.VMECData(self.vmec_file)
 
         self.invessel_build = None
         self.magnet_set = None
@@ -92,34 +92,13 @@ class Stellarator(object):
         if self._logger == None or not self._logger.hasHandlers():
             self._logger = log.init()
 
-    def set_invessel_build_dict(self, invessel_build):
-        """Sets in-vessel build dictionary, using default values for keys not
-        defined by user.
-        """
-        invessel_build_def = {
-            'repeat': 0,
-            'num_ribs': 61,
-            'num_rib_pts': 61,
-            'scale': m2cm,
-            'export_cad_to_dagmc': False,
-            'plasma_mat_tag': None,
-            'sol_mat_tag': None,
-            'dagmc_filename': 'dagmc',
-            'export_dir': ''
-        }
-        self.ivb_dict = invessel_build_def.copy()
-        self.ivb_dict.update(invessel_build)
-
-    def get_invessel_build_dict(self):
-        """Returns in-vessel build dictionary.
-        """
-        return self.ivb_dict
-
-    def construct_invessel_build(self, invessel_build):
+    def construct_invessel_build(
+        self, toroidal_angles, poloidal_angles, wall_s, radial_build_dict
+    ):
         """Construct InVesselBuild class object.
 
         Arguments:
-            invessel_build (dict): dictionary of in-vessel component
+            invessel_build_dict (dict): dictionary of in-vessel component
                 parameters, including
                 {
                     'toroidal_angles': toroidal angles at which radial build is
@@ -180,33 +159,32 @@ class Stellarator(object):
                         (str, defaults to empty string).
                 }
         """
-        self.set_invessel_build_dict(invessel_build)
-        ivb_dict = self.get_invessel_build_dict()
+        self.radial_buid = ivb.RadialBuild(
+            toroidal_angles,
+            poloidal_angles,
+            wall_s,
+            radial_build_dict,
+            logger = self.logger
+        )
 
         self.invessel_build = ivb.InVesselBuild(
-            self.vmec, ivb_dict['toroidal_angles'],
-            ivb_dict['poloidal_angles'], ivb_dict['radial_build'],
-            ivb_dict['wall_s'], repeat=ivb_dict['repeat'],
-            num_ribs=ivb_dict['num_ribs'], num_rib_pts=ivb_dict['num_rib_pts'],
-            scale=ivb_dict['scale'], plasma_mat_tag=ivb_dict['plasma_mat_tag'],
-            sol_mat_tag=ivb_dict['sol_mat_tag'], logger=self.logger
+            self.vmec_obj,
+            self.radial_buid,
+            logger=self.logger
         )
 
         self.invessel_build.populate_surfaces()
         self.invessel_build.calculate_loci()
         self.invessel_build.generate_components()
 
-    def export_invessel_build(self, invessel_build):
+    def export_invessel_build(self, dagmc_filename='dagmc', export_dir=''):
         """Export Invessel Build components
 
         Arguments:
             invessel_build (dict): dictionary of in-vessel component
                 parameters - see construct_invessel_build()
         """
-        self.set_invessel_build_dict(invessel_build)
-        ivb_dict = self.get_invessel_build_dict()
-        
-        self.invessel_build.export_step(export_dir=ivb_dict['export_dir'])
+        self.invessel_build.export_step(export_dir=export_dir)
 
         if ivb_dict['export_cad_to_dagmc']:
             self.invessel_build.export_cad_to_dagmc(

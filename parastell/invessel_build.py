@@ -56,7 +56,7 @@ class InVesselBuild(object):
     plasma equilibrium VMEC data and a user-defined radial build.
 
     Arguments:
-        vmec (object): plasma equilibrium VMEC object as defined by the
+        vmec_obj (object): plasma equilibrium VMEC object as defined by the
             PyStell-UW VMEC reader. Must have a method
             'vmec2xyz(s, theta, phi)' that returns an (x,y,z) coordinate for
             any closed flux surface label, s, poloidal angle, theta, and
@@ -66,38 +66,40 @@ class InVesselBuild(object):
     """
 
     def __init__(
-            self,
-            vmec,
-            radial_build,
-            logger=None
+        self,
+        vmec_obj,
+        radial_build,
+        logger=None
     ):
 
         self.logger = logger
-        self.vmec = vmec
+        self.vmec_obj = vmec_obj
         self.radial_build = radial_build
         
         self.repeat = 0
-        self.num_ribs = int(2*radial_build.toroidal_angles[-1]/3) + 1
+        self.num_ribs = 61
         self.num_rib_pts = 67
         self.scale = m2cm
 
         self.Surfaces = {}
         self.Components = {}
             
-        self._phi_list = expand_ang_list(
-            self.radial_build.toroidal_angles, self.num_ribs
+        self._toroidal_angles_exp = expand_ang_list(
+            self.radial_build.toroidal_angles,
+            self.num_ribs
         )
-        self._theta_list = expand_ang_list(
-            self.radial_build.poloidal_angles, self.num_rib_pts
+        self._poloidal_angles_exp = expand_ang_list(
+            self.radial_build.poloidal_angles,
+            self.num_rib_pts
         )
 
     @property
-    def vmec(self):
-        return self._vmec
+    def vmec_obj(self):
+        return self._vmec_obj
     
-    @vmec.setter
-    def vmec(self, vmec_object):
-        self._vmec = vmec_object
+    @vmec_obj.setter
+    def vmec_obj(self, vmec_object):
+        self._vmec_obj = vmec_object
 
     @property
     def logger(self):
@@ -145,9 +147,11 @@ class InVesselBuild(object):
         )
 
         interpolated_offset_mat = np.array([
-            [interpolator([np.rad2deg(phi), np.rad2deg(theta)])[0]
-             for theta in self._theta_list]
-            for phi in self._phi_list
+            [
+                interpolator([np.rad2deg(phi), np.rad2deg(theta)])[0]
+                for theta in self._poloidal_angles_exp
+            ]
+            for phi in self._toroidal_angles_exp
         ])
 
         return interpolated_offset_mat
@@ -167,7 +171,7 @@ class InVesselBuild(object):
 
         for name, layer_data in self.radial_build.radial_build.items():
             if np.any(np.array(layer_data['thickness_matrix']) < 0):
-                e = AssertionError(
+                e = ValueError(
                     'Component thicknesses must be greater than or equal to 0. '
                     'Check thickness inputs for negative values.'
                 )
@@ -185,7 +189,8 @@ class InVesselBuild(object):
             )
 
             self.Surfaces[name] = Surface(
-                    self._vmec, s, self._theta_list, self._phi_list,
+                    self._vmec_obj, s, self._poloidal_angles_exp,
+                    self._toroidal_angles_exp,
                     interpolated_offset_mat, self.scale
                 )
             
@@ -322,7 +327,7 @@ class Surface(object):
     surface.
 
     Arguments:
-        vmec (object): plasma equilibrium VMEC object as defined by the
+        vmec_obj (object): plasma equilibrium VMEC object as defined by the
             PyStell-UW VMEC reader. Must have a method
             'vmec2xyz(s, theta, phi)' that returns an (x,y,z) coordinate for
             any closed flux surface label, s, poloidal angle, theta, and
@@ -341,14 +346,14 @@ class Surface(object):
 
     def __init__(
             self,
-            vmec,
+            vmec_obj,
             s,
             theta_list,
             phi_list,
             offset_mat,
             scale
     ):
-        self.vmec = vmec
+        self.vmec_obj = vmec_obj
         self.s = s
         self.theta_list = theta_list
         self.phi_list = phi_list
@@ -363,8 +368,8 @@ class Surface(object):
         """
         self.Ribs = [
             Rib(
-                self.vmec, self.s, self.theta_list, phi, self.offset_mat[i, :],
-                self.scale
+                self.vmec_obj, self.s, self.theta_list, phi,
+                self.offset_mat[i, :], self.scale
             )
             for i, phi in enumerate(self.phi_list)
         ]
@@ -396,7 +401,7 @@ class Rib(object):
     angles and offset from a reference curve.
 
     Arguments:
-        vmec (object): plasma equilibrium VMEC object as defined by the
+        vmec_obj (object): plasma equilibrium VMEC object as defined by the
             PyStell-UW VMEC reader. Must have a method
             'vmec2xyz(s, theta, phi)' that returns an (x,y,z) coordinate for
             any closed flux surface label, s, poloidal angle, theta, and
@@ -415,14 +420,14 @@ class Rib(object):
 
     def __init__(
             self,
-            vmec,
+            vmec_obj,
             s,
             theta_list,
             phi,
             offset_list,
             scale
     ):
-        self.vmec = vmec
+        self.vmec_obj = vmec_obj
         self.s = s
         self.theta_list = theta_list
         self.phi = phi
@@ -442,7 +447,7 @@ class Rib(object):
         """
         return self.scale * np.array(
             [
-                self.vmec.vmec2xyz(self.s, theta, self.phi)
+                self.vmec_obj.vmec2xyz(self.s, theta, self.phi)
                 for theta in (self.theta_list + poloidal_offset)
             ]
         )
@@ -505,7 +510,7 @@ class RadialBuild(object):
         poloidal_angles (array of double): poloidal angles at which radial
             build is specified. This array should always span 360 degrees [deg].
         wall_s (double): closed flux surface label extrapolation at wall.
-        radial_build (dict): dictionary representing the three-dimensional
+        radial_build_dict (dict): dictionary representing the three-dimensional
             radial build of in-vessel components, including
             {
                 'component': {
@@ -529,14 +534,14 @@ class RadialBuild(object):
         toroidal_angles,
         poloidal_angles,
         wall_s,
-        radial_build,
+        radial_build_dict,
         logger=None
     ):
         self.logger = logger
         self.toroidal_angles = toroidal_angles
         self.poloidal_angles = poloidal_angles
         self.wall_s = wall_s
-        self.radial_build = radial_build
+        self.radial_build_dict = radial_build_dict
 
         self.plasma_mat_tag = 'Vacuum'
         self.sol_mat_tag = 'Vacuum'
@@ -553,13 +558,13 @@ class RadialBuild(object):
     def toroidal_angles(self, angle_list):
         self._toroidal_angles = angle_list
         if self._toroidal_angles[0] != 0.0:
-            e = AssertionError(
+            e = ValueError(
                 'The first entry in toroidal_angles must be 0.0.'
             )
             self._logger.error(e.args[0])
             raise e
         if self._toroidal_angles[-1] > 360.0:
-            e = AssertionError(
+            e = ValueError(
                 'Toroidal extent cannot exceed 360.0 degrees.'
             )
             self._logger.error(e.args[0])
@@ -587,44 +592,44 @@ class RadialBuild(object):
     def wall_s(self, s):
         self._wall_s = s
         if self._wall_s < 1.0:
-            e = AssertionError(
+            e = ValueError(
                 'wall_s must be greater than or equal to 1.0.'
             )
             self._logger.error(e.args[0])
             raise e
         
-        if hasattr(self, 'radial_build'):
-            self.radial_build = self.radial_build
+        if hasattr(self, 'radial_build_dict'):
+            self.radial_build_dict = self.radial_build_dict
     
     @property
-    def radial_build(self):
-        return self._radial_build
+    def radial_build_dict(self):
+        return self._radial_build_dict
     
-    @radial_build.setter
-    def radial_build(self, build_dict):
-        self._radial_build = build_dict
-        if self._wall_s == 1.0 and 'sol' in self._radial_build:
-            del self.radial_build['sol']
-        elif self._wall_s > 1.0 and 'sol' not in self._radial_build:
-            self._radial_build = {
+    @radial_build_dict.setter
+    def radial_build_dict(self, build_dict):
+        self._radial_build_dict = build_dict
+        if self._wall_s == 1.0 and 'sol' in self._radial_build_dict:
+            del self.radial_build_dict['sol']
+        elif self._wall_s > 1.0 and 'sol' not in self._radial_build_dict:
+            self._radial_build_dict = {
                 'sol': {
                     'thickness_matrix': np.zeros((
                         len(self._toroidal_angles),
                         len(self._poloidal_angles)
                     ))
                 },
-                **self._radial_build
+                **self._radial_build_dict
             }
-        self._radial_build = {
+        self._radial_build_dict = {
             'plasma': {
                 'thickness_matrix': np.zeros((
                     len(self._toroidal_angles),
                     len(self._poloidal_angles)
                 ))
             },
-            **self._radial_build
+            **self._radial_build_dict
         }
-        for name, component in self._radial_build.items():
+        for name, component in self._radial_build_dict.items():
             if (
                 component['thickness_matrix'].shape !=
                 (len(self._toroidal_angles), len(self._poloidal_angles))
@@ -675,7 +680,7 @@ class RadialBuild(object):
         """Sets material tag for a given component.
         (Internal function not intended to be called externally)
         """
-        self._radial_build[name]['mat_tag'] = mat_tag
+        self._radial_build_dict[name]['mat_tag'] = mat_tag
 
 
 def parse_args():
@@ -708,10 +713,10 @@ def generate_invessel_build():
 
     vmec_file, invessel_build = read_yaml_config(args.filename)
 
-    vmec = read_vmec.VMECData(vmec_file)
+    vmec_obj = read_vmec.VMECData(vmec_file)
 
     invessel_build = {
-        'vmec': vmec,
+        'vmec_obj': vmec_obj,
         **invessel_build
     }
 

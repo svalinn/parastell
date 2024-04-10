@@ -39,7 +39,10 @@ def radial_build():
     }
 
     radial_build_obj = ivb.RadialBuild(
-        toroidal_angles, poloidal_angles, wall_s, radial_build_dict
+        toroidal_angles,
+        poloidal_angles,
+        wall_s,
+        radial_build_dict
     )
 
     return radial_build_obj
@@ -49,9 +52,14 @@ def radial_build():
 def invessel_build(radial_build):
     
     vmec_file = Path('files_for_tests') / 'wout_vmec.nc'
-    vmec = read_vmec.vmec_data(vmec_file)
+    vmec = read_vmec.VMECData(vmec_file)
+    num_ribs = 11
 
-    ivb_obj = ivb.InVesselBuild(vmec, radial_build)
+    ivb_obj = ivb.InVesselBuild(
+        vmec,
+        radial_build
+    )
+    ivb_obj.num_ribs = num_ribs
 
     return ivb_obj
 
