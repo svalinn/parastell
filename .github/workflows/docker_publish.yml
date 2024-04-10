@@ -35,6 +35,7 @@ jobs:
           cache-to: type=registry,ref=ghcr.io/svalinn/parastell:ci-layer-cache,mode=max
           file: Dockerfile
           push: true
+          target: parastell-deps
           tags: ghcr.io/svalinn/parstell-ci
 
   test-dependency-img:
@@ -44,6 +45,9 @@ jobs:
 
     name: Testing CI image
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: populate environment
         run: |
           echo "rlmSERVER=${{ secrets.RLMSERVER }}" >> "$GITHUB_ENV"
@@ -52,10 +56,8 @@ jobs:
       - name: test secrets
         run: |
           conda activate parastell_env
-          echo "${rlmSERVER}"
-          echo "${rlmPASSWD}"
           sed -e "s/@SERVER@/${rlmSERVER}/" -e "s/@PASSWORD@/${rlmPASSWD}/" /opt/Coreform-Cubit-2023.11/bin/licenses/rlmcloud.in > /opt/Coreform-Cubit-2023.11/bin/licenses/rlmcloud.lic
-          cd /opt/parastell/tests
+          cd tests
           pytest -v .
 
 
