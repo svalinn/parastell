@@ -52,8 +52,10 @@ jobs:
       - name: test secrets
         run: |
           echo "${rlmSERVER}"
-          echo "${rlmPASSWORD}"
-          sed -e "s/@SERVER@/${rlmSERVER}/" /opt/Coreform-Cubit-2023.11/bin/licenses/rlmcloud.in
+          echo "${rlmPASSWD}"
+          sed -e "s/@SERVER@/${rlmSERVER}/" -e "s/@PASSWORD@/$rlmPASSWD}/" /opt/Coreform-Cubit-2023.11/bin/licenses/rlmcloud.in
+          echo y | coreform_cubit -nographics
+          
 
 
 
