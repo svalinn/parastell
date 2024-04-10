@@ -1,0 +1,54 @@
+name: Build & Publish docker image for ParaStell CI
+
+on:
+  # allows us to run workflows manually
+  workflow_dispatch:
+  push:
+    paths:
+      - 'Dockefile'
+      - '.github/workflows/docker_publish.yml'
+
+jobs:
+  build-dependency-img:
+    runs-on: ubuntu-latest
+
+    name: Installing Dependencies and ParaStell
+    steps:
+      - name: Log in to the Container registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build, Test, and Push ParaStell
+        id: build-parastell
+        uses: docker/build-push-action@v5
+        with:
+          cache-from: type=registry,ref=ghcr.io/svalinn/parastell:ci-layer-cache
+          cache-to: type=registry,ref=ghcr.io/svalinn/parastell:ci-layer-cache,mode=max
+          file: Dockerfile
+          push: true
+          tags: ghcr.io/svalinn/parstell:ci-testing
+
+  test-dependency-img:
+    runs-on: ghcr.io/svalinn/parastell:ci-testing
+
+    name: Testing CI image
+    steps:
+      - name: populate environment
+        run: |
+          echo "rlmSERVER=${{ secrets.rlmSERVER }}" >> "$GITHUB_ENV"
+          echo "rlmPASSWD=${{ secrets.rlmPASSWORD}}" >> "$GITHUB_ENV"
+
+      - name: test secrets
+        run: |
+          echo "${rlmSERVER}"
+          echo "${rlmPASSWORD}"
+          sed -e "s/@SERVER@/${rlmSERVER}/" /opt/Coreform-Cubit-2023.11/bin/licenses/rlmcloud.in
+
+
+
