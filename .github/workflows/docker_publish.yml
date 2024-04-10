@@ -15,7 +15,7 @@ jobs:
     name: Installing Dependencies and ParaStell
     steps:
       - name: Log in to the Container registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -38,6 +38,7 @@ jobs:
           tags: ghcr.io/svalinn/parstell:ci-testing
 
   test-dependency-img:
+    needs: build-dependency-img
     runs-on: ghcr.io/svalinn/parastell:ci-testing
 
     name: Testing CI image
