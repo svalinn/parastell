@@ -51,6 +51,7 @@ ENV PYTHONPATH=$PYTHONPATH:/opt/pystell_uw
 
 # install parastell
 RUN git clone https://github.com/svalinn/parastell.git && \
+    cd parastell && \
     git checkout gh_action
 ENV PYTHONPATH=$PYTHONPATH:/opt/parastell
 
