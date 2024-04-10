@@ -112,14 +112,12 @@ def test_ivb_exports(invessel_build):
     invessel_build.calculate_loci()
     invessel_build.generate_components()
     invessel_build.export_step()
-    """
-    CAD-to-DAGMC export does not currently work; might be an incompatibility
-    between CadQuery and CAD-to-DAGMC versions.
-
     invessel_build.export_cad_to_dagmc()
-    """
+
     assert Path('plasma.step').exists() 
     assert Path('sol.step').exists() 
     assert Path('component.step').exists()
+    assert Path('component.step').exists() 
+    assert Path('dagmc.h5m').exists()
 
     remove_files() 

@@ -352,15 +352,18 @@ class InVesselBuild(object):
 
         model = cad_to_dagmc.CadToDagmc()
 
-        for name, component in self.Components.items():
-            model.add_cadquery_object(
-                component, material_tags=[self.radial_build[name]['mat_tag]']]
-            )
+        for component in self.Components.values():
+            model.add_cadquery_object(component)
+        
+        material_tags = [
+            component['mat_tag'] for component in self.radial_build.values()
+        ]
 
         export_path = Path(export_dir) / Path(filename).with_suffix('.h5m')
 
         model.export_dagmc_h5m_file(
-            filename=str(export_path)
+            filename=str(export_path),
+            material_tags=material_tags
         )
 
 
