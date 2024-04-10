@@ -39,7 +39,8 @@ jobs:
 
   test-dependency-img:
     needs: build-dependency-img
-    runs-on: ghcr.io/svalinn/parastell:ci-layer-cache
+    runs-on: ubuntu-latest
+    container: ghcr.io/svalinn/parstell-ci
 
     name: Testing CI image
     steps:
