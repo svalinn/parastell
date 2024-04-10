@@ -4,7 +4,7 @@ from pathlib import Path
 
 import numpy as np
 from pymoab import core, types
-import read_vmec
+import src.pystell.read_vmec as read_vmec
 
 from . import log as log
 from .utils import m2cm, source_def
@@ -395,7 +395,7 @@ def generate_source_mesh():
 
     vmec_file, source = read_yaml_src(args.filename)
 
-    vmec = read_vmec.vmec_data(vmec_file)
+    vmec = read_vmec.VMECData(vmec_file)
 
     source_dict = source_def.copy()
     source_dict.update(source)

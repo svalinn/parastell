@@ -8,7 +8,7 @@ from scipy.interpolate import RegularGridInterpolator
 import cubit
 import cadquery as cq
 import cad_to_dagmc
-import read_vmec
+import src.pystell.read_vmec as read_vmec
 
 from . import log
 from .utils import expand_ang_list, normalize, m2cm, invessel_build_def
@@ -568,7 +568,7 @@ def generate_invessel_build():
 
     vmec_file, invessel_build = read_yaml_config(args.filename)
 
-    vmec = read_vmec.vmec_data(vmec_file)
+    vmec = read_vmec.VMECData(vmec_file)
 
     ivb_dict = invessel_build_def.copy()
     ivb_dict.update(invessel_build)

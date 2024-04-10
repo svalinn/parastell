@@ -7,7 +7,7 @@ import pytest
 # dependencies correctly
 import parastell.invessel_build as ivb
 
-import read_vmec
+import src.pystell.read_vmec as read_vmec
 
 
 def remove_files():
@@ -26,7 +26,7 @@ def remove_files():
 def invessel_build():
     
     vmec_file = Path('files_for_tests') / 'wout_vmec.nc'
-    vmec = read_vmec.vmec_data(vmec_file)
+    vmec = read_vmec.VMECData(vmec_file)
 
     toroidal_angles = [0.0, 5.0, 10.0, 15.0]
     poloidal_angles = [0.0, 120.0, 240.0, 360.0]
