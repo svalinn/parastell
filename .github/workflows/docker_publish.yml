@@ -55,7 +55,7 @@ jobs:
 
       - name: test secrets
         run: |
-          conda activate parastell_env
+          source activate parastell_env
           sed -e "s/@SERVER@/${rlmSERVER}/" -e "s/@PASSWORD@/${rlmPASSWD}/" /opt/Coreform-Cubit-2023.11/bin/licenses/rlmcloud.in > /opt/Coreform-Cubit-2023.11/bin/licenses/rlmcloud.lic
           cd tests
           pytest -v .
