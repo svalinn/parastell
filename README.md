@@ -68,7 +68,7 @@ Download and extract the PyStell-UW repository:
 git clone https://github.com/aaroncbader/pystell_uw.git
 ```
 
-or download the and extract the ZIP file from [PyStell-UW](https://github.com/aaroncbader/pystell_uw). Once extracted, add the repository directory to your `PYTHONPATH`.
+or download and extract the ZIP file from [PyStell-UW](https://github.com/aaroncbader/pystell_uw). Once extracted, add the repository directory to your `PYTHONPATH`.
 
 ## Install ParaStell
 Download and extract the ParaStell repository:
