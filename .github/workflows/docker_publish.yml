@@ -46,8 +46,8 @@ jobs:
     steps:
       - name: populate environment
         run: |
-          echo "rlmSERVER=${{ secrets.rlmSERVER }}" >> "$GITHUB_ENV"
-          echo "rlmPASSWD=${{ secrets.rlmPASSWORD}}" >> "$GITHUB_ENV"
+          echo "rlmSERVER=${{ secrets.RLMSERVER }}" >> "$GITHUB_ENV"
+          echo "rlmPASSWD=${{ secrets.RLMPASSWORD}}" >> "$GITHUB_ENV"
 
       - name: test secrets
         run: |
