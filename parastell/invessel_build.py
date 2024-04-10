@@ -85,10 +85,10 @@ class InVesselBuild(object):
         self.Components = {}
             
         self._phi_list = expand_ang_list(
-            self.radial_build.toroidal_angles, self._num_ribs
+            self.radial_build.toroidal_angles, self.num_ribs
         )
         self._theta_list = expand_ang_list(
-            self.radial_build.poloidal_angles, self._num_rib_pts
+            self.radial_build.poloidal_angles, self.num_rib_pts
         )
 
     @property
@@ -124,30 +124,6 @@ class InVesselBuild(object):
             )
             self._logger.error(e.args[0])
             raise e
-
-    @property
-    def num_ribs(self):
-        return self._num_ribs
-    
-    @num_ribs.setter
-    def num_ribs(self, num):
-        self._num_ribs = num
-
-    @property
-    def num_rib_pts(self):
-        return self._num_rib_pts
-    
-    @num_rib_pts.setter
-    def num_rib_pts(self, num):
-        self._num_rib_pts = num
-
-    @property
-    def scale(self):
-        return self._scale
-    
-    @scale.setter
-    def scale(self, value):
-        self._scale = value
     
     def _interpolate_offset_matrix(self, offset_mat):
         """Interpolates total offset for expanded angle lists using cubic spline
@@ -210,7 +186,7 @@ class InVesselBuild(object):
 
             self.Surfaces[name] = Surface(
                     self._vmec, s, self._theta_list, self._phi_list,
-                    interpolated_offset_mat, self._scale
+                    interpolated_offset_mat, self.scale
                 )
             
         [surface.populate_ribs() for surface in self.Surfaces.values()]
@@ -564,6 +540,10 @@ class RadialBuild(object):
 
         self.plasma_mat_tag = 'Vacuum'
         self.sol_mat_tag = 'Vacuum'
+
+        self._logger.info(
+            'Constructing radial build...'
+        )
 
     @property
     def toroidal_angles(self):

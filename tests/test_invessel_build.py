@@ -20,6 +20,8 @@ def remove_files():
         Path.unlink('component.step')
     if Path('dagmc.h5m').exists():
         Path.unlink('dagmc.h5m')
+    if Path('stellarator.log').exists():
+        Path.unlink('stellarator.log')
 
 
 @pytest.fixture
