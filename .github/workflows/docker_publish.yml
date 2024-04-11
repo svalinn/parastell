@@ -55,6 +55,7 @@ jobs:
           . /opt/etc/bashrc
           conda activate parastell_env
           sed -e "s/@SERVER@/${rlmSERVER}/" -e "s/@PASSWORD@/${rlmPASSWD}/" /opt/Coreform-Cubit-2023.11/bin/licenses/rlmcloud.in > /opt/Coreform-Cubit-2023.11/bin/licenses/rlmcloud.lic
+          export PYTHONPATH=${PYTHONPATH}:`pwd`/parastell
           cd tests
           pytest -v .
 
