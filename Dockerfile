@@ -38,14 +38,13 @@ RUN dpkg -i cubit.deb
 ENV PYTHONPATH=/opt/Coreform-Cubit-2023.11/bin/
 COPY ./rlmcloud.in /opt/Coreform-Cubit-2023.11/bin/licenses/rlmcloud.in
 
-RUN mkdir -p /github/home
-ENV HOME /github/home
-RUN cp /root/.bashrc /github/home/.bashrc
+RUN mkdir -p /opt/etc
+RUN cp /root/.bashrc /opt/etc/bashrc
 
 # parastell env
 COPY ./environment.yml /environment.yml
 RUN conda env create -f environment.yml
-RUN echo "source activate parastell_env" >> ~/.bashrc
+RUN echo "source activate parastell_env" >> /opt/etc/bashrc
 
 WORKDIR /opt
 
