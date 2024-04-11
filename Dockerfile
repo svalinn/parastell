@@ -40,6 +40,7 @@ COPY ./rlmcloud.in /opt/Coreform-Cubit-2023.11/bin/licenses/rlmcloud.in
 
 RUN mkdir -p /github/home
 ENV HOME /github/home
+RUN cp /root/.bashrc /github/home/.bashrc
 
 # parastell env
 COPY ./environment.yml /environment.yml
