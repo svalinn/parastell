@@ -52,8 +52,7 @@ jobs:
         run: |
           echo "rlmSERVER=${{ secrets.RLMSERVER }}" >> "$GITHUB_ENV"
           echo "rlmPASSWD=${{ secrets.RLMPASSWORD}}" >> "$GITHUB_ENV"
-          . ${HOME}/.bashrc
-          conda activate parastell_env
+          . /root/.bashrc
           sed -e "s/@SERVER@/${rlmSERVER}/" -e "s/@PASSWORD@/${rlmPASSWD}/" /opt/Coreform-Cubit-2023.11/bin/licenses/rlmcloud.in > /opt/Coreform-Cubit-2023.11/bin/licenses/rlmcloud.lic
           cd tests
           pytest -v .
