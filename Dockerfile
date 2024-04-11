@@ -38,6 +38,9 @@ RUN dpkg -i cubit.deb
 ENV PYTHONPATH=/opt/Coreform-Cubit-2023.11/bin/
 COPY ./rlmcloud.in /opt/Coreform-Cubit-2023.11/bin/licenses/rlmcloud.in
 
+RUN mkdir -p /github/home
+ENV HOME /github/home
+
 # parastell env
 COPY ./environment.yml /environment.yml
 RUN conda env create -f environment.yml
