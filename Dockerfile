@@ -44,7 +44,7 @@ RUN cp /root/.bashrc /opt/etc/bashrc
 # parastell env
 COPY ./environment.yml /environment.yml
 RUN conda env create -f environment.yml
-RUN echo "source activate parastell_env" >> /opt/etc/bashrc
+RUN echo "conda activate parastell_env" >> /opt/etc/bashrc
 
 WORKDIR /opt
 
