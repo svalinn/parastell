@@ -7,7 +7,7 @@ import cubit
 
 from . import log
 from . import cubit_io as cubit_io 
-from .utils import normalize, m2cm
+from .utils import normalize, construct_kwargs_from_dict, set_kwarg_attrs, m2cm
 
 
 class MagnetSet(object):
@@ -55,8 +55,13 @@ class MagnetSet(object):
         self.scale = m2cm
         self.mat_tag = 'magnets'
 
-        for name, value in kwargs.items():
-            self.__setattr__(name, value)
+        allowed_kwargs = ['start_line', 'sample_mod', 'scale', 'mat_tag']
+        set_kwarg_attrs(
+            self,
+            kwargs,
+            allowed_kwargs,
+            self._logger
+        )
 
         cubit_io.init_cubit()
 
@@ -367,19 +372,20 @@ class MagnetSet(object):
 
         self.volume_ids = volume_ids
 
-    def export_step(self, filename='magnets', export_dir='', **kwargs):
+    def export_step(self, step_filename='magnets', export_dir=''):
         """Export CAD solids as a STEP file via Coreform Cubit.
 
         Arguments:
-            filename (str): name of STEP output file, excluding '.step'
+            step_filename (str): name of STEP output file, excluding '.step'
                 extension (optional, defaults to 'magnets').
             export_dir (str): directory to which to export the STEP output file
                 (optional, defaults to empty string).
         """
         self._logger.info('Exporting STEP file for magnet coils...')
 
-        self.step_filename = filename
-        cubit_io.export_step_cubit(filename=filename, export_dir=export_dir)
+        cubit_io.export_step_cubit(
+            filename=step_filename, export_dir=export_dir
+        )
 
     def mesh_magnets(self):
         """Creates tetrahedral mesh of magnet volumes via Coreform Cubit.
@@ -390,19 +396,21 @@ class MagnetSet(object):
             cubit.cmd(f'volume {vol} scheme tetmesh')
             cubit.cmd(f'mesh volume {vol}')
     
-    def export_mesh(self, filename='magnet_mesh', export_dir='', **kwargs):
+    def export_mesh(self, mesh_filename='magnet_mesh', export_dir=''):
         """Creates tetrahedral mesh of magnet volumes and exports H5M format
         via Coreform Cubit and  MOAB.
 
         Arguments:
-            filename (str): name of H5M output file, excluding '.h5m' extension
-                (optional, defaults to 'magnet_mesh').
+            mesh_filename (str): name of H5M output file, excluding '.h5m'
+                extension (optional, defaults to 'magnet_mesh').
             export_dir (str): directory to which to export the H5M output file
                 (optional, defaults to empty string).
         """
         self._logger.info('Exporting mesh H5M file for magnet coils...')
         
-        cubit_io.export_mesh_cubit(filename=filename, export_dir=export_dir)
+        cubit_io.export_mesh_cubit(
+            filename=mesh_filename, export_dir=export_dir
+        )
 
 
 class MagnetCoil(object):
@@ -604,13 +612,44 @@ def generate_magnet_set():
 
     magnet_coils_dict = read_yaml_config(args.filename)
 
-    magnet_set = MagnetSet(**magnet_coils_dict)
+    all_kwargs = False
+
+    mc_allowed_kwargs = [
+        'start_line', 'sample_mod', 'scale', 'mat_tag'
+    ]
+    mc_kwargs = construct_kwargs_from_dict(
+        magnet_coils_dict,
+        mc_allowed_kwargs,
+        all_kwargs
+    )
+    
+    magnet_set = MagnetSet(
+        magnet_coils_dict['coils_file'],
+        magnet_coils_dict['cross_section'],
+        magnet_coils_dict['toroidal_extent'],
+        **mc_kwargs
+    )
 
     magnet_set.build_magnet_coils()
-    magnet_set.export_step(**magnet_coils_dict)
+
+    mc_step_export_allowed_kwargs = ['step_filename', 'export_dir']
+    mc_step_export_kwargs = construct_kwargs_from_dict(
+        magnet_coils_dict,
+        mc_step_export_allowed_kwargs,
+        all_kwargs
+    )
+
+    magnet_set.export_step(**mc_step_export_kwargs)
 
     if magnet_coils_dict['export_mesh']:
-        magnet_set.export_mesh(**magnet_coils_dict)
+        mc_mesh_export_allowed_kwargs = ['step_filename', 'export_dir']
+        mc_mesh_export_kwargs = construct_kwargs_from_dict(
+            magnet_coils_dict,
+            mc_mesh_export_allowed_kwargs,
+            all_kwargs
+        )
+
+        magnet_set.export_mesh(**mc_mesh_export_kwargs)
 
 
 if __name__ == '__main__':

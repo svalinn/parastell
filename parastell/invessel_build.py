@@ -11,7 +11,10 @@ import cad_to_dagmc
 import src.pystell.read_vmec as read_vmec
 
 from . import log
-from .utils import expand_ang_list, normalize, m2cm
+from .utils import (
+    expand_ang_list, normalize, construct_kwargs_from_dict, set_kwarg_attrs,
+    m2cm
+)
 
 
 def orient_spline_surfaces(volume_id):
@@ -98,8 +101,13 @@ class InVesselBuild(object):
         self.num_rib_pts = 67
         self.scale = m2cm
 
-        for name, value in kwargs.items():
-            self.__setattr__(name, value)
+        allowed_kwargs = ['repeat', 'num_ribs', 'num_rib_pts', 'scale']
+        set_kwarg_attrs(
+            self,
+            kwargs,
+            allowed_kwargs,
+            self._logger
+        )
 
         self.Surfaces = {}
         self.Components = {}
@@ -284,7 +292,7 @@ class InVesselBuild(object):
                 prev_outer_surface_id = outer_surface_id
 
 
-    def export_step(self, export_dir='', **kwargs):
+    def export_step(self, export_dir=''):
         """Export CAD solids as STEP files via CadQuery.
 
         Arguments:
@@ -304,12 +312,12 @@ class InVesselBuild(object):
                 str(export_path)
             )
 
-    def export_cad_to_dagmc(self, filename='dagmc', export_dir='', **kwargs):
+    def export_cad_to_dagmc(self, dagmc_filename='dagmc', export_dir=''):
         """Exports DAGMC neutronics H5M file of ParaStell in-vessel components
         via CAD-to-DAGMC.
 
         Arguments:
-            filename (str): name of DAGMC output file, excluding '.h5m'
+            dagmc_filename (str): name of DAGMC output file, excluding '.h5m'
                 extension (optional, defaults to 'dagmc').
             export_dir (str): directory to which to export the DAGMC output file
                 (optional, defaults to empty string).
@@ -326,7 +334,9 @@ class InVesselBuild(object):
                 material_tags=[self.radial_build.radial_build[name]['mat_tag']]
             )
 
-        export_path = Path(export_dir) / Path(filename).with_suffix('.h5m')
+        export_path = (
+            Path(export_dir) / Path(dagmc_filename).with_suffix('.h5m')
+        )
 
         model.export_dagmc_h5m_file(
             filename=str(export_path)
@@ -568,8 +578,13 @@ class RadialBuild(object):
         self.plasma_mat_tag = 'Vacuum'
         self.sol_mat_tag = 'Vacuum'
 
-        for name, value in kwargs.items():
-            self.__setattr__(name, value)
+        allowed_kwargs = ['plasma_mat_tag', 'sol_mat_tag']
+        set_kwarg_attrs(
+            self,
+            kwargs,
+            allowed_kwargs,
+            self._logger
+        )
 
         self._logger.info(
             'Constructing radial build...'
@@ -751,20 +766,61 @@ def generate_invessel_build():
 
     vmec_obj = read_vmec.VMECData(vmec_file)
 
-    radial_build = RadialBuild(**invessel_build_dict)
+    all_kwargs = False
+
+    rb_allowed_kwargs = ['plasma_mat_tag', 'sol_mat_tag']
+    rb_kwargs = construct_kwargs_from_dict(
+        invessel_build_dict,
+        rb_allowed_kwargs,
+        all_kwargs
+    )
+
+    radial_build = RadialBuild(
+        invessel_build_dict['toroidal_angles'],
+        invessel_build_dict['poloidal_angles'],
+        invessel_build_dict['wall_s'],
+        invessel_build_dict['radial_build_dict'],
+        **rb_kwargs
+    )
+
+    ivb_allowed_kwargs = ['repeat', 'num_ribs', 'num_rib_pts', 'scale']
+    ivb_kwargs = construct_kwargs_from_dict(
+        invessel_build_dict,
+        ivb_allowed_kwargs,
+        all_kwargs
+    )
 
     invessel_build = InVesselBuild(
         vmec_obj,
-        radial_build
+        radial_build,
+        logger=radial_build.logger,
+        **ivb_kwargs
     )
 
     invessel_build.populate_surfaces()
     invessel_build.calculate_loci()
     invessel_build.generate_components()
-    invessel_build.export_step(**invessel_build_dict)
+
+    ivb_step_export_allowed_kwargs = ['export_dir']
+    ivb_step_export_kwargs = construct_kwargs_from_dict(
+        invessel_build_dict,
+        ivb_step_export_allowed_kwargs,
+        all_kwargs
+    )
+
+    invessel_build.export_step(**ivb_step_export_kwargs)
 
     if invessel_build_dict['export_cad_to_dagmc']:
-        invessel_build.export_cad_to_dagmc(**invessel_build_dict)
+        ivb_dagmc_export_allowed_kwargs = [
+            'export_cad_to_dagmc', 'dagmc_filename', 'export_dir'
+        ]
+        ivb_dagmc_export_kwargs = construct_kwargs_from_dict(
+            invessel_build_dict,
+            ivb_dagmc_export_allowed_kwargs,
+            all_kwargs
+        )
+
+        invessel_build.export_cad_to_dagmc(**ivb_dagmc_export_kwargs)
 
 
 if __name__ == "__main__":

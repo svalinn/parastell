@@ -10,7 +10,8 @@ from . import log
 from . import invessel_build as ivb
 from . import magnet_coils as mc
 from . import source_mesh as sm
-from . import cubit_io as cubit_io
+from . import cubit_io
+from .utils import construct_kwargs_from_dict
 
 
 def make_material_block(mat_tag, block_id, vol_id_str):
@@ -126,6 +127,12 @@ class Stellarator(object):
                 }.
 
         Optional attributes:
+            plasma_mat_tag (str): alternate DAGMC material tag to use for
+                plasma. If none is supplied, 'plasma' will be used (defaults to
+                None).
+            sol_mat_tag (str): alternate DAGMC material tag to use for
+                scrape-off layer. If none is supplied, 'sol' will be used
+                (defaults to None).
             repeat (int): number of times to repeat build segment for full model
                 (defaults to 0).
             num_ribs (int): total number of ribs over which to loft for each
@@ -139,27 +146,54 @@ class Stellarator(object):
                 greater than the number of entries in 'poloidal_angles'.
             scale (float): a scaling factor between the units of VMEC and [cm]
                 (defaults to m2cm = 100).
-            plasma_mat_tag (str): alternate DAGMC material tag to use for
-                plasma. If none is supplied, 'plasma' will be used (defaults to
-                None).
-            sol_mat_tag (str): alternate DAGMC material tag to use for
-                scrape-off layer. If none is supplied, 'sol' will be used
-                (defaults to None).
         """
+        all_kwargs = True
+
+        # This block checks the user-supplied keyword arguments; not all
+        # keyword arguments present in 'kwargs' can be passed to each class
+        # object below
+        allowed_kwargs = [
+            'plasma_mat_tag', 'sol_mat_tag', 'repeat', 'num_ribs',
+            'num_rib_pts', 'scale'
+        ]
+        kwargs = construct_kwargs_from_dict(
+            kwargs,
+            allowed_kwargs,
+            all_kwargs,
+            fn_name='construct_invessel_build',
+            logger=self._logger 
+        )
+
+        all_kwargs = False
+
+        rb_allowed_kwargs = ['plasma_mat_tag', 'sol_mat_tag']
+        rb_kwargs = construct_kwargs_from_dict(
+            kwargs,
+            rb_allowed_kwargs,
+            all_kwargs
+        )
+        
         self.radial_buid = ivb.RadialBuild(
             toroidal_angles,
             poloidal_angles,
             wall_s,
             radial_build_dict,
             logger=self._logger,
-            kwargs=kwargs
+            **rb_kwargs
+        )
+
+        ivb_allowed_kwargs = ['repeat', 'num_ribs', 'num_rib_pts', 'scale']
+        ivb_kwargs = construct_kwargs_from_dict(
+            kwargs,
+            ivb_allowed_kwargs,
+            all_kwargs
         )
 
         self.invessel_build = ivb.InVesselBuild(
             self._vmec_obj,
             self.radial_buid,
             logger=self._logger,
-            **kwargs
+            **ivb_kwargs
         )
 
         self.invessel_build.populate_surfaces()
@@ -167,8 +201,7 @@ class Stellarator(object):
         self.invessel_build.generate_components()
 
     def export_invessel_build(
-        self, export_cad_to_dagmc=False, dagmc_filename='dagmc', export_dir='',
-        **kwargs
+        self, export_cad_to_dagmc=False, dagmc_filename='dagmc', export_dir=''
     ):
         """Exports InVesselBuild component STEP files and, optionally, a DAGMC
         neutronics H5M file of in-vessel components via CAD-to-DAGMC.
@@ -186,7 +219,7 @@ class Stellarator(object):
 
         if export_cad_to_dagmc:
             self.invessel_build.export_cad_to_dagmc(
-                filename=dagmc_filename,
+                dagmc_filename=dagmc_filename,
                 export_dir=export_dir
             )
 
@@ -215,19 +248,29 @@ class Stellarator(object):
             mat_tag (str): DAGMC material tag to use for magnets in DAGMC
                 neutronics model (defaults to 'magnets').
         """
+        allowed_kwargs = ['start_line', 'sample_mod', 'scale', 'mat_tag']
+        all_kwargs = True
+        mc_kwargs = construct_kwargs_from_dict(
+            kwargs,
+            allowed_kwargs,
+            all_kwargs,
+            fn_name='construct_magnets',
+            logger=self._logger 
+        )
+        
         self.magnet_set = mc.MagnetSet(
             coils_file,
             cross_section,
             toroidal_extent,
             logger=self._logger,
-            **kwargs
+            **mc_kwargs
         )
 
         self.magnet_set.build_magnet_coils()
 
     def export_magnets(
         self, step_filename='magnets', export_mesh=False,
-        mesh_filename='magnet_mesh', export_dir='', **kwargs
+        mesh_filename='magnet_mesh', export_dir='',
     ):
         """Export magnet components.
 
@@ -242,14 +285,14 @@ class Stellarator(object):
                 (optional, defaults to empty string).
         """
         self.magnet_set.export_step(
-            filename=step_filename,
+            step_filename=step_filename,
             export_dir=export_dir
         )
 
         if export_mesh:
             self.magnet_set.mesh_magnets()
             self.magnet_set.export_mesh(
-                filename=mesh_filename,
+                mesh_filename=mesh_filename,
                 export_dir=export_dir
             )
 
@@ -271,6 +314,16 @@ class Stellarator(object):
             scale (float): a scaling factor between the units of VMEC and [cm]
                 (defaults to m2cm = 100).
         """
+        allowed_kwargs = ['scale']
+        all_kwargs = True
+        sm_kwargs = construct_kwargs_from_dict(
+            kwargs,
+            allowed_kwargs,
+            all_kwargs,
+            fn_name='construct_source_mesh',
+            logger=self._logger 
+        )
+
         self.source_mesh = sm.SourceMesh(
             self._vmec_obj,
             num_s,
@@ -278,15 +331,13 @@ class Stellarator(object):
             num_phi,
             toroidal_extent,
             logger=self._logger,
-            **kwargs
+            **sm_kwargs
         )
 
         self.source_mesh.create_vertices()
         self.source_mesh.create_mesh()
 
-    def export_source_mesh(
-        self, filename='source_mesh', export_dir='', **kwargs
-    ):
+    def export_source_mesh(self, filename='source_mesh', export_dir=''):
         """Export source mesh
 
         Arguments:
@@ -318,7 +369,9 @@ class Stellarator(object):
         (Internal function not intended to be called externally)
         """
         if self.magnet_set:
-            vol_id_str = " ".join(str(i) for i in list(self.magnet_set.volume_ids))
+            vol_id_str = " ".join(
+                str(i) for i in list(self.magnet_set.volume_ids)
+            )
             cubit.cmd(
                 f'group "mat:{self.magnet_set.mat_tag}" add volume {vol_id_str}'
             )
@@ -370,7 +423,7 @@ class Stellarator(object):
             export_dir (str): directory to which to export DAGMC output file
                 (optional, defaults to empty string).
 
-        Optional attributes:
+        Optional arguments:
             faceting_tolerance (float): maximum distance a facet may be from
                 surface of CAD representation for DAGMC export (defaults to
                 None). This attribute is used only for the legacy faceting
@@ -389,15 +442,6 @@ class Stellarator(object):
                 in areas with higher curvature) (defaults to 5.0). This
                 attribute is used only for the native faceting method.
         """
-        self.faceting_tolerance = None
-        self.length_tolerance = None
-        self.normal_tolerance = None
-        self.anisotropic_ratio = 100.0
-        self.deviation_angle = 5.0
-
-        for name, value in kwargs.items():
-            self.__setattr__(name, value)
-
         cubit_io.init_cubit()
         
         self._logger.info(
@@ -416,19 +460,16 @@ class Stellarator(object):
         if legacy_faceting:
             self._tag_materials_legacy()
             cubit_io.export_dagmc_cubit_legacy(
-                faceting_tolerance=self.faceting_tolerance,
-                length_tolerance=self.length_tolerance,
-                normal_tolerance=self.normal_tolerance,
                 filename=filename,
-                export_dir=export_dir
+                export_dir=export_dir,
+                **kwargs
             )
         else:
             self._tag_materials_native()
             cubit_io.export_dagmc_cubit_native(
-                anisotropic_ratio=self.anisotropic_ratio,
-                deviation_angle=self.deviation_angle,
                 filename=filename,
-                export_dir=export_dir
+                export_dir=export_dir,
+                **kwargs
             )
 
 
@@ -470,17 +511,94 @@ def parastell():
 
     stellarator = Stellarator(vmec_file)
 
+    all_kwargs = False
+
     # In-Vessel Build
-    stellarator.construct_invessel_build(**invessel_build)
-    stellarator.export_invessel_build(**invessel_build)
+    
+    ivb_construct_allowed_kwargs = [
+        'plasma_mat_tag', 'sol_mat_tag', 'repeat', 'num_ribs', 'num_rib_pts',
+        'scale'
+    ]
+    all_kwargs = False
+    ivb_construct_kwargs = construct_kwargs_from_dict(
+        invessel_build,
+        ivb_construct_allowed_kwargs,
+        all_kwargs
+    )
+    
+    stellarator.construct_invessel_build(
+        invessel_build['toroidal_angles'],
+        invessel_build['poloidal_angles'],
+        invessel_build['wall_s'],
+        invessel_build['radial_build_dict']
+        **ivb_construct_kwargs
+    )
+
+    ivb_export_allowed_kwargs = [
+        'export_cad_to_dagmc', 'dagmc_filename', 'export_dir'
+    ]
+    ivb_export_kwargs = construct_kwargs_from_dict(
+        invessel_build,
+        ivb_export_allowed_kwargs,
+        all_kwargs
+    )
+
+    stellarator.export_invessel_build(**ivb_export_kwargs)
 
     # Magnet Coils
-    stellarator.construct_magnets(**magnet_coils)
-    stellarator.export_magnets(**magnet_coils)
+    
+    mc_construct_allowed_kwargs = [
+        'start_line', 'sample_mod', 'scale', 'mat_tag'
+    ]
+    mc_construct_kwargs = construct_kwargs_from_dict(
+        magnet_coils,
+        mc_construct_allowed_kwargs,
+        all_kwargs
+    )
+    
+    stellarator.construct_magnets(
+        magnet_coils['coils_file'],
+        magnet_coils['cross_section'],
+        magnet_coils['toroidal_extenet'],
+        **mc_construct_kwargs
+    )
+
+    mc_export_allowed_kwargs = [
+        'step_filename', 'export_mesh', 'mesh_filename', 'export_dir'
+    ]
+    mc_export_kwargs = construct_kwargs_from_dict(
+        magnet_coils,
+        mc_export_allowed_kwargs,
+        all_kwargs
+    )
+
+    stellarator.export_magnets(**mc_export_kwargs)
 
     # Source Mesh
-    stellarator.construct_source_mesh(**source_mesh)
-    stellarator.export_source_mesh(**source_mesh)
+
+    sm_construct_allowed_kwargs = ['scale']
+    sm_construct_kwargs = construct_kwargs_from_dict(
+        source_mesh,
+        sm_construct_allowed_kwargs,
+        all_kwargs
+    )
+
+    stellarator.construct_source_mesh(
+        source_mesh['num_s'],
+        source_mesh['num_theta'],
+        source_mesh['num_phi'],
+        source_mesh['toroidal_extent']
+        **sm_construct_kwargs
+    )
+
+    sm_export_allowed_kwargs = ['filename', 'export_dir']
+    sm_export_kwargs = construct_kwargs_from_dict(
+        source_mesh,
+        sm_export_allowed_kwargs,
+        all_kwargs
+    )
+
+    stellarator.export_source_mesh(**sm_export_kwargs)
     
     # DAGMC export
     stellarator.export_dagmc(**dagmc_export)

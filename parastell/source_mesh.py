@@ -7,7 +7,7 @@ from pymoab import core, types
 import src.pystell.read_vmec as read_vmec
 
 from . import log as log
-from .utils import m2cm
+from .utils import construct_kwargs_from_dict, set_kwarg_attrs, m2cm
 
 
 def rxn_rate(s):
@@ -95,8 +95,13 @@ class SourceMesh(object):
 
         self.scale = m2cm
 
-        for name, value in kwargs.items():
-            self.__setattr__(name, value)
+        allowed_kwargs = ['scale']
+        set_kwarg_attrs(
+            self,
+            kwargs,
+            allowed_kwargs,
+            self._logger
+        )
         
         self.strengths = []
 
@@ -383,7 +388,7 @@ class SourceMesh(object):
                 for theta_idx in range(1, self.num_theta):
                     self._create_tets_from_hex(s_idx, theta_idx, phi_idx)
 
-    def export_mesh(self, filename='source_mesh', export_dir='', **kwargs):
+    def export_mesh(self, filename='source_mesh', export_dir=''):
         """Use PyMOAB interface to write source mesh with source strengths
         tagged.
 
@@ -431,14 +436,35 @@ def generate_source_mesh():
 
     vmec_obj = read_vmec.VMECData(vmec_file)
 
+    all_kwargs = False
+
+    sm_allowed_kwargs = ['scale']
+    sm_kwargs = construct_kwargs_from_dict(
+        source_mesh_dict,
+        sm_allowed_kwargs,
+        all_kwargs
+    )
+
     source_mesh = SourceMesh(
         vmec_obj,
-        **source_mesh_dict
+        source_mesh_dict['num_s'],
+        source_mesh_dict['num_theta'],
+        source_mesh_dict['num_phi'],
+        source_mesh_dict['toroidal_extent']
+        **sm_kwargs
     )
 
     source_mesh.create_vertices()
     source_mesh.create_mesh()
-    source_mesh.export_mesh(**source_mesh_dict)
+
+    sm_export_allowed_kwargs = ['filename', 'export_dir']
+    sm_export_kwargs = construct_kwargs_from_dict(
+        source_mesh_dict,
+        sm_export_allowed_kwargs,
+        all_kwargs
+    )
+
+    source_mesh.export_mesh(**sm_export_kwargs)
 
 
 if __name__ == "__main__":
