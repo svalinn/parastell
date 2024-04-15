@@ -9,6 +9,7 @@ import src.pystell.read_vmec as read_vmec
 from . import log as log
 from .utils import m2cm
 
+
 def rxn_rate(s):
     """Calculates fusion reaction rate in plasma.
 
@@ -53,7 +54,7 @@ class SourceMesh(object):
     in n/cm3/s, using on a finite-element based quadrature of the source
     intensity evaluated at each vertex.
 
-    Parameters:
+    Arguments:
         vmec_obj (object): plasma equilibrium VMEC object as defined by the
             PyStell-UW VMEC reader. Must have a method
             'vmec2xyz(s, theta, phi)' that returns an (x,y,z) coordinate for
@@ -66,18 +67,23 @@ class SourceMesh(object):
         num_phi (int) : number of toroidal angles for planes of vertices.
         toroidal_extent (float) : extent of source mesh in toroidal direction
             [deg].
-        logger (object): logger object (defaults to None). If no logger is
-            supplied, a default logger will be instantiated.
+        logger (object): logger object (optional, defaults to None). If no
+            logger is supplied, a default logger will be instantiated.
+
+    Optional attributes:
+        scale (float): a scaling factor between the units of VMEC and [cm]
+            (defaults to m2cm = 100).
     """
 
     def __init__(
-            self,
-            vmec_obj,
-            num_s,
-            num_theta,
-            num_phi,
-            toroidal_extent,
-            logger=None
+        self,
+        vmec_obj,
+        num_s,
+        num_theta,
+        num_phi,
+        toroidal_extent,
+        logger=None,
+        **kwargs
     ):
 
         self.logger = logger
@@ -88,6 +94,9 @@ class SourceMesh(object):
         self.toroidal_extent = toroidal_extent
 
         self.scale = m2cm
+
+        for name, value in kwargs.items():
+            self.__setattr__(name, value)
         
         self.strengths = []
 
@@ -374,9 +383,15 @@ class SourceMesh(object):
                 for theta_idx in range(1, self.num_theta):
                     self._create_tets_from_hex(s_idx, theta_idx, phi_idx)
 
-    def export_mesh(self, filename='source_mesh', export_dir=''):
+    def export_mesh(self, filename='source_mesh', export_dir='', **kwargs):
         """Use PyMOAB interface to write source mesh with source strengths
         tagged.
+
+        Arguments:
+            filename: name of H5M output file, excluding '.h5m' extension
+                (optional, defaults to 'source_mesh').
+            export_dir (str): directory to which to export the H5M output file
+                (optional, defaults to empty string).
         """
         self._logger.info('Exporting source mesh H5M file...')
         
@@ -412,25 +427,18 @@ def generate_source_mesh():
     """
     args = parse_args()
 
-    vmec_file, source_dict = read_yaml_src(args.filename)
+    vmec_file, source_mesh_dict = read_yaml_src(args.filename)
 
     vmec_obj = read_vmec.VMECData(vmec_file)
 
     source_mesh = SourceMesh(
         vmec_obj,
-        source_dict['num_s'],
-        source_dict['num_theta'],
-        source_dict['num_phi'],
-        source_dict['toroidal_extent'],
-        scale=source_dict['scale']
+        **source_mesh_dict
     )
 
     source_mesh.create_vertices()
     source_mesh.create_mesh()
-    source_mesh.export_mesh(
-        filename=source_dict['filename'],
-        export_dir=source_dict['export_dir']
-    )
+    source_mesh.export_mesh(**source_mesh_dict)
 
 
 if __name__ == "__main__":

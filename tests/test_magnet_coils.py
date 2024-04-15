@@ -25,11 +25,13 @@ def rect_coil_set():
     coils_file = Path('files_for_tests') / 'coils.example'
     rect_cross_section = ['rectangle', 20, 60]
     toroidal_extent = 90.0
+    sample_mod = 6
     
     rect_coil_obj = magnet_coils.MagnetSet(
         coils_file,
         rect_cross_section,
-        toroidal_extent
+        toroidal_extent,
+        sample_mod=sample_mod
     )
 
     return rect_coil_obj
@@ -46,9 +48,9 @@ def circ_coil_set():
     circ_coil_obj = magnet_coils.MagnetSet(
         coils_file,
         circ_cross_section,
-        toroidal_extent
+        toroidal_extent,
+        sample_mod=sample_mod
     )
-    circ_coil_obj.sample_mod = sample_mod
 
     return circ_coil_obj
 

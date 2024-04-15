@@ -3,7 +3,8 @@ vmec_file: wout_vmec.nc
 invessel_build:
   toroidal_angles: [0.0, 22.5, 45.0, 67.5, 90.0]
   poloidal_angles: [0.0, 90.0, 180.0, 270.0, 360.0]
-  radial_build:
+  wall_s: 1.08
+  radial_build_dict:
     first_wall:
       thickness_matrix:
         - [5, 5, 5, 5, 5]
@@ -40,25 +41,16 @@ invessel_build:
         - [15, 15, 15, 15, 15]
         - [15, 15, 15, 15, 15]
       mat_tag: vac_vessel
-  wall_s: 1.08
-  repeat: 0
-  num_ribs: 61
-  num_rib_pts: 61
-  scale: 100
   export_cad_to_dagmc: False
-  plasma_mat_tag: Vacuum
-  sol_mat_tag: Vacuum
+  dagmc_filename: dagmc
   export_dir: ''
 
 magnet_coils:
-  coils_file_path: coils.example
-  start_line: 3
+  coils_file: coils.example
   cross_section: [circle, 20.0]
   toroidal_extent: 90.0
   sample_mod: 6
-  scale: 100
   step_filename: magnet_coils
-  mat_tag: magnet_coils
   export_mesh: True
   mesh_filename: magnet_mesh
   export_dir: ''
@@ -68,26 +60,11 @@ source_mesh:
   num_theta: 81
   num_phi: 61
   toroidal_extent: 90.0
-  scale: 100
   filename: source_mesh
   export_dir: ''
 
 dagmc_export:
-  # Choose whether to skip imprint procedure (default for ParaStell is False).
-  # Skipping the imprint procedure can reduce the duration of the DAGMC export
-  # but risks improperly merging surfaces if there is any overlap between the
-  # in-vessel component and magnet volumes.
   skip_imprint: False
-  # Choose native Cubit or legacy DAGMC plug-in faceting method (default for
-  # ParaStell is True).
   legacy_faceting: True
-  # The following parameters are for legacy DAGMC plug-in faceting.
-  faceting_tolerance: 1
-  length_tolerance: 5
-  normal_tolerance: null
-  # The following parameters are for native Cubit faceting.
-  anisotropic_ratio: 100
-  deviation_angle: 5
-  # Define file path parameters
   filename: dagmc
   export_dir: ''

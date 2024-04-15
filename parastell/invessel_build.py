@@ -63,15 +63,30 @@ class InVesselBuild(object):
             toroidal angle, phi.
         radial_build (object): RadialBuild class object with all attributes
             defined.
-        logger (object): logger object (defaults to None). If no logger is
-            supplied, a default logger will be instantiated.
+        logger (object): logger object (optional, defaults to None). If no
+            logger is supplied, a default logger will be instantiated.
+    
+    Optional attributes:
+        repeat (int): number of times to repeat build segment for full model
+            (defaults to 0).
+        num_ribs (int): total number of ribs over which to loft for each build
+            segment (defaults to 61). Ribs are set at toroidal angles
+            interpolated between those specified in 'toroidal_angles' if this
+            value is greater than the number of entries in 'toroidal_angles'.
+        num_rib_pts (int): total number of points defining each rib spline
+            (defaults to 61). Points are set at poloidal angles interpolated
+            between those specified in 'poloidal_angles' if this value is
+            greater than the number of entries in 'poloidal_angles'.
+        scale (float): a scaling factor between the units of VMEC and [cm]
+            (defaults to m2cm = 100).
     """
 
     def __init__(
         self,
         vmec_obj,
         radial_build,
-        logger=None
+        logger=None,
+        **kwargs
     ):
 
         self.logger = logger
@@ -83,17 +98,11 @@ class InVesselBuild(object):
         self.num_rib_pts = 67
         self.scale = m2cm
 
+        for name, value in kwargs.items():
+            self.__setattr__(name, value)
+
         self.Surfaces = {}
         self.Components = {}
-            
-        self._toroidal_angles_exp = expand_ang_list(
-            self.radial_build.toroidal_angles,
-            self.num_ribs
-        )
-        self._poloidal_angles_exp = expand_ang_list(
-            self.radial_build.poloidal_angles,
-            self.num_rib_pts
-        )
 
     @property
     def vmec_obj(self):
@@ -166,20 +175,21 @@ class InVesselBuild(object):
             'Populating surface objects for in-vessel components...'
         )
 
+        self._toroidal_angles_exp = expand_ang_list(
+            self.radial_build.toroidal_angles,
+            self.num_ribs
+        )
+        self._poloidal_angles_exp = expand_ang_list(
+            self.radial_build.poloidal_angles,
+            self.num_rib_pts
+        )
+        
         offset_mat = np.zeros((
             len(self.radial_build.toroidal_angles),
             len(self.radial_build.poloidal_angles)
         ))
 
-        for name, layer_data in self.radial_build.radial_build.items():
-            if np.any(np.array(layer_data['thickness_matrix']) < 0):
-                e = ValueError(
-                    'Component thicknesses must be greater than or equal to 0. '
-                    'Check thickness inputs for negative values.'
-                )
-                self._logger.error(e.args[0])
-                raise e
-
+        for name, layer_data in self.radial_build.radial_build_dict.items():
             if name == 'plasma':
                 s = 1.0
             else:
@@ -258,7 +268,7 @@ class InVesselBuild(object):
         # Tracks the surface id of the outer surface of the previous layer
         prev_outer_surface_id = None
 
-        for data in self.radial_build.radial_build.values():
+        for data in self.radial_build.radial_build_dict.values():
 
             inner_surface_id, outer_surface_id = (
                 orient_spline_surfaces(data['vol_id'])
@@ -274,12 +284,12 @@ class InVesselBuild(object):
                 prev_outer_surface_id = outer_surface_id
 
 
-    def export_step(self, export_dir=''):
+    def export_step(self, export_dir='', **kwargs):
         """Export CAD solids as STEP files via CadQuery.
 
         Arguments:
             export_dir (str): directory to which to export the STEP output files
-                (defaults to empty string).
+                (optional, defaults to empty string).
         """
         self._logger.info('Exporting STEP files for in-vessel components...')
 
@@ -294,15 +304,15 @@ class InVesselBuild(object):
                 str(export_path)
             )
 
-    def export_cad_to_dagmc(self, filename='dagmc', export_dir=''):
+    def export_cad_to_dagmc(self, filename='dagmc', export_dir='', **kwargs):
         """Exports DAGMC neutronics H5M file of ParaStell in-vessel components
         via CAD-to-DAGMC.
 
         Arguments:
             filename (str): name of DAGMC output file, excluding '.h5m'
-                extension (str, defaults to 'dagmc').
+                extension (optional, defaults to 'dagmc').
             export_dir (str): directory to which to export the DAGMC output file
-                (defaults to empty string).
+                (optional, defaults to empty string).
         """
         self._logger.info(
             'Exporting DAGMC neutronics model of in-vessel components...'
@@ -334,7 +344,7 @@ class Surface(object):
             'vmec2xyz(s, theta, phi)' that returns an (x,y,z) coordinate for
             any closed flux surface label, s, poloidal angle, theta, and
             toroidal angle, phi.
-        s (double): the normalized closed flux surface label defining the point
+        s (float): the normalized closed flux surface label defining the point
             of reference for offset.
         theta_list (np.array(double)): the set of poloidal angles specified for
             each rib [rad].
@@ -343,7 +353,7 @@ class Surface(object):
         offset_mat (np.array(double)): the set of offsets from the surface
             defined by s for each toroidal angle, poloidal angle pair on the
             surface [cm].
-        scale (double): a scaling factor between the units of VMEC and [cm].
+        scale (float): a scaling factor between the units of VMEC and [cm].
     """
 
     def __init__(
@@ -355,6 +365,7 @@ class Surface(object):
             offset_mat,
             scale
     ):
+        
         self.vmec_obj = vmec_obj
         self.s = s
         self.theta_list = theta_list
@@ -408,7 +419,7 @@ class Rib(object):
             'vmec2xyz(s, theta, phi)' that returns an (x,y,z) coordinate for
             any closed flux surface label, s, poloidal angle, theta, and
             toroidal angle, phi.
-        s (double): the normalized closed flux surface label defining the point
+        s (float): the normalized closed flux surface label defining the point
             of reference for offset.
         phi (np.array(double)): the toroidal angle defining the plane in which
             the rib is located [rad].
@@ -417,7 +428,7 @@ class Rib(object):
         offset_list (np.array(double)): the set of offsets from the curve
             defined by s for each toroidal angle, poloidal angle pair in the rib
             [cm].
-        scale (double): a scaling factor between the units of VMEC and [cm].
+        scale (float): a scaling factor between the units of VMEC and [cm].
     """
 
     def __init__(
@@ -429,6 +440,7 @@ class Rib(object):
             offset_list,
             scale
     ):
+        
         self.vmec_obj = vmec_obj
         self.s = s
         self.theta_list = theta_list
@@ -443,9 +455,9 @@ class Rib(object):
         (Internal function not intended to be called externally)
 
         Arguments:
-            poloidal_offset (double) : some offset to apply to the full set of
+            poloidal_offset (float) : some offset to apply to the full set of
                 poloidal angles for evaluating the location of the Cartesian
-                points (defaults to 0).
+                points (optional, defaults to 0).
         """
         return self.scale * np.array(
             [
@@ -504,14 +516,14 @@ class RadialBuild(object):
     surface extrapolation.
 
     Arguments:
-        toroidal_angles (array of double): toroidal angles at which radial
-            build is specified.This list should always begin at 0.0 and it is
+        toroidal_angles (array of float): toroidal angles at which radial build
+            is specified. This list should always begin at 0.0 and it is
             advised not to extend beyond one stellarator period. To build a
             geometry that extends beyond one period, make use of the 'repeat'
             parameter [deg].
-        poloidal_angles (array of double): poloidal angles at which radial
-            build is specified. This array should always span 360 degrees [deg].
-        wall_s (double): closed flux surface label extrapolation at wall.
+        poloidal_angles (array of float): poloidal angles at which radial build
+            is specified. This array should always span 360 degrees [deg].
+        wall_s (float): closed flux surface label extrapolation at wall.
         radial_build_dict (dict): dictionary representing the three-dimensional
             radial build of in-vessel components, including
             {
@@ -521,14 +533,20 @@ class RadialBuild(object):
                         locations. Rows represent toroidal angles, columns
                         represent poloidal angles, and each must be in the same
                         order provided in toroidal_angles and poloidal_angles
-                        [cm](ndarray(double)).
+                        [cm](ndarray(float)).
                     'mat_tag': DAGMC material tag for component in DAGMC
-                        neutronics model (str, defaults to None). If none is
-                        supplied, the 'component' key will be used.
+                        neutronics model (str, optional, defaults to None). If
+                        none is supplied, the 'component' key will be used.
                 }
             }.
-        logger (object): logger object (defaults to None). If no logger is
-            supplied, a default logger will be instantiated.
+        logger (object): logger object (optional, defaults to None). If no
+            logger is supplied, a default logger will be instantiated.
+
+    Optional attributes:
+        plasma_mat_tag (str): alternate DAGMC material tag to use for plasma.
+            If none is supplied, 'plasma' will be used (defaults to None).
+        sol_mat_tag (str): alternate DAGMC material tag to use for scrape-off
+            layer. If none is supplied, 'sol' will be used (defaults to None).
     """
 
     def __init__(
@@ -537,8 +555,10 @@ class RadialBuild(object):
         poloidal_angles,
         wall_s,
         radial_build_dict,
-        logger=None
+        logger=None,
+        **kwargs
     ):
+        
         self.logger = logger
         self.toroidal_angles = toroidal_angles
         self.poloidal_angles = poloidal_angles
@@ -547,6 +567,9 @@ class RadialBuild(object):
 
         self.plasma_mat_tag = 'Vacuum'
         self.sol_mat_tag = 'Vacuum'
+
+        for name, value in kwargs.items():
+            self.__setattr__(name, value)
 
         self._logger.info(
             'Constructing radial build...'
@@ -610,6 +633,7 @@ class RadialBuild(object):
     @radial_build_dict.setter
     def radial_build_dict(self, build_dict):
         self._radial_build_dict = build_dict
+        
         if self._wall_s == 1.0 and 'sol' in self._radial_build_dict:
             del self.radial_build_dict['sol']
         elif self._wall_s > 1.0 and 'sol' not in self._radial_build_dict:
@@ -631,6 +655,7 @@ class RadialBuild(object):
             },
             **self._radial_build_dict
         }
+        
         for name, component in self._radial_build_dict.items():
             if (
                 component['thickness_matrix'].shape !=
@@ -647,6 +672,15 @@ class RadialBuild(object):
                 )
                 self._logger.error(e.args[0])
                 raise e
+            
+            if np.any(np.array(component['thickness_matrix']) < 0):
+                e = ValueError(
+                    'Component thicknesses must be greater than or equal to 0. '
+                    'Check thickness inputs for negative values.'
+                )
+                self._logger.error(e.args[0])
+                raise e
+
             if 'mat_tag' not in component:
                 self._set_mat_tag(name, name)
 
@@ -713,32 +747,24 @@ def generate_invessel_build():
     """
     args = parse_args()
 
-    vmec_file, ivb_dict = read_yaml_config(args.filename)
+    vmec_file, invessel_build_dict = read_yaml_config(args.filename)
 
     vmec_obj = read_vmec.VMECData(vmec_file)
 
-    radial_build = RadialBuild(
-        ivb_dict['toroidal_angles'],
-        ivb_dict['poloidal_angles'],
-        ivb_dict['wall_s'],
-        ivb_dict['radial_build_dict']
-    )
+    radial_build = RadialBuild(**invessel_build_dict)
 
-    invessel_components = InVesselBuild(
+    invessel_build = InVesselBuild(
         vmec_obj,
         radial_build
     )
 
-    invessel_components.populate_surfaces()
-    invessel_components.calculate_loci()
-    invessel_components.generate_components()
-    invessel_components.export_step(export_dir=ivb_dict['export_dir'])
+    invessel_build.populate_surfaces()
+    invessel_build.calculate_loci()
+    invessel_build.generate_components()
+    invessel_build.export_step(**invessel_build_dict)
 
-    if ivb_dict['export_cad_to_dagmc']:
-        invessel_components.export_cad_to_dagmc(
-            filename=ivb_dict['dagmc_filename'],
-            export_dir=ivb_dict['export_dir']
-        )
+    if invessel_build_dict['export_cad_to_dagmc']:
+        invessel_build.export_cad_to_dagmc(**invessel_build_dict)
 
 
 if __name__ == "__main__":

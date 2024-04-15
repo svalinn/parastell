@@ -9,6 +9,7 @@ from . import log
 from . import cubit_io as cubit_io 
 from .utils import normalize, m2cm
 
+
 class MagnetSet(object):
     """An object representing a set of modular stellarator magnet coils.
 
@@ -17,12 +18,22 @@ class MagnetSet(object):
         cross_section (list): coil cross-section definiton. The cross-section
             shape must be either a circle or rectangle. For a circular
             cross-section, the list format is
-            ['circle' (str), radius [cm](double)]
+            ['circle' (str), radius [cm](float)]
             For a rectangular cross-section, the list format is
-            ['rectangle' (str), width [cm](double), thickness [cm](double)]
-        toroidal_extent (double): toroidal extent to model [deg].
-        logger (object): logger object (defaults to None). If no logger is
-            supplied, a default logger will be instantiated.
+            ['rectangle' (str), width [cm](float), thickness [cm](float)]
+        toroidal_extent (float): toroidal extent to model [deg].
+        logger (object): logger object (optional, defaults to None). If no
+            logger is supplied, a default logger will be instantiated.
+
+    Optional attributes:
+        start_line (int): starting line index for data in filament data file
+            (defaults to 3).
+        sample_mod (int): sampling modifier for filament points (defaults to
+            1). For a user-defined value n, every nth point will be sampled.
+        scale (float): a scaling factor between the units of the point-locus
+            data and [cm] (defaults to m2cm = 100).
+        mat_tag (str): DAGMC material tag to use for magnets in DAGMC
+            neutronics model (defaults to 'magnets').
     """
 
     def __init__(
@@ -31,6 +42,7 @@ class MagnetSet(object):
         cross_section,
         toroidal_extent,
         logger=None,
+        **kwargs
     ):
         
         self.logger = logger
@@ -42,6 +54,9 @@ class MagnetSet(object):
         self.sample_mod = 1
         self.scale = m2cm
         self.mat_tag = 'magnets'
+
+        for name, value in kwargs.items():
+            self.__setattr__(name, value)
 
         cubit_io.init_cubit()
 
@@ -82,7 +97,7 @@ class MagnetSet(object):
         """Extract coil cross-section parameters.
         (Internal function not intended to be called externally)
 
-        Parameters:
+        Arguments:
             cross_section (list or tuple of str, float, float): coil
                 cross-section definition. Note that the cross-section shape
                 must be either a circle or rectangle.
@@ -210,7 +225,7 @@ class MagnetSet(object):
         """Computes average radial distance of filament points.
         (Internal function not intended to be called externally)
 
-        Parameters:
+        Arguments:
             filaments (np array of list of list of float): list of filament
                 coordinates. Each filament is a list of coordinates.
 
@@ -231,7 +246,7 @@ class MagnetSet(object):
         angle.
         (Internal function not intended to be called externally)
 
-        Parameters:
+        Arguments:
             filaments (np array of list of list of float): list of filament
                 coordinates. Each filament is a list of coordinates.
             r_avg (float): average radial distance of magnets (cm).
@@ -289,7 +304,7 @@ class MagnetSet(object):
         """Cleanly cuts the magnets at the planes defining the toriodal extent.
         (Internal function not intended to be called externally)
 
-        Parameters:
+        Arguments:
             volume_ids (list): volume ids corresponding to each magnet volume
 
         Returns:
@@ -352,14 +367,14 @@ class MagnetSet(object):
 
         self.volume_ids = volume_ids
 
-    def export_step(self, filename='magnets', export_dir=''):
+    def export_step(self, filename='magnets', export_dir='', **kwargs):
         """Export CAD solids as a STEP file via Coreform Cubit.
 
         Arguments:
             filename (str): name of STEP output file, excluding '.step'
-                extension.
+                extension (optional, defaults to 'magnets').
             export_dir (str): directory to which to export the STEP output file
-                (defaults to empty string).
+                (optional, defaults to empty string).
         """
         self._logger.info('Exporting STEP file for magnet coils...')
 
@@ -375,14 +390,15 @@ class MagnetSet(object):
             cubit.cmd(f'volume {vol} scheme tetmesh')
             cubit.cmd(f'mesh volume {vol}')
     
-    def export_mesh(self, filename='magnet_mesh', export_dir=''):
+    def export_mesh(self, filename='magnet_mesh', export_dir='', **kwargs):
         """Creates tetrahedral mesh of magnet volumes and exports H5M format
         via Coreform Cubit and  MOAB.
 
         Arguments:
-            filename (str): name of H5M output file, excluding '.h5m' extension.
+            filename (str): name of H5M output file, excluding '.h5m' extension
+                (optional, defaults to 'magnet_mesh').
             export_dir (str): directory to which to export the H5M output file
-                (defaults to empty string).
+                (optional, defaults to empty string).
         """
         self._logger.info('Exporting mesh H5M file for magnet coils...')
         
@@ -405,6 +421,7 @@ class MagnetCoil(object):
         shape,
         shape_str
     ):
+        
         self.filament = filament
         self.shape = shape
         self.shape_str = shape_str
@@ -587,23 +604,13 @@ def generate_magnet_set():
 
     magnet_coils_dict = read_yaml_config(args.filename)
 
-    magnet_set = MagnetSet(
-        magnet_coils_dict['coils_file'],
-        magnet_coils_dict['cross_section'],
-        magnet_coils_dict['toroidal_extent']
-    )
+    magnet_set = MagnetSet(**magnet_coils_dict)
 
     magnet_set.build_magnet_coils()
-    magnet_set.export_step(
-        filename=magnet_coils_dict['step_filename'],
-        export_dir=magnet_coils_dict['export_dir']
-    )
+    magnet_set.export_step(**magnet_coils_dict)
 
     if magnet_coils_dict['export_mesh']:
-        magnet_set.export_mesh(
-            filename=magnet_coils_dict['mesh_filename'],
-            export_dir=magnet_coils_dict['export_dir']
-        )
+        magnet_set.export_mesh(**magnet_coils_dict)
 
 
 if __name__ == '__main__':
