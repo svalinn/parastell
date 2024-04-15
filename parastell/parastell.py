@@ -10,8 +10,7 @@ from . import invessel_build as ivb
 from . import magnet_coils as mc
 from . import source_mesh as sm
 from . import cubit_io as cubit_io
-from .utils import ( invessel_build_def, magnets_def, source_def,
-    dagmc_export_def )
+from .utils import m2cm
 
 
 def make_material_block(mat_tag, block_id, vol_id_str):
@@ -67,6 +66,29 @@ class Stellarator(object):
         self.invessel_build = None
         self.magnet_set = None
         self.source_mesh = None
+
+    def set_invessel_build_dict(self, invessel_build):
+        """Sets in-vessel build dictionary, using default values for keys not
+        defined by user.
+        """
+        invessel_build_def = {
+            'repeat': 0,
+            'num_ribs': 61,
+            'num_rib_pts': 61,
+            'scale': m2cm,
+            'export_cad_to_dagmc': False,
+            'plasma_mat_tag': None,
+            'sol_mat_tag': None,
+            'dagmc_filename': 'dagmc',
+            'export_dir': ''
+        }
+        self.ivb_dict = invessel_build_def.copy()
+        self.ivb_dict.update(invessel_build)
+
+    def get_invessel_build_dict(self):
+        """Returns in-vessel build dictionary.
+        """
+        return self.ivb_dict
 
     def construct_invessel_build(self, invessel_build):
         """Construct InVesselBuild class object.
@@ -133,8 +155,8 @@ class Stellarator(object):
                         (str, defaults to empty string).
                 }
         """
-        ivb_dict = invessel_build_def.copy()
-        ivb_dict.update(invessel_build)
+        self.set_invessel_build_dict(invessel_build)
+        ivb_dict = self.get_invessel_build_dict()
 
         self.invessel_build = ivb.InVesselBuild(
             self.vmec, ivb_dict['toroidal_angles'],
@@ -156,8 +178,8 @@ class Stellarator(object):
             invessel_build (dict): dictionary of in-vessel component
                 parameters - see construct_invessel_build()
         """
-        ivb_dict = invessel_build_def.copy()
-        ivb_dict.update(invessel_build)
+        self.set_invessel_build_dict(invessel_build)
+        ivb_dict = self.get_invessel_build_dict()
         
         self.invessel_build.export_step(export_dir=ivb_dict['export_dir'])
 
@@ -167,6 +189,27 @@ class Stellarator(object):
                 export_dir=ivb_dict['export_dir']
             )
 
+    def set_magnets_dict(self, magnets):
+        """Sets magnets dictionary, using default values for keys not defined
+        by user.
+        """
+        magnets_def = {
+            'sample_mod': 1,
+            'scale': m2cm,
+            'step_filename': 'magnets',
+            'mat_tag': 'magnets',
+            'export_mesh': False,
+            'mesh_filename': 'magnet_mesh',
+            'export_dir': ''
+        }
+        self.magnets_dict = magnets_def.copy()
+        self.magnets_dict.update(magnets)
+
+    def get_magnets_dict(self):
+        """Returns magnets dictionary.
+        """
+        return self.magnets_dict
+    
     def construct_magnets(self, magnets):
         """Constructs MagnetSet class object.
 
@@ -203,8 +246,8 @@ class Stellarator(object):
                 For a rectangular cross-section, the list format is
                 ['rectangle' (str), width [cm](double), thickness [cm](double)]
         """
-        magnets_dict = magnets_def.copy()
-        magnets_dict.update(magnets)
+        self.set_magnets_dict(magnets)
+        magnets_dict = self.get_magnets_dict()
 
         self.magnet_set = mc.MagnetSet(
             magnets_dict['coils_file_path'], magnets_dict['start_line'],
@@ -222,8 +265,8 @@ class Stellarator(object):
             magnets (dict): dictionary of magnet component
                 parameters - see construct_magnets()
         """
-        magnets_dict = magnets_def.copy()
-        magnets_dict.update(magnets)
+        self.set_magnets_dict(magnets)
+        magnets_dict = self.get_magnets_dict()
 
         self.magnet_set.export_step(
             filename=magnets_dict['step_filename'],
@@ -237,7 +280,23 @@ class Stellarator(object):
                 export_dir=magnets_dict['export_dir']
             )
 
+    def set_source_dict(self, source):
+        """Sets source dictionary, using default values for keys not defined
+        by user.
+        """
+        source_def = {
+            'scale': m2cm,
+            'filename': 'source_mesh',
+            'export_dir': ''
+        }
+        self.source_dict = source_def.copy()
+        self.source_dict.update(source)
 
+    def get_source_dict(self):
+        """Returns source dictionary.
+        """
+        return self.source_dict
+    
     def construct_source_mesh(self, source):
         """Constructs SourceMesh class object.
 
@@ -260,8 +319,8 @@ class Stellarator(object):
                         (str, defaults to empty string).
                 }
         """
-        source_dict = source_def.copy()
-        source_dict.update(source)
+        self.set_source_dict(source)
+        source_dict = self.get_source_dict()
 
         self.source_mesh = sm.SourceMesh(
             self.vmec, source_dict['num_s'], source_dict['num_theta'],
@@ -279,8 +338,8 @@ class Stellarator(object):
             source (dict): dictionary of source mesh parameters
                 see construct_source_mesh()
         """
-        source_dict = source_def.copy()
-        source_dict.update(source)
+        self.set_source_dict(source)
+        source_dict = self.get_source_dict()
 
         self.source_mesh.export_mesh(
             filename=source_dict['filename'],
@@ -333,8 +392,30 @@ class Stellarator(object):
                 vol_id_str = str(block_id)
                 make_material_block(data['mat_tag'], block_id, vol_id_str)
 
+    def set_dagmc_export(self, dagmc_export):
+        """Sets the DAGMC export dictionary, using default values for keys not
+        defined by user.
+        """
+        dagmc_export_def = {
+            'skip_imprint': False,
+            'legacy_faceting': True,
+            'faceting_tolerance': None,
+            'length_tolerance': None,
+            'normal_tolerance': None,
+            'anisotropic_ratio': 100,
+            'deviation_angle': 5,
+            'filename': 'dagmc',
+            'export_dir': ''
+        }
+        self.dagmc_export = dagmc_export_def.copy()
+        self.dagmc_export.update(dagmc_export)
 
-    def export_dagmc(self, dagmc_export=dagmc_export_def):
+    def get_dagmc_export(self):
+        """Returns DAGMC export dictionary.
+        """
+        return self.dagmc_export
+    
+    def export_dagmc(self, dagmc_export={}):
         """Exports DAGMC neutronics H5M file of ParaStell components via
         Coreform Cubit.
 
@@ -372,8 +453,8 @@ class Stellarator(object):
             'Exporting DAGMC neutronics model...'
         )
 
-        export_dict = dagmc_export_def.copy()
-        export_dict.update(dagmc_export)
+        self.set_dagmc_export(dagmc_export)
+        export_dict = self.get_dagmc_export()
 
         if self.invessel_build:
             self._import_ivb_step()
