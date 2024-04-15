@@ -354,7 +354,7 @@ class InVesselBuild(object):
 
         for name, component in self.Components.items():
             model.add_cadquery_object(
-                component, material_tags=[self.radial_build[name]['mat_tag]']]
+                component, material_tags=[self.radial_build[name]['mat_tag']]
             )
 
         export_path = Path(export_dir) / Path(filename).with_suffix('.h5m')
