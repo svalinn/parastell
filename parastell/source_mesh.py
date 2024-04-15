@@ -60,12 +60,13 @@ class SourceMesh(object):
             'vmec2xyz(s, theta, phi)' that returns an (x,y,z) coordinate for
             any closed flux surface label, s, poloidal angle, theta, and
             toroidal angle, phi.
-        num_s (int) : number of closed flux surfaces for vertex locations in
-            each toroidal plane.
-        num_theta (int) : number of poloidal angles for vertex locations in
-            each toroidal plane.
-        num_phi (int) : number of toroidal angles for planes of vertices.
-        toroidal_extent (float) : extent of source mesh in toroidal direction
+        mesh_size (tuple of int): number of grid points along each axis of
+            flux-coordinate space, in the order (num_s, num_theta, num_phi).
+            'num_s' is the number of closed flux surfaces for vertex locations
+            in each toroidal plane. 'num_theta' is the number of poloidal
+            angles for vertex locations in each toroidal plane. 'num_phi' is
+            the number of toroidal angles for planes of vertices.
+        toroidal_extent (float): extent of source mesh in toroidal direction
             [deg].
         logger (object): logger object (optional, defaults to None). If no
             logger is supplied, a default logger will be instantiated.
@@ -78,9 +79,7 @@ class SourceMesh(object):
     def __init__(
         self,
         vmec_obj,
-        num_s,
-        num_theta,
-        num_phi,
+        mesh_size,
         toroidal_extent,
         logger=None,
         **kwargs
@@ -88,9 +87,9 @@ class SourceMesh(object):
 
         self.logger = logger
         self.vmec_obj = vmec_obj
-        self.num_s = num_s
-        self.num_theta = num_theta
-        self.num_phi = num_phi
+        self.num_s = mesh_size[0]
+        self.num_theta = mesh_size[1]
+        self.num_phi = mesh_size[2]
         self.toroidal_extent = toroidal_extent
 
         self.scale = m2cm
@@ -447,9 +446,7 @@ def generate_source_mesh():
 
     source_mesh = SourceMesh(
         vmec_obj,
-        source_mesh_dict['num_s'],
-        source_mesh_dict['num_theta'],
-        source_mesh_dict['num_phi'],
+        source_mesh_dict['mesh_size'],
         source_mesh_dict['toroidal_extent']
         **sm_kwargs
     )

@@ -32,7 +32,7 @@ def make_material_block(mat_tag, block_id, vol_id_str):
         f'block {block_id} add volume {vol_id_str}'
     )
     cubit.cmd(
-        f'block {block_id} material \'{mat_tag}\''
+        f'block {block_id} material "{mat_tag}"'
     )
 
 
@@ -76,8 +76,8 @@ class Stellarator(object):
         if Path(self._vmec_file).suffix != '.nc':
             e = ValueError(
                 'Plasma equilibrium VMEC data file input has extension '
-                f'\'{Path(self._vmec_file).suffix}\'. File format must be '
-                'netCDF (\'.nc\').'
+                f'"{Path(self._vmec_file).suffix}". File format must be '
+                'netCDF (".nc").'
             )
             self._logger.error(e.args[0])
             raise e
@@ -93,7 +93,7 @@ class Stellarator(object):
             self._logger = log.init()
 
     def construct_invessel_build(
-        self, toroidal_angles, poloidal_angles, wall_s, radial_build_dict,
+        self, toroidal_angles, poloidal_angles, wall_s, radial_build,
         **kwargs
     ):
         """Construct InVesselBuild class object.
@@ -108,9 +108,8 @@ class Stellarator(object):
                 build is specified. This array should always span 360 degrees
                 [deg].
             wall_s (float): closed flux surface label extrapolation at wall.
-            radial_build_dict (dict): dictionary representing the
-                three-dimensional radial build of in-vessel components,
-                including
+            radial_build (dict): dictionary representing the three-dimensional
+                radial build of in-vessel components, including
                 {
                     'component': {
                         'thickness_matrix': 2-D matrix defining component
@@ -173,11 +172,11 @@ class Stellarator(object):
             all_kwargs
         )
         
-        self.radial_buid = ivb.RadialBuild(
+        self.radial_build = ivb.RadialBuild(
             toroidal_angles,
             poloidal_angles,
             wall_s,
-            radial_build_dict,
+            radial_build,
             logger=self._logger,
             **rb_kwargs
         )
@@ -191,7 +190,7 @@ class Stellarator(object):
 
         self.invessel_build = ivb.InVesselBuild(
             self._vmec_obj,
-            self.radial_buid,
+            self.radial_build,
             logger=self._logger,
             **ivb_kwargs
         )
@@ -297,16 +296,18 @@ class Stellarator(object):
             )
 
     def construct_source_mesh(
-        self, num_s, num_theta, num_phi, toroidal_extent, **kwargs
+        self, mesh_size, toroidal_extent, **kwargs
     ):
         """Constructs SourceMesh class object.
 
         Arguments:
-            num_s (int) : number of closed flux surfaces for vertex locations in
-                each toroidal plane.
-            num_theta (int) : number of poloidal angles for vertex locations in
-                each toroidal plane.
-            num_phi (int) : number of toroidal angles for planes of vertices.
+            mesh_size (tuple of int): number of grid points along each axis of
+                flux-coordinate space, in the order (num_s, num_theta, num_phi).
+                'num_s' is the number of closed flux surfaces for vertex
+                locations in each toroidal plane. 'num_theta' is the number of
+                poloidal angles for vertex locations in each toroidal plane.
+                'num_phi' is the number of toroidal angles for planes of
+                vertices.
             toroidal_extent (float) : extent of source mesh in toroidal
                 direction [deg].
 
@@ -326,9 +327,7 @@ class Stellarator(object):
 
         self.source_mesh = sm.SourceMesh(
             self._vmec_obj,
-            num_s,
-            num_theta,
-            num_phi,
+            mesh_size,
             toroidal_extent,
             logger=self._logger,
             **sm_kwargs
@@ -356,7 +355,7 @@ class Stellarator(object):
         (Internal function not intended to be called externally)
         """
         for name, data in (
-            self.invessel_build.radial_build.radial_build_dict.items()
+            self.invessel_build.radial_build.radial_build.items()
         ):
             vol_id = cubit_io.import_step_cubit(
                 name, self.invessel_build.export_dir
@@ -378,7 +377,7 @@ class Stellarator(object):
 
         if self.invessel_build:
             for data in (
-                self.invessel_build.radial_build.radial_build_dict.values()
+                self.invessel_build.radial_build.radial_build.values()
             ):
                 cubit.cmd(
                     f'group "mat:{data["mat_tag"]}" add volume {data["vol_id"]}'
@@ -399,7 +398,7 @@ class Stellarator(object):
         
         if self.invessel_build:
             for data in (
-                self.invessel_build.radial_build.radial_build_dict.values()
+                self.invessel_build.radial_build.radial_build.values()
             ):
                 block_id = data['vol_id']
                 vol_id_str = str(block_id)
@@ -519,7 +518,6 @@ def parastell():
         'plasma_mat_tag', 'sol_mat_tag', 'repeat', 'num_ribs', 'num_rib_pts',
         'scale'
     ]
-    all_kwargs = False
     ivb_construct_kwargs = construct_kwargs_from_dict(
         invessel_build,
         ivb_construct_allowed_kwargs,
@@ -530,7 +528,7 @@ def parastell():
         invessel_build['toroidal_angles'],
         invessel_build['poloidal_angles'],
         invessel_build['wall_s'],
-        invessel_build['radial_build_dict']
+        invessel_build['radial_build']
         **ivb_construct_kwargs
     )
 
@@ -584,9 +582,7 @@ def parastell():
     )
 
     stellarator.construct_source_mesh(
-        source_mesh['num_s'],
-        source_mesh['num_theta'],
-        source_mesh['num_phi'],
+        source_mesh['mesh_size'],
         source_mesh['toroidal_extent']
         **sm_construct_kwargs
     )

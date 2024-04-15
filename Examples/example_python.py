@@ -15,11 +15,13 @@ stellarator = ps.Stellarator(vmec_file)
 toroidal_angles = [0.0, 11.25, 22.5, 33.75, 45.0, 56.25, 67.5, 78.75, 90.0]
 poloidal_angles = [0.0, 45.0, 90.0, 135.0, 180.0, 225.0, 270.0, 315.0, 360.0]
 wall_s = 1.08
+
+# Define a matrix of uniform unit thickness
+uniform_unit_thickness = np.ones((len(toroidal_angles), len(poloidal_angles)))
+
 radial_build_dict = {
     'first_wall': {
-        'thickness_matrix': np.ones(
-            (len(toroidal_angles), len(poloidal_angles))
-        )*5
+        'thickness_matrix': uniform_unit_thickness * 5
     },
     'breeder': {
         'thickness_matrix': ([
@@ -35,19 +37,13 @@ radial_build_dict = {
         ])
     },
     'back_wall': {
-        'thickness_matrix': np.ones(
-            (len(toroidal_angles), len(poloidal_angles))
-        )*5
+        'thickness_matrix': uniform_unit_thickness * 5
     },
     'shield': {
-        'thickness_matrix': np.ones(
-            (len(toroidal_angles), len(poloidal_angles))
-        )*50
+        'thickness_matrix': uniform_unit_thickness * 50
     },
     'vacuum_vessel': {
-        'thickness_matrix': np.ones(
-            (len(toroidal_angles), len(poloidal_angles))
-        )*10,
+        'thickness_matrix': uniform_unit_thickness * 10,
         'h5m_tag': 'vac_vessel'
     }
 }
@@ -84,15 +80,11 @@ stellarator.export_magnets(
 )
 
 # Define source mesh parameters
-num_s = 4
-num_theta = 8
-num_phi = 4
+mesh_size = (11, 81, 61)
 toroidal_extent = 90.0
 # Construct source
 stellarator.construct_source_mesh(
-    num_s,
-    num_theta,
-    num_phi,
+    mesh_size,
     toroidal_extent
 )
 # Export source file

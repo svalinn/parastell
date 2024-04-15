@@ -130,7 +130,7 @@ class MagnetSet(object):
             if len(self._cross_section) == 1:
                 e = ValueError(
                     'Format of list defining circular cross-section must be\n'
-                    '[\'circle\' (str), radius (float, cm)]'
+                    '["circle" (str), radius (float, cm)]'
                 )
                 self._logger.error(e.args[0])
                 raise e
@@ -138,7 +138,7 @@ class MagnetSet(object):
                 w = Warning(
                     'More than one length dimension has been defined for '
                     'cross_section. Interpreting the first as the circle\'s'
-                    'radius; did you mean to use \'rectangle\'?'
+                    'radius; did you mean to use "rectangle"?'
                 )
                 self._logger.warning(w.args[0])
                 raise w
@@ -152,7 +152,7 @@ class MagnetSet(object):
             if len(self._cross_section) != 3:
                 e = ValueError(
                     'Format of list defining rectangular cross-section must \n'
-                    'be [\'rectangle\' (str), width (float, cm), thickness '
+                    'be ["rectangle" (str), width (float, cm), thickness '
                     '(float, cm)]'
                 )
                 self._logger.error(e.args[0])
@@ -174,10 +174,10 @@ class MagnetSet(object):
                 'parameters.\n'
                 '\n'
                 'For a circular cross-section, the list format is\n'
-                '[\'circle\' (str), radius (float, cm)]\n'
+                '["circle" (str), radius (float, cm)]\n'
                 '\n'
                 'For a rectangular cross-section, the list format is\n'
-                '[\'rectangle\' (str), width (float, cm),'
+                '["rectangle" (str), width (float, cm),'
                 'thickness (float, cm)]'
             )
             self._logger.error(e.args[0])

@@ -22,16 +22,12 @@ def source_mesh():
 
     vmec_obj = read_vmec.VMECData(vmec_file)
 
-    num_s = 4
-    num_theta = 8
-    num_phi = 4
+    mesh_size = (4, 8, 4)
     toroidal_extent = 90.0
 
     source_mesh_obj = sm.SourceMesh(
         vmec_obj,
-        num_s,
-        num_theta,
-        num_phi,
+        mesh_size,
         toroidal_extent
     )
 

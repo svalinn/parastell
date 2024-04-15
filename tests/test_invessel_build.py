@@ -88,16 +88,16 @@ def test_ivb_basics(invessel_build):
         invessel_build.radial_build.poloidal_angles, poloidal_angles_exp
     )
     assert (
-        len(invessel_build.radial_build.radial_build_dict.keys()) ==
+        len(invessel_build.radial_build.radial_build.keys()) ==
         num_components_exp
     )
     assert invessel_build.radial_build.wall_s == wall_s_exp
     assert (
-        invessel_build.radial_build.radial_build_dict['plasma']['mat_tag'] ==
+        invessel_build.radial_build.radial_build['plasma']['mat_tag'] ==
         plasma_mat_tag_exp
     )
     assert (
-        invessel_build.radial_build.radial_build_dict['sol']['mat_tag'] ==
+        invessel_build.radial_build.radial_build['sol']['mat_tag'] ==
         sol_mat_tag_exp
     )
     assert invessel_build.repeat == repeat_exp

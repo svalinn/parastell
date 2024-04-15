@@ -105,15 +105,11 @@ def test_parastell(stellarator):
     assert Path(step_filename_exp).with_suffix('.step').exists()
     assert Path(mesh_filename_exp).with_suffix('.h5m').exists()
 
-    num_s = 4
-    num_theta = 8
-    num_phi = 4
+    mesh_size = (4, 8, 4)
     toroidal_extent = 15.0
 
     stellarator.construct_source_mesh(
-        num_s,
-        num_theta,
-        num_phi,
+        mesh_size,
         toroidal_extent
     )
 

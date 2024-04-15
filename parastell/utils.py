@@ -21,7 +21,7 @@ def normalize(vec_list):
     elif len(vec_list.shape) == 2:
         return vec_list / np.linalg.norm(vec_list, axis=1)[:, np.newaxis]
     else:
-        print('Input \'vec_list\' must be 1-D or 2-D NumPy array')
+        print('Input "vec_list" must be 1-D or 2-D NumPy array')
 
 
 def expand_ang_list(ang_list, num_ang):
@@ -88,7 +88,7 @@ def construct_kwargs_from_dict(
         elif all_kwargs and name not in allowed_kwargs:
             e = ValueError(
                 f'{name} is not a supported keyword argument of '
-                f'\'{fn_name}\''
+                f'"{fn_name}"'
             )
             logger.error(e.args[0])
             raise e
@@ -114,7 +114,7 @@ def set_kwarg_attrs(
         else:
             e = ValueError(
                 f'{name} is not a supported keyword argument of '
-                f'\'{type(class_obj).__name__}\''
+                f'"{type(class_obj).__name__}"'
             )
             logger.error(e.args[0])
             raise e

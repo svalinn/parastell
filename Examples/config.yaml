@@ -4,7 +4,7 @@ invessel_build:
   toroidal_angles: [0.0, 22.5, 45.0, 67.5, 90.0]
   poloidal_angles: [0.0, 90.0, 180.0, 270.0, 360.0]
   wall_s: 1.08
-  radial_build_dict:
+  radial_build:
     first_wall:
       thickness_matrix:
         - [5, 5, 5, 5, 5]
@@ -56,9 +56,7 @@ magnet_coils:
   export_dir: ''
 
 source_mesh:
-  num_s: 11
-  num_theta: 81
-  num_phi: 61
+  mesh_size: [11, 81, 61]
   toroidal_extent: 90.0
   filename: source_mesh
   export_dir: ''

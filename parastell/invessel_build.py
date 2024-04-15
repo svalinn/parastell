@@ -140,8 +140,8 @@ class InVesselBuild(object):
         if (self._repeat + 1) * self.radial_build.toroidal_angles[-1] > 360.0:
             e = AssertionError(
                 'Total toroidal extent requested with repeated geometry '
-                'exceeds 360 degrees. Please examine the \'repeat\' parameter '
-                'and the \'toroidal_angles\' parameter of \'radial_build\'.'
+                'exceeds 360 degrees. Please examine the "repeat" parameter '
+                'and the "toroidal_angles" parameter of "radial_build".'
             )
             self._logger.error(e.args[0])
             raise e
@@ -197,7 +197,7 @@ class InVesselBuild(object):
             len(self.radial_build.poloidal_angles)
         ))
 
-        for name, layer_data in self.radial_build.radial_build_dict.items():
+        for name, layer_data in self.radial_build.radial_build.items():
             if name == 'plasma':
                 s = 1.0
             else:
@@ -276,7 +276,7 @@ class InVesselBuild(object):
         # Tracks the surface id of the outer surface of the previous layer
         prev_outer_surface_id = None
 
-        for data in self.radial_build.radial_build_dict.values():
+        for data in self.radial_build.radial_build.values():
 
             inner_surface_id, outer_surface_id = (
                 orient_spline_surfaces(data['vol_id'])
@@ -534,7 +534,7 @@ class RadialBuild(object):
         poloidal_angles (array of float): poloidal angles at which radial build
             is specified. This array should always span 360 degrees [deg].
         wall_s (float): closed flux surface label extrapolation at wall.
-        radial_build_dict (dict): dictionary representing the three-dimensional
+        radial_build (dict): dictionary representing the three-dimensional
             radial build of in-vessel components, including
             {
                 'component': {
@@ -564,7 +564,7 @@ class RadialBuild(object):
         toroidal_angles,
         poloidal_angles,
         wall_s,
-        radial_build_dict,
+        radial_build,
         logger=None,
         **kwargs
     ):
@@ -573,7 +573,7 @@ class RadialBuild(object):
         self.toroidal_angles = toroidal_angles
         self.poloidal_angles = poloidal_angles
         self.wall_s = wall_s
-        self.radial_build_dict = radial_build_dict
+        self.radial_build = radial_build
 
         self.plasma_mat_tag = 'Vacuum'
         self.sol_mat_tag = 'Vacuum'
@@ -638,40 +638,40 @@ class RadialBuild(object):
             self._logger.error(e.args[0])
             raise e
         
-        if hasattr(self, 'radial_build_dict'):
-            self.radial_build_dict = self.radial_build_dict
+        if hasattr(self, 'radial_build'):
+            self.radial_build = self.radial_build
     
     @property
-    def radial_build_dict(self):
-        return self._radial_build_dict
+    def radial_build(self):
+        return self._radial_build
     
-    @radial_build_dict.setter
-    def radial_build_dict(self, build_dict):
-        self._radial_build_dict = build_dict
+    @radial_build.setter
+    def radial_build(self, build_dict):
+        self._radial_build = build_dict
         
-        if self._wall_s == 1.0 and 'sol' in self._radial_build_dict:
-            del self.radial_build_dict['sol']
-        elif self._wall_s > 1.0 and 'sol' not in self._radial_build_dict:
-            self._radial_build_dict = {
+        if self._wall_s == 1.0 and 'sol' in self._radial_build:
+            del self.radial_build['sol']
+        elif self._wall_s > 1.0 and 'sol' not in self._radial_build:
+            self._radial_build = {
                 'sol': {
                     'thickness_matrix': np.zeros((
                         len(self._toroidal_angles),
                         len(self._poloidal_angles)
                     ))
                 },
-                **self._radial_build_dict
+                **self._radial_build
             }
-        self._radial_build_dict = {
+        self._radial_build = {
             'plasma': {
                 'thickness_matrix': np.zeros((
                     len(self._toroidal_angles),
                     len(self._poloidal_angles)
                 ))
             },
-            **self._radial_build_dict
+            **self._radial_build
         }
         
-        for name, component in self._radial_build_dict.items():
+        for name, component in self._radial_build.items():
             if (
                 component['thickness_matrix'].shape !=
                 (len(self._toroidal_angles), len(self._poloidal_angles))
@@ -731,7 +731,7 @@ class RadialBuild(object):
         """Sets material tag for a given component.
         (Internal function not intended to be called externally)
         """
-        self._radial_build_dict[name]['mat_tag'] = mat_tag
+        self._radial_build[name]['mat_tag'] = mat_tag
 
 
 def parse_args():
@@ -779,7 +779,7 @@ def generate_invessel_build():
         invessel_build_dict['toroidal_angles'],
         invessel_build_dict['poloidal_angles'],
         invessel_build_dict['wall_s'],
-        invessel_build_dict['radial_build_dict'],
+        invessel_build_dict['radial_build'],
         **rb_kwargs
     )
 
