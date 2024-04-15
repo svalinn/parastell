@@ -85,7 +85,7 @@ def construct_kwargs_from_dict(
     for name, value in dict.items():
         if name in allowed_kwargs:
             kwarg_dict.update({name: value})
-        elif all_kwargs and name not in allowed_kwargs:
+        elif all_kwargs:
             e = ValueError(
                 f'{name} is not a supported keyword argument of '
                 f'"{fn_name}"'
