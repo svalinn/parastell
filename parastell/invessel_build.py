@@ -11,7 +11,8 @@ import cad_to_dagmc
 import src.pystell.read_vmec as read_vmec
 
 from . import log
-from .utils import expand_ang_list, normalize, m2cm, invessel_build_def
+from .utils import expand_ang_list, normalize, m2cm
+
 
 def orient_spline_surfaces(volume_id):
     """Extracts the inner and outer surface IDs for a given ParaStell in-vessel
@@ -48,6 +49,7 @@ def orient_spline_surfaces(volume_id):
             inner_surface_id = spline_surfaces[1]
 
     return inner_surface_id, outer_surface_id
+
 
 class InVesselBuild(object):
     """Parametrically models fusion stellarator in-vessel components using
@@ -92,33 +94,27 @@ class InVesselBuild(object):
     def __init__(
             self,
             vmec,
-            toroidal_angles,
-            poloidal_angles,
-            wall_s,
             radial_build,
-            logger = None
+            logger=None
     ):
 
         self.vmec = vmec
-        self.toroidal_angles = toroidal_angles
-        self.poloidal_angles = poloidal_angles
-        self.wall_s = wall_s
         self.radial_build = radial_build
         self.logger = logger
         
         self.repeat = 0
-        self.num_ribs = 61
-        self.num_rib_pts = 61
+        self.num_ribs = int(2*radial_build.toroidal_angles[-1]/3) + 1
+        self.num_rib_pts = 67
         self.scale = m2cm
-        self.plasma_mat_tag = 'Vacuum'
-        self.sol_mat_tag = 'Vacuum'
 
         self.Surfaces = {}
         self.Components = {}
             
-        self.phi_list = expand_ang_list(self._toroidal_angles, self._num_ribs)
-        self.theta_list = expand_ang_list(
-            self._poloidal_angles, self._num_rib_pts
+        self._phi_list = expand_ang_list(
+            self.radial_build.toroidal_angles, self._num_ribs
+        )
+        self._theta_list = expand_ang_list(
+            self.radial_build.poloidal_angles, self._num_rib_pts
         )
 
     @property
@@ -128,81 +124,6 @@ class InVesselBuild(object):
     @vmec.setter
     def vmec(self, vmec_object):
         self._vmec = vmec_object
-
-    @property
-    def toroidal_angles(self):
-        return self._toroidal_angles
-    
-    @toroidal_angles.setter
-    def toroidal_angles(self, angle_list):
-        self._toroidal_angles = angle_list
-        if self._toroidal_angles[0] != 0.0:
-            e = AssertionError(
-                'The first entry in toroidal_angles must be 0.0.'
-            )
-            self._logger.error(e.args[0])
-            raise e
-        if self._toroidal_angles[-1] > 360.0:
-            e = AssertionError(
-                'Toroidal extent cannot exceed 360.0 degrees.'
-            )
-            self._logger.error(e.args[0])
-            raise e
-
-    @property
-    def poloidal_angles(self):
-        return self._poloidal_angles
-    
-    @poloidal_angles.setter
-    def poloidal_angles(self, angle_list):
-        self._poloidal_angles = angle_list
-        if self._poloidal_angles[-1] - self._poloidal_angles[0] > 360.0:
-            e = AssertionError(
-                'Poloidal extent must span exactly 360.0 degrees.'
-            )
-            self._logger.error(e.args[0])
-            raise e
-
-    @property
-    def wall_s(self):
-        return self._wall_s
-    
-    @wall_s.setter
-    def wall_s(self, s):
-        self._wall_s = s
-        if self._wall_s < 1.0:
-            e = AssertionError(
-                'wall_s must be greater than or equal to 1.0.'
-            )
-            self._logger.error(e.args[0])
-            raise e
-    
-    @property
-    def radial_build(self):
-        return self._radial_build
-    
-    @radial_build.setter
-    def radial_build(self, build_dict):
-        self._radial_build = build_dict
-        if self._wall_s != 1.0:
-            self._radial_build = {
-                'sol': {
-                    'thickness_matrix': np.zeros((
-                        len(self._toroidal_angles),
-                        len(self._poloidal_angles)
-                    ))
-                },
-                **self._radial_build
-            }
-        self._radial_build = {
-            'plasma': {
-                'thickness_matrix': np.zeros((
-                    len(self._toroidal_angles),
-                    len(self._poloidal_angles)
-                ))
-            },
-            **self._radial_build
-        }
 
     @property
     def logger(self):
@@ -221,11 +142,11 @@ class InVesselBuild(object):
     @repeat.setter
     def repeat(self, num):
         self._repeat = num
-        if (self._repeat + 1) * self._toroidal_angles[-1] > 360.0:
+        if (self._repeat + 1) * self.radial_build.toroidal_angles[-1] > 360.0:
             e = AssertionError(
                 'Total toroidal extent requested with repeated geometry '
-                'exceeds 360 degrees. Please examine phi_list and the repeat '
-                'parameter.'
+                'exceeds 360 degrees. Please examine the \'repeat\' parameter '
+                'and the \'toroidal_angles\' parameter of \'radial_build\'.'
             )
             self._logger.error(e.args[0])
             raise e
@@ -254,24 +175,6 @@ class InVesselBuild(object):
     def scale(self, value):
         self._scale = value
     
-    @property
-    def plasma_mat_tag(self):
-        return self._plasma_mat_tag
-    
-    @plasma_mat_tag.setter
-    def plasma_mat_tag(self, mat_tag):
-        self._plasma_mat_tag = mat_tag
-        self._radial_build['plasma']['mat_tag'] = self._plasma_mat_tag
-
-    @property
-    def sol_mat_tag(self):
-        return self._sol_mat_tag
-    
-    @sol_mat_tag.setter
-    def sol_mat_tag(self, mat_tag):
-        self._sol_mat_tag = mat_tag
-        self._radial_build['sol']['mat_tag'] = self._sol_mat_tag
-    
     def _interpolate_offset_matrix(self, offset_mat):
         """Interpolates total offset for expanded angle lists using cubic spline
         interpolation.
@@ -283,15 +186,18 @@ class InVesselBuild(object):
                 columns [cm].
         """
         interpolator = RegularGridInterpolator(
-            (self._toroidal_angles, self._poloidal_angles),
+            (
+                self.radial_build.toroidal_angles,
+                self.radial_build.poloidal_angles
+            ),
             offset_mat,
             method='cubic'
         )
 
         interpolated_offset_mat = np.array([
             [interpolator([np.rad2deg(phi), np.rad2deg(theta)])[0]
-             for theta in self.theta_list]
-            for phi in self.phi_list
+             for theta in self._theta_list]
+            for phi in self._phi_list
         ])
 
         return interpolated_offset_mat
@@ -305,10 +211,11 @@ class InVesselBuild(object):
         )
 
         offset_mat = np.zeros((
-            len(self._toroidal_angles), len(self._poloidal_angles)
+            len(self.radial_build.toroidal_angles),
+            len(self.radial_build.poloidal_angles)
         ))
 
-        for name, layer_data in self._radial_build.items():
+        for name, layer_data in self.radial_build.radial_build.items():
             if np.any(np.array(layer_data['thickness_matrix']) < 0):
                 e = AssertionError(
                     'Component thicknesses must be greater than or equal to 0. '
@@ -320,7 +227,7 @@ class InVesselBuild(object):
             if name == 'plasma':
                 s = 1.0
             else:
-                s = self._wall_s
+                s = self.radial_build.wall_s
 
             if 'mat_tag' not in layer_data:
                 layer_data['mat_tag'] = name
@@ -331,7 +238,7 @@ class InVesselBuild(object):
             )
 
             self.Surfaces[name] = Surface(
-                    self._vmec, s, self.theta_list, self.phi_list,
+                    self._vmec, s, self._theta_list, self._phi_list,
                     interpolated_offset_mat, self._scale
                 )
             
@@ -357,8 +264,8 @@ class InVesselBuild(object):
         interior_surface = None
 
         segment_angles = np.linspace(
-            self._toroidal_angles[-1],
-            self._repeat * self._toroidal_angles[-1],
+            self.radial_build.toroidal_angles[-1],
+            self._repeat * self.radial_build.toroidal_angles[-1],
             num=self._repeat
         )
 
@@ -397,7 +304,7 @@ class InVesselBuild(object):
         # Tracks the surface id of the outer surface of the previous layer
         prev_outer_surface_id = None
 
-        for data in self._radial_build.values():
+        for data in self.radial_build.radial_build.values():
 
             inner_surface_id, outer_surface_id = (
                 orient_spline_surfaces(data['vol_id'])
@@ -451,7 +358,8 @@ class InVesselBuild(object):
 
         for name, component in self.Components.items():
             model.add_cadquery_object(
-                component, material_tags=[self._radial_build[name]['mat_tag']]
+                component,
+                material_tags=[self.radial_build.radial_build[name]['mat_tag']]
             )
 
         export_path = Path(export_dir) / Path(filename).with_suffix('.h5m')
@@ -633,6 +541,131 @@ class Rib(object):
         rib_spline = cq.Wire.assembleEdges([spline]).close()
 
         return rib_spline
+    
+
+class RadialBuild(object):
+    """
+    """
+
+    def __init__(
+        self,
+        toroidal_angles,
+        poloidal_angles,
+        wall_s,
+        radial_build,
+        logger=None
+    ):
+        self.toroidal_angles = toroidal_angles
+        self.poloidal_angles = poloidal_angles
+        self.wall_s = wall_s
+        self.radial_build = radial_build
+        logger = logger
+
+        self.plasma_mat_tag = 'Vacuum'
+        self.sol_mat_tag = 'Vacuum'
+
+    @property
+    def toroidal_angles(self):
+        return self._toroidal_angles
+    
+    @toroidal_angles.setter
+    def toroidal_angles(self, angle_list):
+        self._toroidal_angles = angle_list
+        if self._toroidal_angles[0] != 0.0:
+            e = AssertionError(
+                'The first entry in toroidal_angles must be 0.0.'
+            )
+            self._logger.error(e.args[0])
+            raise e
+        if self._toroidal_angles[-1] > 360.0:
+            e = AssertionError(
+                'Toroidal extent cannot exceed 360.0 degrees.'
+            )
+            self._logger.error(e.args[0])
+            raise e
+
+    @property
+    def poloidal_angles(self):
+        return self._poloidal_angles
+    
+    @poloidal_angles.setter
+    def poloidal_angles(self, angle_list):
+        self._poloidal_angles = angle_list
+        if self._poloidal_angles[-1] - self._poloidal_angles[0] > 360.0:
+            e = AssertionError(
+                'Poloidal extent must span exactly 360.0 degrees.'
+            )
+            self._logger.error(e.args[0])
+            raise e
+
+    @property
+    def wall_s(self):
+        return self._wall_s
+    
+    @wall_s.setter
+    def wall_s(self, s):
+        self._wall_s = s
+        if self._wall_s < 1.0:
+            e = AssertionError(
+                'wall_s must be greater than or equal to 1.0.'
+            )
+            self._logger.error(e.args[0])
+            raise e
+    
+    @property
+    def radial_build(self):
+        return self._radial_build
+    
+    @radial_build.setter
+    def radial_build(self, build_dict):
+        self._radial_build = build_dict
+        if self._wall_s != 1.0:
+            self._radial_build = {
+                'sol': {
+                    'thickness_matrix': np.zeros((
+                        len(self._toroidal_angles),
+                        len(self._poloidal_angles)
+                    ))
+                },
+                **self._radial_build
+            }
+        self._radial_build = {
+            'plasma': {
+                'thickness_matrix': np.zeros((
+                    len(self._toroidal_angles),
+                    len(self._poloidal_angles)
+                ))
+            },
+            **self._radial_build
+        }
+
+    @property
+    def logger(self):
+        return self._logger
+    
+    @logger.setter
+    def logger(self, logger_object):
+        self._logger = logger_object
+        if self._logger == None or not self._logger.hasHandlers():
+            self._logger = log.init()
+
+    @property
+    def plasma_mat_tag(self):
+        return self._plasma_mat_tag
+    
+    @plasma_mat_tag.setter
+    def plasma_mat_tag(self, mat_tag):
+        self._plasma_mat_tag = mat_tag
+        self._radial_build['plasma']['mat_tag'] = self._plasma_mat_tag
+
+    @property
+    def sol_mat_tag(self):
+        return self._sol_mat_tag
+    
+    @sol_mat_tag.setter
+    def sol_mat_tag(self, mat_tag):
+        self._sol_mat_tag = mat_tag
+        self._radial_build['sol']['mat_tag'] = self._sol_mat_tag
 
 
 def parse_args():
