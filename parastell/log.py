@@ -8,6 +8,9 @@ class NullLogger(object):
     def __init__(self, *args):
         pass
 
+    def hasHandlers(self):
+        return True
+
     def info(self, *args):
         pass
 
