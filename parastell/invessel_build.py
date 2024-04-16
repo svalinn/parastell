@@ -645,7 +645,10 @@ class RadialBuild(object):
     def radial_build(self, build_dict):
         self._radial_build = build_dict
         
-        if self._wall_s == 1.0 and 'sol' in self._radial_build:
+        if (
+            self._wall_s == 1.0 and not
+            np.any(self._radial_build['sol']['thickness_matrix'])
+        ):
             del self.radial_build['sol']
         elif self._wall_s > 1.0 and 'sol' not in self._radial_build:
             self._radial_build = {
