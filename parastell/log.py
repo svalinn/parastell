@@ -38,7 +38,7 @@ def check_init(logger_obj):
     Returns:
         logger_obj (object): logger object.
     """
-    if logger_obj != None and not logger_obj.hasHandlers():
+    if logger_obj != None and logger_obj.hasHandlers():
         return logger_obj
     else:
         return init()
