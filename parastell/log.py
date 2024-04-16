@@ -1,6 +1,23 @@
 import logging
 
 
+class NullLogger(object):
+    """Creates a pseudo logger object mimicking an actual logger object whose
+    methods do nothing when called.
+    """
+    def __init__(self, *args):
+        pass
+
+    def info(self, *args):
+        pass
+
+    def warning(self, *args):
+        pass
+
+    def error(self, *args):
+        pass
+
+
 def init():
     """Creates and configures logger with separate stream and file handlers.
 
@@ -29,16 +46,20 @@ def init():
     return logger
 
 
-def check_init(logger_obj):
+def check_init(logger_obj, null_logger=True):
     """Checks if a logger object has been instantiated, and if not,
     instantiates one.
 
     Arguments:
         logger_obj (object or None): logger object input.
+        null_logger (bool): flag to indicate whether a NullLogger object should
+            be returned (optional, defaults to True).
     Returns:
         logger_obj (object): logger object.
     """
     if logger_obj != None and logger_obj.hasHandlers():
         return logger_obj
+    elif null_logger:
+        return NullLogger()
     else:
         return init()

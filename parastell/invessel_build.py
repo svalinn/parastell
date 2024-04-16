@@ -761,6 +761,8 @@ def generate_invessel_build():
 
     vmec_file, invessel_build_dict = read_yaml_config(args.filename)
 
+    logger = log.check_init(None, null_logger=False)
+
     vmec_obj = read_vmec.VMECData(vmec_file)
 
     rb_allowed_kwargs = ['plasma_mat_tag', 'sol_mat_tag']
@@ -774,6 +776,7 @@ def generate_invessel_build():
         invessel_build_dict['poloidal_angles'],
         invessel_build_dict['wall_s'],
         invessel_build_dict['radial_build'],
+        logger=logger
         **rb_kwargs
     )
 
@@ -786,7 +789,7 @@ def generate_invessel_build():
     invessel_build = InVesselBuild(
         vmec_obj,
         radial_build,
-        logger=radial_build.logger,
+        logger=logger,
         **ivb_kwargs
     )
 

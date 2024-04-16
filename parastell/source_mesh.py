@@ -430,6 +430,8 @@ def generate_source_mesh():
 
     vmec_file, source_mesh_dict = read_yaml_src(args.filename)
 
+    logger = log.check_init(None, null_logger=False)
+
     vmec_obj = read_vmec.VMECData(vmec_file)
 
     sm_allowed_kwargs = ['scale']
@@ -441,7 +443,8 @@ def generate_source_mesh():
     source_mesh = SourceMesh(
         vmec_obj,
         source_mesh_dict['mesh_size'],
-        source_mesh_dict['toroidal_extent']
+        source_mesh_dict['toroidal_extent'],
+        logger=logger
         **sm_kwargs
     )
 

@@ -494,7 +494,12 @@ def parastell():
         vmec_file, invessel_build, magnet_coils, source_mesh, dagmc_export
     ) = read_yaml_config(args.filename)
 
-    stellarator = Stellarator(vmec_file)
+    logger = log.check_init(None, null_logger=False)
+
+    stellarator = Stellarator(
+        vmec_file,
+        logger=logger
+    )
 
     # In-Vessel Build
     

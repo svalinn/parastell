@@ -609,6 +609,8 @@ def generate_magnet_set():
 
     magnet_coils_dict = read_yaml_config(args.filename)
 
+    logger = log.check_init(None, null_logger=False)
+
     mc_allowed_kwargs = [
         'start_line', 'sample_mod', 'scale', 'mat_tag'
     ]
@@ -621,6 +623,7 @@ def generate_magnet_set():
         magnet_coils_dict['coils_file'],
         magnet_coils_dict['cross_section'],
         magnet_coils_dict['toroidal_extent'],
+        logger=logger
         **mc_kwargs
     )
 
