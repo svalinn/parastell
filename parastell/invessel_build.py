@@ -105,8 +105,7 @@ class InVesselBuild(object):
         set_kwarg_attrs(
             self,
             kwargs,
-            allowed_kwargs,
-            self._logger
+            allowed_kwargs
         )
 
         self.Surfaces = {}
@@ -126,9 +125,7 @@ class InVesselBuild(object):
     
     @logger.setter
     def logger(self, logger_object):
-        self._logger = logger_object
-        if self._logger == None or not self._logger.hasHandlers():
-            self._logger = log.init()
+        self._logger = log.check_init(logger_object)
         
     @property
     def repeat(self):
@@ -582,8 +579,7 @@ class RadialBuild(object):
         set_kwarg_attrs(
             self,
             kwargs,
-            allowed_kwargs,
-            self._logger
+            allowed_kwargs
         )
 
         self._logger.info(
@@ -705,9 +701,7 @@ class RadialBuild(object):
     
     @logger.setter
     def logger(self, logger_object):
-        self._logger = logger_object
-        if self._logger == None or not self._logger.hasHandlers():
-            self._logger = log.init()
+        self._logger = log.check_init(logger_object)
 
     @property
     def plasma_mat_tag(self):
@@ -766,13 +760,10 @@ def generate_invessel_build():
 
     vmec_obj = read_vmec.VMECData(vmec_file)
 
-    all_kwargs = False
-
     rb_allowed_kwargs = ['plasma_mat_tag', 'sol_mat_tag']
     rb_kwargs = construct_kwargs_from_dict(
         invessel_build_dict,
-        rb_allowed_kwargs,
-        all_kwargs
+        rb_allowed_kwargs
     )
 
     radial_build = RadialBuild(
@@ -786,8 +777,7 @@ def generate_invessel_build():
     ivb_allowed_kwargs = ['repeat', 'num_ribs', 'num_rib_pts', 'scale']
     ivb_kwargs = construct_kwargs_from_dict(
         invessel_build_dict,
-        ivb_allowed_kwargs,
-        all_kwargs
+        ivb_allowed_kwargs
     )
 
     invessel_build = InVesselBuild(
@@ -804,8 +794,7 @@ def generate_invessel_build():
     ivb_step_export_allowed_kwargs = ['export_dir']
     ivb_step_export_kwargs = construct_kwargs_from_dict(
         invessel_build_dict,
-        ivb_step_export_allowed_kwargs,
-        all_kwargs
+        ivb_step_export_allowed_kwargs
     )
 
     invessel_build.export_step(**ivb_step_export_kwargs)
@@ -816,8 +805,7 @@ def generate_invessel_build():
         ]
         ivb_dagmc_export_kwargs = construct_kwargs_from_dict(
             invessel_build_dict,
-            ivb_dagmc_export_allowed_kwargs,
-            all_kwargs
+            ivb_dagmc_export_allowed_kwargs
         )
 
         invessel_build.export_cad_to_dagmc(**ivb_dagmc_export_kwargs)

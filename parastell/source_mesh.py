@@ -98,8 +98,7 @@ class SourceMesh(object):
         set_kwarg_attrs(
             self,
             kwargs,
-            allowed_kwargs,
-            self._logger
+            allowed_kwargs
         )
         
         self.strengths = []
@@ -126,9 +125,7 @@ class SourceMesh(object):
     
     @logger.setter
     def logger(self, logger_object):
-        self._logger = logger_object
-        if self._logger == None or not self._logger.hasHandlers():
-            self._logger = log.init()
+        self._logger = log.check_init(logger_object)
 
     def _create_mbc(self):
         """Creates PyMOAB core instance with source strength tag.
@@ -435,13 +432,10 @@ def generate_source_mesh():
 
     vmec_obj = read_vmec.VMECData(vmec_file)
 
-    all_kwargs = False
-
     sm_allowed_kwargs = ['scale']
     sm_kwargs = construct_kwargs_from_dict(
         source_mesh_dict,
-        sm_allowed_kwargs,
-        all_kwargs
+        sm_allowed_kwargs
     )
 
     source_mesh = SourceMesh(
@@ -457,8 +451,7 @@ def generate_source_mesh():
     sm_export_allowed_kwargs = ['filename', 'export_dir']
     sm_export_kwargs = construct_kwargs_from_dict(
         source_mesh_dict,
-        sm_export_allowed_kwargs,
-        all_kwargs
+        sm_export_allowed_kwargs
     )
 
     source_mesh.export_mesh(**sm_export_kwargs)

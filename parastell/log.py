@@ -1,5 +1,6 @@
 import logging
 
+
 def init():
     """Creates and configures logger with separate stream and file handlers.
 
@@ -26,3 +27,18 @@ def init():
     logger.addHandler(f_handler)
 
     return logger
+
+
+def check_init(logger_obj):
+    """Checks if a logger object has been instantiated, and if not,
+    instantiates one.
+
+    Arguments:
+        logger_obj (object or None): logger object input.
+    Returns:
+        logger_obj (object): logger object.
+    """
+    if logger_obj != None and not logger_obj.hasHandlers():
+        return logger_obj
+    else:
+        return init()

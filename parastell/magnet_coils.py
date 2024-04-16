@@ -59,8 +59,7 @@ class MagnetSet(object):
         set_kwarg_attrs(
             self,
             kwargs,
-            allowed_kwargs,
-            self._logger
+            allowed_kwargs
         )
 
         cubit_io.init_cubit()
@@ -94,9 +93,7 @@ class MagnetSet(object):
     
     @logger.setter
     def logger(self, logger_object):
-        self._logger = logger_object
-        if self._logger == None or not self._logger.hasHandlers():
-            self._logger = log.init()
+        self._logger = log.check_init(logger_object)
 
     def _extract_cross_section(self):
         """Extract coil cross-section parameters.
@@ -612,15 +609,12 @@ def generate_magnet_set():
 
     magnet_coils_dict = read_yaml_config(args.filename)
 
-    all_kwargs = False
-
     mc_allowed_kwargs = [
         'start_line', 'sample_mod', 'scale', 'mat_tag'
     ]
     mc_kwargs = construct_kwargs_from_dict(
         magnet_coils_dict,
-        mc_allowed_kwargs,
-        all_kwargs
+        mc_allowed_kwargs
     )
     
     magnet_set = MagnetSet(
@@ -635,8 +629,7 @@ def generate_magnet_set():
     mc_step_export_allowed_kwargs = ['step_filename', 'export_dir']
     mc_step_export_kwargs = construct_kwargs_from_dict(
         magnet_coils_dict,
-        mc_step_export_allowed_kwargs,
-        all_kwargs
+        mc_step_export_allowed_kwargs
     )
 
     magnet_set.export_step(**mc_step_export_kwargs)
@@ -645,8 +638,7 @@ def generate_magnet_set():
         mc_mesh_export_allowed_kwargs = ['step_filename', 'export_dir']
         mc_mesh_export_kwargs = construct_kwargs_from_dict(
             magnet_coils_dict,
-            mc_mesh_export_allowed_kwargs,
-            all_kwargs
+            mc_mesh_export_allowed_kwargs
         )
 
         magnet_set.export_mesh(**mc_mesh_export_kwargs)

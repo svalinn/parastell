@@ -72,13 +72,9 @@ class Stellarator(object):
     @vmec_file.setter
     def vmec_file(self, file):
         self._vmec_file = file
-        self._vmec_obj = read_vmec.VMECData(self._vmec_file)
-        if Path(self._vmec_file).suffix != '.nc':
-            e = ValueError(
-                'Plasma equilibrium VMEC data file input has extension '
-                f'"{Path(self._vmec_file).suffix}". File format must be '
-                'netCDF (".nc").'
-            )
+        try:
+            self._vmec_obj = read_vmec.VMECData(self._vmec_file)
+        except Exception as e:
             self._logger.error(e.args[0])
             raise e
 
@@ -88,9 +84,7 @@ class Stellarator(object):
     
     @logger.setter
     def logger(self, logger_object):
-        self._logger = logger_object
-        if self._logger == None or not self._logger.hasHandlers():
-            self._logger = log.init()
+        self._logger = log.check_init(logger_object)
 
     def construct_invessel_build(
         self, toroidal_angles, poloidal_angles, wall_s, radial_build,
@@ -146,8 +140,6 @@ class Stellarator(object):
             scale (float): a scaling factor between the units of VMEC and [cm]
                 (defaults to m2cm = 100).
         """
-        all_kwargs = True
-
         # This block checks the user-supplied keyword arguments; not all
         # keyword arguments present in 'kwargs' can be passed to each class
         # object below
@@ -158,18 +150,15 @@ class Stellarator(object):
         kwargs = construct_kwargs_from_dict(
             kwargs,
             allowed_kwargs,
-            all_kwargs,
+            all_kwargs=True,
             fn_name='construct_invessel_build',
             logger=self._logger 
         )
 
-        all_kwargs = False
-
         rb_allowed_kwargs = ['plasma_mat_tag', 'sol_mat_tag']
         rb_kwargs = construct_kwargs_from_dict(
             kwargs,
-            rb_allowed_kwargs,
-            all_kwargs
+            rb_allowed_kwargs
         )
         
         self.radial_build = ivb.RadialBuild(
@@ -184,8 +173,7 @@ class Stellarator(object):
         ivb_allowed_kwargs = ['repeat', 'num_ribs', 'num_rib_pts', 'scale']
         ivb_kwargs = construct_kwargs_from_dict(
             kwargs,
-            ivb_allowed_kwargs,
-            all_kwargs
+            ivb_allowed_kwargs
         )
 
         self.invessel_build = ivb.InVesselBuild(
@@ -248,11 +236,10 @@ class Stellarator(object):
                 neutronics model (defaults to 'magnets').
         """
         allowed_kwargs = ['start_line', 'sample_mod', 'scale', 'mat_tag']
-        all_kwargs = True
         mc_kwargs = construct_kwargs_from_dict(
             kwargs,
             allowed_kwargs,
-            all_kwargs,
+            all_kwargs=True,
             fn_name='construct_magnets',
             logger=self._logger 
         )
@@ -316,11 +303,10 @@ class Stellarator(object):
                 (defaults to m2cm = 100).
         """
         allowed_kwargs = ['scale']
-        all_kwargs = True
         sm_kwargs = construct_kwargs_from_dict(
             kwargs,
             allowed_kwargs,
-            all_kwargs,
+            all_kwargs=True,
             fn_name='construct_source_mesh',
             logger=self._logger 
         )
@@ -510,8 +496,6 @@ def parastell():
 
     stellarator = Stellarator(vmec_file)
 
-    all_kwargs = False
-
     # In-Vessel Build
     
     ivb_construct_allowed_kwargs = [
@@ -520,8 +504,7 @@ def parastell():
     ]
     ivb_construct_kwargs = construct_kwargs_from_dict(
         invessel_build,
-        ivb_construct_allowed_kwargs,
-        all_kwargs
+        ivb_construct_allowed_kwargs
     )
     
     stellarator.construct_invessel_build(
@@ -537,8 +520,7 @@ def parastell():
     ]
     ivb_export_kwargs = construct_kwargs_from_dict(
         invessel_build,
-        ivb_export_allowed_kwargs,
-        all_kwargs
+        ivb_export_allowed_kwargs
     )
 
     stellarator.export_invessel_build(**ivb_export_kwargs)
@@ -550,8 +532,7 @@ def parastell():
     ]
     mc_construct_kwargs = construct_kwargs_from_dict(
         magnet_coils,
-        mc_construct_allowed_kwargs,
-        all_kwargs
+        mc_construct_allowed_kwargs
     )
     
     stellarator.construct_magnets(
@@ -566,8 +547,7 @@ def parastell():
     ]
     mc_export_kwargs = construct_kwargs_from_dict(
         magnet_coils,
-        mc_export_allowed_kwargs,
-        all_kwargs
+        mc_export_allowed_kwargs
     )
 
     stellarator.export_magnets(**mc_export_kwargs)
@@ -577,8 +557,7 @@ def parastell():
     sm_construct_allowed_kwargs = ['scale']
     sm_construct_kwargs = construct_kwargs_from_dict(
         source_mesh,
-        sm_construct_allowed_kwargs,
-        all_kwargs
+        sm_construct_allowed_kwargs
     )
 
     stellarator.construct_source_mesh(
@@ -590,8 +569,7 @@ def parastell():
     sm_export_allowed_kwargs = ['filename', 'export_dir']
     sm_export_kwargs = construct_kwargs_from_dict(
         source_mesh,
-        sm_export_allowed_kwargs,
-        all_kwargs
+        sm_export_allowed_kwargs
     )
 
     stellarator.export_source_mesh(**sm_export_kwargs)

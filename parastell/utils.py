@@ -60,7 +60,7 @@ def expand_ang_list(ang_list, num_ang):
 
 
 def construct_kwargs_from_dict(
-    dict, allowed_kwargs, all_kwargs, fn_name=None, logger=None
+    dict, allowed_kwargs, all_kwargs=False, fn_name=None, logger=None
 ):
     """Constructs a dictionary of keyword arguments with corresponding values
     for a class method from an input dictionary based on a list of allowable
@@ -72,7 +72,7 @@ def construct_kwargs_from_dict(
         dict (dict): dictionary of arguments and corresponding values.
         allowed_kwargs (list of str): list of allowed keyword argument names.
         all_kwargs (bool): flag to indicate whether 'allowed_kwargs' should
-            represent all keys present in 'dict'.
+            represent all keys present in 'dict' (optional, defaults to False).
         fn_name (str): name of class method (optional, defaults to None). If
             'all_kwargs' is True, a method name should be supplied.
         logger (object): logger object (optional, defaults to None). If
@@ -97,7 +97,7 @@ def construct_kwargs_from_dict(
 
 
 def set_kwarg_attrs(
-    class_obj, kwargs, allowed_kwargs, logger
+    class_obj, kwargs, allowed_kwargs
 ):
     """Sets the attributes of a given class object according to a dictionary of
     keyword argument names and corresponding values.
@@ -106,7 +106,6 @@ def set_kwarg_attrs(
         class_obj (object): class object.
         kwargs (dict): dictionary of keyword arguments and corresponding values.
         allowed_kwargs (list of str): list of allowed keyword argument names.
-        logger (object): logger object.
     """
     for name, value in kwargs.items():
         if name in allowed_kwargs:
@@ -116,5 +115,5 @@ def set_kwarg_attrs(
                 f'{name} is not a supported keyword argument of '
                 f'"{type(class_obj).__name__}"'
             )
-            logger.error(e.args[0])
+            class_obj._logger.error(e.args[0])
             raise e
