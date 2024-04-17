@@ -1,5 +1,4 @@
 import argparse
-import yaml
 from pathlib import Path
 
 import numpy as np
@@ -755,30 +754,22 @@ def parse_args():
     return parser.parse_args()
 
 
-def read_yaml_config(filename):
-    """Read YAML file describing the stellarator in-vessel component
-    configuration and extract all data.
-    """
-    with open(filename) as yaml_file:
-        all_data = yaml.safe_load(yaml_file)
-
-    return all_data['vmec_file'], all_data['invessel_build']
-
-
 def generate_invessel_build():
     """Main method when run as a command line script.
     """
     args = parse_args()
 
-    vmec_file, invessel_build_dict = read_yaml_config(args.filename)
+    all_data = read_yaml_config(args.filename)
 
     if args.logger == True:
         logger = log.init()
     else:
         logger = log.NullLogger()
 
+    vmec_file = all_data['vmec_file']
     vmec_obj = read_vmec.VMECData(vmec_file)
 
+    invessel_build = all_data['invessel_build']
     rb_allowed_kwargs = ['plasma_mat_tag', 'sol_mat_tag']
     rb_kwargs = construct_kwargs_from_dict(
         invessel_build_dict,

@@ -480,28 +480,14 @@ def parse_args():
     return parser.parse_args()
 
 
-def read_yaml_config(filename):
-    """Read YAML file describing the stellarator configuration and extract all
-    data.
-    """
-    with open(filename) as yaml_file:
-        all_data = yaml.safe_load(yaml_file)
-
-    return (
-        all_data['vmec_file'], all_data['invessel_build'],
-        all_data['magnet_coils'], all_data['source_mesh'],
-        all_data['dagmc_export']
-    )
-
-
 def parastell():
     """Main method when run as a command line script.
     """
     args = parse_args()
 
-    (
-        vmec_file, invessel_build, magnet_coils, source_mesh, dagmc_export
-    ) = read_yaml_config(args.filename)
+    all_data = read_yaml_config(args.filename)
+
+    vmec_file = all_data['vmec_file']
 
     if args.logger == True:
         logger = log.init()
@@ -513,7 +499,9 @@ def parastell():
         logger=logger
     )
 
-    # In-Vessel Build
+    # In--Vessel Build
+    invessel_build = all_data['invessel_build']
+
     
     ivb_construct_allowed_kwargs = [
         'plasma_mat_tag', 'sol_mat_tag', 'repeat', 'num_ribs', 'num_rib_pts',
@@ -543,6 +531,8 @@ def parastell():
     stellarator.export_invessel_build(**ivb_export_kwargs)
 
     # Magnet Coils
+    magnets = all_data['magnet_coils']
+
     
     mc_construct_allowed_kwargs = [
         'start_line', 'sample_mod', 'scale', 'mat_tag'
@@ -570,6 +560,8 @@ def parastell():
     stellarator.export_magnets(**mc_export_kwargs)
 
     # Source Mesh
+    source = all_data['source_mesh']
+
 
     sm_construct_allowed_kwargs = ['scale']
     sm_construct_kwargs = construct_kwargs_from_dict(
@@ -592,6 +584,8 @@ def parastell():
     stellarator.export_source_mesh(**sm_export_kwargs)
     
     # DAGMC export
+    dagmc_export = all_data['dagmc_export']
+
     stellarator.export_dagmc(**dagmc_export)
 
 

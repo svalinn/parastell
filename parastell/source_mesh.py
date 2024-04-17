@@ -1,5 +1,4 @@
 import argparse
-import yaml
 from pathlib import Path
 
 import numpy as np
@@ -7,7 +6,7 @@ from pymoab import core, types
 import src.pystell.read_vmec as read_vmec
 
 from . import log as log
-from .utils import construct_kwargs_from_dict, set_kwarg_attrs, m2cm
+from .utils import read_yaml_config, construct_kwargs_from_dict, set_kwarg_attrs, m2cm
 
 
 def rxn_rate(s):
@@ -422,30 +421,22 @@ def parse_args():
     return parser.parse_args()
 
 
-def read_yaml_src(filename):
-    """Read YAML file describing the stellarator source mesh configuration and
-    extract all data.
-    """
-    with open(filename) as yaml_file:
-        all_data = yaml.safe_load(yaml_file)
-
-    return all_data['vmec_file'], all_data['source']
-
-
 def generate_source_mesh():
     """Main method when run as a command line script.
     """
     args = parse_args()
 
-    vmec_file, source_mesh_dict = read_yaml_src(args.filename)
+    all_data = read_yaml_config(args.filename)
 
     if args.logger == True:
         logger = log.init()
     else:
         logger = log.NullLogger()
 
+    vmec_file = all_data['vmec_file']
     vmec_obj = read_vmec.VMECData(vmec_file)
 
+    source = all_data['source']
     sm_allowed_kwargs = ['scale']
     sm_kwargs = construct_kwargs_from_dict(
         source_mesh_dict,

@@ -1,4 +1,3 @@
-import yaml
 import argparse
 
 import numpy as np
@@ -7,7 +6,7 @@ import cubit
 
 from . import log
 from . import cubit_io as cubit_io 
-from .utils import normalize, construct_kwargs_from_dict, set_kwarg_attrs, m2cm
+from .utils import normalize, construct_kwargs_from_dict, set_kwarg_attrs, read_yaml_config, m2cm
 
 
 class MagnetSet(object):
@@ -601,28 +600,19 @@ def parse_args():
     return parser.parse_args()
 
 
-def read_yaml_config(filename):
-    """Read YAML file describing the stellarator magnet configuration and
-    extract all data.
-    """
-    with open(filename) as yaml_file:
-        all_data = yaml.safe_load(yaml_file)
-
-    return all_data['magnet_coils']
-
-
 def generate_magnet_set():
     """Main method when run as command line script.
     """
     args = parse_args()
 
-    magnet_coils_dict = read_yaml_config(args.filename)
+    all_data = read_yaml_config(args.filename)
 
     if args.logger == True:
         logger = log.init()
     else:
         logger = log.NullLogger()
 
+    magnets = all_data['magnet_coils']
     mc_allowed_kwargs = [
         'start_line', 'sample_mod', 'scale', 'mat_tag'
     ]
