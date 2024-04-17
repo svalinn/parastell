@@ -7,66 +7,188 @@ import cubit
 
 from . import log
 from . import cubit_io as cubit_io 
-from .utils import normalize, m2cm, magnets_def
+from .utils import normalize, construct_kwargs_from_dict, set_kwarg_attrs, m2cm
+
 
 class MagnetSet(object):
     """An object representing a set of modular stellarator magnet coils.
 
     Arguments:
-        coils_file_path (str): path to coil filament data file.
+        coils_file (str): path to coil filament data file.
         cross_section (list): coil cross-section definiton. The cross-section
             shape must be either a circle or rectangle. For a circular
             cross-section, the list format is
-            ['circle' (str), radius [cm](double)]
+            ['circle' (str), radius [cm](float)]
             For a rectangular cross-section, the list format is
-            ['rectangle' (str), width [cm](double), thickness [cm](double)]
-        toroidal_extent (double): toroidal extent to model [deg].
-        start (int): starting line index for data in filament data file
+            ['rectangle' (str), width [cm](float), thickness [cm](float)]
+        toroidal_extent (float): toroidal extent to model [deg].
+        logger (object): logger object (optional, defaults to None). If no
+            logger is supplied, a default logger will be instantiated.
+
+    Optional attributes:
+        start_line (int): starting line index for data in filament data file
             (defaults to 3).
-        sample (int): sampling modifier for filament points (defaults to 1).
-            For a user-defined value n, every nth point will be sampled.
+        sample_mod (int): sampling modifier for filament points (defaults to
+            1). For a user-defined value n, every nth point will be sampled.
+        scale (float): a scaling factor between the units of the point-locus
+            data and [cm] (defaults to m2cm = 100).
         mat_tag (str): DAGMC material tag to use for magnets in DAGMC
             neutronics model (defaults to 'magnets').
-        logger (object): logger object (defaults to None). If no logger is
-            supplied, a default logger will be instantiated.
     """
 
     def __init__(
         self,
-        coils_file_path,
-        start_line,
+        coils_file,
         cross_section,
         toroidal_extent,
-        sample_mod=1,
-        scale=m2cm,
-        mat_tag=None,
         logger=None,
+        **kwargs
     ):
-        self.coils_file_path = coils_file_path
+        
+        self.logger = logger
+        self.coils_file = coils_file
         self.cross_section = cross_section
-        self.toroidal_extent = np.deg2rad(toroidal_extent)
-        self.start_line = start_line
-        self.sample_mod = sample_mod
-        self.scale = scale
-        self.mat_tag = mat_tag
+        self.toroidal_extent = toroidal_extent
 
-        if logger == None or not logger.hasHandlers():
-            self.logger = log.init()
-        else:
-            self.logger = logger
+        self.start_line = 3
+        self.sample_mod = 1
+        self.scale = m2cm
+        self.mat_tag = 'magnets'
+
+        allowed_kwargs = ['start_line', 'sample_mod', 'scale', 'mat_tag']
+        set_kwarg_attrs(
+            self,
+            kwargs,
+            allowed_kwargs
+        )
 
         cubit_io.init_cubit()
 
-        self._extract_filaments()
+    @property
+    def cross_section(self):
+        return self._cross_section
+    
+    @cross_section.setter
+    def cross_section(self, shape):
+        self._cross_section = shape
         self._extract_cross_section()
-        self._set_average_radial_distance()
-        self._set_filtered_filaments()
+
+    @property
+    def toroidal_extent(self):
+        return self._toroidal_extent
+    
+    @toroidal_extent.setter
+    def toroidal_extent(self, angle):
+        self._toroidal_extent = np.deg2rad(angle)
+        if self._toroidal_extent > 360.0:
+            e = ValueError(
+                'Toroidal extent cannot exceed 360.0 degrees.'
+            )
+            self._logger.error(e.args[0])
+            raise e
+
+    @property
+    def logger(self):
+        return self._logger
+    
+    @logger.setter
+    def logger(self, logger_object):
+        self._logger = log.check_init(logger_object)
+
+    def _extract_cross_section(self):
+        """Extract coil cross-section parameters.
+        (Internal function not intended to be called externally)
+
+        Arguments:
+            cross_section (list or tuple of str, float, float): coil
+                cross-section definition. Note that the cross-section shape
+                must be either a circle or rectangle.
+                For a circular cross-section, the list format is
+                ['circle' (str), radius (float, cm)]
+                For a rectangular cross-section, the list format is
+                ['rectangle' (str), width (float, cm), thickness (float, cm)]
+            logger (object): logger object.
+
+        Returns:
+            shape (str): cross-section shape.
+            shape_str (str): string to pass to Cubit for cross-section
+                generation. For a circular cross-section, the string format is
+                '{shape} radius {radius}'
+                For a rectangular cross-section, the string format is
+                '{shape} width {thickness} height {width}'
+            mag_len (float): characteristic length of magnets.
+        """
+        # Extract coil cross-section shape
+        shape = self._cross_section[0]
+
+        # Conditionally extract parameters for circular cross-section
+        if shape == 'circle':
+            # Check that list format is correct
+            if len(self._cross_section) == 1:
+                e = ValueError(
+                    'Format of list defining circular cross-section must be\n'
+                    '["circle" (str), radius (float, cm)]'
+                )
+                self._logger.error(e.args[0])
+                raise e
+            elif len(self._cross_section) > 2:
+                w = Warning(
+                    'More than one length dimension has been defined for '
+                    'cross_section. Interpreting the first as the circle\'s'
+                    'radius; did you mean to use "rectangle"?'
+                )
+                self._logger.warning(w.args[0])
+                raise w
+            # Extract parameters
+            mag_len = self._cross_section[1]
+            # Define string to pass to Cubit for cross-section generation
+            shape_str = f'{shape} radius {mag_len}'
+        # Conditinally extract parameters for rectangular cross-section
+        elif shape == 'rectangle':
+            # Check that list format is correct
+            if len(self._cross_section) != 3:
+                e = ValueError(
+                    'Format of list defining rectangular cross-section must \n'
+                    'be ["rectangle" (str), width (float, cm), thickness '
+                    '(float, cm)]'
+                )
+                self._logger.error(e.args[0])
+                raise e
+            # Extract parameters
+            width = self._cross_section[1]
+            thickness = self._cross_section[2]
+            # Detemine largest parameter
+            mag_len = max(width, thickness)
+            # Define string to pass to Cubit for cross-section generation
+            shape_str = f'{shape} width {thickness} height {width}'
+        # Otherwise, if input string is neither 'circle' nor 'rectangle',
+        #  raise an exception
+        else:
+            e = ValueError(
+                'Magnet cross-section must be either a circle or rectangle. '
+                'The first entry of the list defining the cross-section must be'
+                ' the shape, with the following entries defining the shape'
+                'parameters.\n'
+                '\n'
+                'For a circular cross-section, the list format is\n'
+                '["circle" (str), radius (float, cm)]\n'
+                '\n'
+                'For a rectangular cross-section, the list format is\n'
+                '["rectangle" (str), width (float, cm),'
+                'thickness (float, cm)]'
+            )
+            self._logger.error(e.args[0])
+            raise e
+
+        self.shape = shape
+        self.shape_str = shape_str
+        self.mag_len = mag_len
 
     def _extract_filaments(self):
         """Extracts filament data from magnet coil data file.
         (Internal function not intended to be called externally)
         """
-        with open(self.coils_file_path, 'r') as file:
+        with open(self.coils_file, 'r') as file:
             data = file.readlines()[self.start_line:]
 
         coords = []
@@ -101,93 +223,11 @@ class MagnetSet(object):
 
         self.filaments = np.array(filaments)
 
-    def _extract_cross_section(self):
-        """Extract coil cross-section parameters.
-        (Internal function not intended to be called externally)
-
-        Parameters:
-            cross_section (list or tuple of str, float, float): coil
-                cross-section definition. Note that the cross-section shape
-                must be either a circle or rectangle.
-                For a circular cross-section, the list format is
-                ['circle' (str), radius (float, cm)]
-                For a rectangular cross-section, the list format is
-                ['rectangle' (str), width (float, cm), thickness (float, cm)]
-            logger (object): logger object.
-
-        Returns:
-            shape (str): cross-section shape.
-            shape_str (str): string to pass to Cubit for cross-section
-                generation. For a circular cross-section, the string format is
-                '{shape} radius {radius}'
-                For a rectangular cross-section, the string format is
-                '{shape} width {thickness} height {width}'
-            mag_len (float): characteristic length of magnets.
-        """
-        # Extract coil cross-section shape
-        shape = self.cross_section[0]
-
-        # Conditionally extract parameters for circular cross-section
-        if shape == 'circle':
-            # Check that list format is correct
-            if len(self.cross_section) == 1:
-                raise ValueError(
-                    'Format of list defining circular cross-section must be\n'
-                    '[\'circle\' (str), radius (float, cm)]'
-                )
-            elif len(self.cross_section) > 2:
-                self.logger.warning(
-                    'More than one length dimension has been defined for '
-                    'cross_section. Interpreting the first as the circle\'s'
-                    'radius;'
-                    ' did you mean to use \'rectangle\'?'
-                )
-            # Extract parameters
-            mag_len = self.cross_section[1]
-            # Define string to pass to Cubit for cross-section generation
-            shape_str = f'{shape} radius {mag_len}'
-        # Conditinally extract parameters for rectangular cross-section
-        elif shape == 'rectangle':
-            # Check that list format is correct
-            if len(self.cross_section) != 3:
-                raise ValueError(
-                    'Format of list defining rectangular cross-section must \n'
-                    'be [\'rectangle\' (str), width (float, cm), thickness '
-                    '(float, cm)]'
-                )
-            # Extract parameters
-            width = self.cross_section[1]
-            thickness = self.cross_section[2]
-            # Detemine largest parameter
-            mag_len = max(width, thickness)
-            # Define string to pass to Cubit for cross-section generation
-            shape_str = f'{shape} width {thickness} height {width}'
-        # Otherwise, if input string is neither 'circle' nor 'rectangle',
-        #  raise an exception
-        else:
-            raise ValueError(
-                'Magnet cross-section must be either a circle or rectangle. '
-                'The first entry of the list defining the cross-section must be'
-                ' the shape, with the following entries defining the shape'
-                'parameters.\n'
-                '\n'
-                'For a circular cross-section, the list format is\n'
-                '[\'circle\' (str), radius (float, cm)]\n'
-                '\n'
-                'For a rectangular cross-section, the list format is\n'
-                '[\'rectangle\' (str), width (float, cm),'
-                'thickness (float, cm)]'
-            )
-
-        self.shape = shape
-        self.shape_str = shape_str
-        self.mag_len = mag_len
-
     def _set_average_radial_distance(self):
         """Computes average radial distance of filament points.
         (Internal function not intended to be called externally)
 
-        Parameters:
+        Arguments:
             filaments (np array of list of list of float): list of filament
                 coordinates. Each filament is a list of coordinates.
 
@@ -208,7 +248,7 @@ class MagnetSet(object):
         angle.
         (Internal function not intended to be called externally)
 
-        Parameters:
+        Arguments:
             filaments (np array of list of list of float): list of filament
                 coordinates. Each filament is a list of coordinates.
             r_avg (float): average radial distance of magnets (cm).
@@ -230,7 +270,7 @@ class MagnetSet(object):
 
         # Compute lower and upper bounds of toroidal extent within tolerance
         min_rad = 2*np.pi - tol
-        max_rad = self.toroidal_extent + tol
+        max_rad = self._toroidal_extent + tol
 
         for fil in self.filaments:
             # Compute filament center of mass
@@ -266,7 +306,7 @@ class MagnetSet(object):
         """Cleanly cuts the magnets at the planes defining the toriodal extent.
         (Internal function not intended to be called externally)
 
-        Parameters:
+        Arguments:
             volume_ids (list): volume ids corresponding to each magnet volume
 
         Returns:
@@ -286,7 +326,7 @@ class MagnetSet(object):
         # Revolve surface to create wedge spanning toroidal extent
         cubit.cmd(
             (f'sweep surface {surf_id} zaxis angle '
-             f'{np.rad2deg(self.toroidal_extent)}')
+             f'{np.rad2deg(self._toroidal_extent)}')
         )
         sweep_id = cubit.get_last_id("volume")
 
@@ -308,7 +348,11 @@ class MagnetSet(object):
         """Builds each filament in self.filtered_filaments in cubit, then cuts
         to the toroidal extent using self._cut_magnets().
         """
-        self.logger.info('Constructing magnet coils...')
+        self._logger.info('Constructing magnet coils...')
+
+        self._extract_filaments()
+        self._set_average_radial_distance()
+        self._set_filtered_filaments()
 
         self.magnet_coils = [
             MagnetCoil(filament, self.shape, self.shape_str)
@@ -325,41 +369,45 @@ class MagnetSet(object):
 
         self.volume_ids = volume_ids
 
-    def export_step(self, filename='magnets', export_dir=''):
+    def export_step(self, step_filename='magnets', export_dir=''):
         """Export CAD solids as a STEP file via Coreform Cubit.
 
         Arguments:
-            filename (str): name of STEP output file, excluding '.step'
-                extension.
+            step_filename (str): name of STEP output file, excluding '.step'
+                extension (optional, defaults to 'magnets').
             export_dir (str): directory to which to export the STEP output file
-                (defaults to empty string).
+                (optional, defaults to empty string).
         """
-        self.logger.info('Exporting STEP file for magnet coils...')
+        self._logger.info('Exporting STEP file for magnet coils...')
 
-        self.step_filename = filename
-        cubit_io.export_step_cubit(filename=filename, export_dir=export_dir)
+        cubit_io.export_step_cubit(
+            filename=step_filename, export_dir=export_dir
+        )
 
     def mesh_magnets(self):
         """Creates tetrahedral mesh of magnet volumes via Coreform Cubit.
         """
-        self.logger.info('Generating tetrahedral mesh of magnet coils...')
+        self._logger.info('Generating tetrahedral mesh of magnet coils...')
         
         for vol in self.volume_ids:
             cubit.cmd(f'volume {vol} scheme tetmesh')
             cubit.cmd(f'mesh volume {vol}')
     
-    def export_mesh(self, filename='magnet_mesh', export_dir=''):
+    def export_mesh(self, mesh_filename='magnet_mesh', export_dir=''):
         """Creates tetrahedral mesh of magnet volumes and exports H5M format
         via Coreform Cubit and  MOAB.
 
         Arguments:
-            filename (str): name of H5M output file, excluding '.h5m' extension.
+            mesh_filename (str): name of H5M output file, excluding '.h5m'
+                extension (optional, defaults to 'magnet_mesh').
             export_dir (str): directory to which to export the H5M output file
-                (defaults to empty string).
+                (optional, defaults to empty string).
         """
-        self.logger.info('Exporting mesh H5M file for magnet coils...')
+        self._logger.info('Exporting mesh H5M file for magnet coils...')
         
-        cubit_io.export_mesh_cubit(filename=filename, export_dir=export_dir)
+        cubit_io.export_mesh_cubit(
+            filename=mesh_filename, export_dir=export_dir
+        )
 
 
 class MagnetCoil(object):
@@ -378,6 +426,7 @@ class MagnetCoil(object):
         shape,
         shape_str
     ):
+        
         self.filament = filament
         self.shape = shape
         self.shape_str = shape_str
@@ -558,29 +607,41 @@ def generate_magnet_set():
     """
     args = parse_args()
 
-    magnets = read_yaml_config(args.filename)
+    magnet_coils_dict = read_yaml_config(args.filename)
 
-    magnets_dict = magnets_def.copy()
-    magnets_dict.update(magnets)
-
+    mc_allowed_kwargs = [
+        'start_line', 'sample_mod', 'scale', 'mat_tag'
+    ]
+    mc_kwargs = construct_kwargs_from_dict(
+        magnet_coils_dict,
+        mc_allowed_kwargs
+    )
+    
     magnet_set = MagnetSet(
-        magnets_dict['coils_file_path'], magnets_dict['start_line'],
-        magnets_dict['cross_section'], magnets_dict['toroidal_extent'],
-        sample_mod=magnets_dict['sample_mod'], scale=magnets_dict['scale'],
-        mat_tag=magnets_dict['mat_tag']
+        magnet_coils_dict['coils_file'],
+        magnet_coils_dict['cross_section'],
+        magnet_coils_dict['toroidal_extent'],
+        **mc_kwargs
     )
 
     magnet_set.build_magnet_coils()
-    magnet_set.export_step(
-        filename=magnets_dict['step_filename'],
-        export_dir=magnets_dict['export_dir']
+
+    mc_step_export_allowed_kwargs = ['step_filename', 'export_dir']
+    mc_step_export_kwargs = construct_kwargs_from_dict(
+        magnet_coils_dict,
+        mc_step_export_allowed_kwargs
     )
 
-    if magnets_dict['export_mesh']:
-        magnet_set.export_mesh(
-            filename=magnets_dict['mesh_filename'],
-            export_dir=magnets_dict['export_dir']
+    magnet_set.export_step(**mc_step_export_kwargs)
+
+    if magnet_coils_dict['export_mesh']:
+        mc_mesh_export_allowed_kwargs = ['step_filename', 'export_dir']
+        mc_mesh_export_kwargs = construct_kwargs_from_dict(
+            magnet_coils_dict,
+            mc_mesh_export_allowed_kwargs
         )
+
+        magnet_set.export_mesh(**mc_mesh_export_kwargs)
 
 
 if __name__ == '__main__':

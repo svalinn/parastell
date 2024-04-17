@@ -20,17 +20,15 @@ def source_mesh():
 
     vmec_file = Path('files_for_tests') / 'wout_vmec.nc'
 
-    vmec = read_vmec.VMECData(vmec_file)
+    vmec_obj = read_vmec.VMECData(vmec_file)
 
-    num_s_exp = 4
-    num_theta_exp = 8
-    num_phi_exp = 4
-    tor_ext_exp = 90.0
-    scale_exp = 100
+    mesh_size = (4, 8, 4)
+    toroidal_extent = 90.0
 
     source_mesh_obj = sm.SourceMesh(
-        vmec, num_s_exp, num_theta_exp, num_phi_exp, tor_ext_exp,
-        scale=scale_exp
+        vmec_obj,
+        mesh_size,
+        toroidal_extent
     )
 
     return source_mesh_obj

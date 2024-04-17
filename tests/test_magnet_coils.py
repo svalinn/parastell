@@ -7,6 +7,8 @@ import parastell.magnet_coils as magnet_coils
 
 def remove_files():
 
+    if Path('magnets.step').exists():
+        Path.unlink('magnets.step')
     if Path('magnet_mesh.exo').exists():
         Path.unlink('magnet_mesh.exo')
     if Path('magnet_mesh.h5m').exists():
@@ -20,17 +22,16 @@ def remove_files():
 @pytest.fixture
 def rect_coil_set():
     
-    coils_file_path = Path('files_for_tests') / 'coils.example'
-    start_line = 3
+    coils_file = Path('files_for_tests') / 'coils.example'
     rect_cross_section = ['rectangle', 20, 60]
     toroidal_extent = 90.0
     sample_mod = 6
-    scale = 100
-    mat_tag = 'magnets'
     
     rect_coil_obj = magnet_coils.MagnetSet(
-        coils_file_path, start_line, rect_cross_section, toroidal_extent,
-        sample_mod=sample_mod, scale=scale, mat_tag=mat_tag
+        coils_file,
+        rect_cross_section,
+        toroidal_extent,
+        sample_mod=sample_mod
     )
 
     return rect_coil_obj
@@ -39,17 +40,16 @@ def rect_coil_set():
 @pytest.fixture
 def circ_coil_set():
 
-    coils_file_path = Path('files_for_tests') / 'coils.example'
-    start_line = 3
+    coils_file = Path('files_for_tests') / 'coils.example'
     circ_cross_section = ['circle', 25]
     toroidal_extent = 90.0
     sample_mod = 6
-    scale = 100
-    mat_tag = 'magnets'
 
     circ_coil_obj = magnet_coils.MagnetSet(
-        coils_file_path, start_line, circ_cross_section, toroidal_extent,
-        sample_mod=sample_mod, scale=scale, mat_tag=mat_tag
+        coils_file,
+        circ_cross_section,
+        toroidal_extent,
+        sample_mod=sample_mod
     )
 
     return circ_coil_obj
@@ -83,8 +83,6 @@ def test_circular_magnets(circ_coil_set):
     remove_files()
 
     circ_coil_set.build_magnet_coils()
-
-    
 
     assert len(circ_coil_set.filaments) == len_filaments_exp
     assert circ_coil_set.average_radial_distance == average_radial_distance_exp

@@ -88,12 +88,12 @@ def export_dagmc_cubit_legacy(
     plug-in faceting method for Coreform Cubit.
 
     Arguments:
-        faceting_tolerance (double): maximum distance a facet may be from
+        faceting_tolerance (float): maximum distance a facet may be from
             surface of CAD representation for DAGMC export (defaults to None).
-        length_tolerance (double): maximum length of facet edge for DAGMC export
-            (double, defaults to None).
-        normal_tolerance (double): maximum change in angle between normal
-            vector of adjacent facets (defaults to None).
+        length_tolerance (float): maximum length of facet edge for DAGMC export
+            (defaults to None).
+        normal_tolerance (float): maximum change in angle between normal vector
+            of adjacent facets (defaults to None).
         filename (str): name of DAGMC output file, excluding '.h5m' extension
             (defaults to 'dagmc').
         export_dir (str): directory to which to export the DAGMC output file
@@ -124,11 +124,11 @@ def export_dagmc_cubit_native(
     faceting method for Coreform Cubit.
 
     Arguments:
-        anisotropic_ratio (double): controls edge length ratio of elements
+        anisotropic_ratio (float): controls edge length ratio of elements
             (defaults to 100.0).
-        deviation_angle (double): controls deviation angle of facet from
-            surface (i.e., lesser deviation angle results in more elements in
-            areas with higher curvature) (defaults to 5.0).
+        deviation_angle (float): controls deviation angle of facet from surface
+            (i.e., lesser deviation angle results in more elements in areas
+            with higher curvature) (defaults to 5.0).
         filename (str): name of DAGMC output file, excluding '.h5m' extension
             (defaults to 'dagmc').
         export_dir (str): directory to which to export the DAGMC output file

@@ -20,35 +20,45 @@ def remove_files():
         Path.unlink('component.step')
     if Path('dagmc.h5m').exists():
         Path.unlink('dagmc.h5m')
+    if Path('stellarator.log').exists():
+        Path.unlink('stellarator.log')
 
 
 @pytest.fixture
-def invessel_build():
-    
-    vmec_file = Path('files_for_tests') / 'wout_vmec.nc'
-    vmec = read_vmec.VMECData(vmec_file)
+def radial_build():
 
     toroidal_angles = [0.0, 5.0, 10.0, 15.0]
     poloidal_angles = [0.0, 120.0, 240.0, 360.0]
-    radial_build = {
+    wall_s = 1.08
+    radial_build_dict = {
         'component': {
             'thickness_matrix': np.ones(
                 (len(toroidal_angles), len(poloidal_angles))
             )*10
         }
     }
-    wall_s = 1.08
-    repeat = 0
+
+    radial_build_obj = ivb.RadialBuild(
+        toroidal_angles,
+        poloidal_angles,
+        wall_s,
+        radial_build_dict
+    )
+
+    return radial_build_obj
+
+
+@pytest.fixture
+def invessel_build(radial_build):
+    
+    vmec_file = Path('files_for_tests') / 'wout_vmec.nc'
+    vmec = read_vmec.VMECData(vmec_file)
     num_ribs = 11
-    num_rib_pts = 67
-    scale = 100
-    plasma_mat_tag = 'Vacuum'
-    sol_mat_tag = 'Vacuum'
 
     ivb_obj = ivb.InVesselBuild(
-        vmec, toroidal_angles, poloidal_angles, radial_build, wall_s,
-        repeat=repeat, num_ribs=num_ribs, num_rib_pts=num_rib_pts, scale=scale,
-        plasma_mat_tag=plasma_mat_tag, sol_mat_tag=sol_mat_tag
+        vmec,
+        radial_build,
+        num_ribs=num_ribs
     )
 
     return ivb_obj
@@ -71,15 +81,24 @@ def test_ivb_basics(invessel_build):
     
     invessel_build.populate_surfaces()
 
-    assert np.allclose(invessel_build.toroidal_angles, toroidal_angles_exp)
-    assert np.allclose(invessel_build.poloidal_angles, poloidal_angles_exp)
-    assert len(invessel_build.radial_build.keys()) == num_components_exp
-    assert invessel_build.wall_s == wall_s_exp
-    assert (
-        invessel_build.radial_build['plasma']['mat_tag'] == plasma_mat_tag_exp
+    assert np.allclose(
+        invessel_build.radial_build.toroidal_angles, toroidal_angles_exp
+    )
+    assert np.allclose(
+        invessel_build.radial_build.poloidal_angles, poloidal_angles_exp
     )
     assert (
-        invessel_build.radial_build['sol']['mat_tag'] == sol_mat_tag_exp
+        len(invessel_build.radial_build.radial_build.keys()) ==
+        num_components_exp
+    )
+    assert invessel_build.radial_build.wall_s == wall_s_exp
+    assert (
+        invessel_build.radial_build.radial_build['plasma']['mat_tag'] ==
+        plasma_mat_tag_exp
+    )
+    assert (
+        invessel_build.radial_build.radial_build['sol']['mat_tag'] ==
+        sol_mat_tag_exp
     )
     assert invessel_build.repeat == repeat_exp
     assert invessel_build.num_ribs == num_ribs_exp

@@ -7,7 +7,8 @@ from pymoab import core, types
 import src.pystell.read_vmec as read_vmec
 
 from . import log as log
-from .utils import m2cm, source_def
+from .utils import construct_kwargs_from_dict, set_kwarg_attrs, m2cm
+
 
 def rxn_rate(s):
     """Calculates fusion reaction rate in plasma.
@@ -53,51 +54,78 @@ class SourceMesh(object):
     in n/cm3/s, using on a finite-element based quadrature of the source
     intensity evaluated at each vertex.
 
-    Parameters:
-        vmec (object): plasma equilibrium VMEC object as defined by the
+    Arguments:
+        vmec_obj (object): plasma equilibrium VMEC object as defined by the
             PyStell-UW VMEC reader. Must have a method
             'vmec2xyz(s, theta, phi)' that returns an (x,y,z) coordinate for
             any closed flux surface label, s, poloidal angle, theta, and
             toroidal angle, phi.
-        num_s (int) : number of closed flux surfaces for vertex locations in
-            each toroidal plane.
-        num_theta (int) : number of poloidal angles for vertex locations in
-            each toroidal plane.
-        num_phi (int) : number of toroidal angles for planes of vertices.
-        toroidal_extent (float) : extent of source mesh in toroidal direction
+        mesh_size (tuple of int): number of grid points along each axis of
+            flux-coordinate space, in the order (num_s, num_theta, num_phi).
+            'num_s' is the number of closed flux surfaces for vertex locations
+            in each toroidal plane. 'num_theta' is the number of poloidal
+            angles for vertex locations in each toroidal plane. 'num_phi' is
+            the number of toroidal angles for planes of vertices.
+        toroidal_extent (float): extent of source mesh in toroidal direction
             [deg].
-        scale (double): a scaling factor between the units of VMEC and [cm]
+        logger (object): logger object (optional, defaults to None). If no
+            logger is supplied, a default logger will be instantiated.
+
+    Optional attributes:
+        scale (float): a scaling factor between the units of VMEC and [cm]
             (defaults to m2cm = 100).
-        logger (object): logger object (defaults to None). If no logger is
-            supplied, a default logger will be instantiated.
     """
 
     def __init__(
-            self,
-            vmec,
-            num_s,
-            num_theta,
-            num_phi,
-            toroidal_extent,
-            scale=m2cm,
-            logger=None
+        self,
+        vmec_obj,
+        mesh_size,
+        toroidal_extent,
+        logger=None,
+        **kwargs
     ):
 
-        self.vmec = vmec
-        self.num_s = num_s
-        self.num_theta = num_theta
-        self.num_phi = num_phi
-        self.toroidal_extent = np.deg2rad(toroidal_extent)
-        self.scale = scale
-        
-        if logger == None or not logger.hasHandlers():
-            self.logger = log.init()
-        else:
-            self.logger = logger
+        self.logger = logger
+        self.vmec_obj = vmec_obj
+        self.num_s = mesh_size[0]
+        self.num_theta = mesh_size[1]
+        self.num_phi = mesh_size[2]
+        self.toroidal_extent = toroidal_extent
+
+        self.scale = m2cm
+
+        allowed_kwargs = ['scale']
+        set_kwarg_attrs(
+            self,
+            kwargs,
+            allowed_kwargs
+        )
         
         self.strengths = []
 
         self._create_mbc()
+
+    @property
+    def toroidal_extent(self):
+        return self._toroidal_extent
+    
+    @toroidal_extent.setter
+    def toroidal_extent(self, angle):
+        self._toroidal_extent = np.deg2rad(angle)
+        if self._toroidal_extent > 360.0:
+            e = ValueError(
+                'Toroidal extent cannot exceed 360.0 degrees.'
+            )
+            self._logger.error(e.args[0])
+            raise e
+
+    @property
+    def logger(self):
+        return self._logger
+    
+    @logger.setter
+    def logger(self, logger_object):
+        self._logger = log.check_init(logger_object)
 
     def _create_mbc(self):
         """Creates PyMOAB core instance with source strength tag.
@@ -127,16 +155,16 @@ class SourceMesh(object):
         mesh at the 0 == 2 * pi wrap so that everything
         is closed and consistent.
         """
-        self.logger.info('Computing source mesh point cloud...')
+        self._logger.info('Computing source mesh point cloud...')
         
-        phi_list = np.linspace(0, self.toroidal_extent, num=self.num_phi)
+        phi_list = np.linspace(0, self._toroidal_extent, num=self.num_phi)
         # don't include magnetic axis in list of s values
         s_list = np.linspace(0.0, 1.0, num=self.num_s)[1:]
         # don't include repeated entry at 0 == 2*pi
         theta_list = np.linspace(0, 2*np.pi, num=self.num_theta)[:-1]
 
         # don't include repeated entry at 0 == 2*pi
-        if self.toroidal_extent == 2*np.pi:
+        if self._toroidal_extent == 2*np.pi:
             phi_list = phi_list[:-1]
 
         self.verts_per_ring = theta_list.shape[0]
@@ -153,7 +181,7 @@ class SourceMesh(object):
         for phi in phi_list:
             # vertex coordinates on magnetic axis
             self.coords[vert_idx, :] = np.array(
-                self.vmec.vmec2xyz(0, 0, phi)) * self.scale
+                self.vmec_obj.vmec2xyz(0, 0, phi)) * self.scale
             self.coords_s[vert_idx] = 0
 
             vert_idx += 1
@@ -162,7 +190,8 @@ class SourceMesh(object):
             for s in s_list:
                 for theta in theta_list:
                     self.coords[vert_idx, :] = np.array(
-                        self.vmec.vmec2xyz(s, theta, phi)) * self.scale
+                        self.vmec_obj.vmec2xyz(s, theta, phi)
+                    ) * self.scale
                     self.coords_s[vert_idx] = s
 
                     vert_idx += 1
@@ -248,7 +277,7 @@ class SourceMesh(object):
         ma_offset = phi_idx * self.verts_per_plane
 
         # Wrap around if final plane and it is 2*pi
-        if self.toroidal_extent == 2*np.pi and phi_idx == self.num_phi - 1:
+        if self._toroidal_extent == 2*np.pi and phi_idx == self.num_phi - 1:
             ma_offset = 0
 
         # Compute index offset from closed flux surface
@@ -340,7 +369,7 @@ class SourceMesh(object):
     def create_mesh(self):
         """Creates volumetric source mesh in real space.
         """
-        self.logger.info('Constructing source mesh...')
+        self._logger.info('Constructing source mesh...')
 
         self.mesh_set = self.mbc.create_meshset()
         self.mbc.add_entity(self.mesh_set, self.verts)
@@ -358,8 +387,14 @@ class SourceMesh(object):
     def export_mesh(self, filename='source_mesh', export_dir=''):
         """Use PyMOAB interface to write source mesh with source strengths
         tagged.
+
+        Arguments:
+            filename: name of H5M output file, excluding '.h5m' extension
+                (optional, defaults to 'source_mesh').
+            export_dir (str): directory to which to export the H5M output file
+                (optional, defaults to empty string).
         """
-        self.logger.info('Exporting source mesh H5M file...')
+        self._logger.info('Exporting source mesh H5M file...')
         
         export_path = Path(export_dir) / Path(filename).with_suffix('.h5m')
         self.mbc.write_file(str(export_path))
@@ -393,25 +428,33 @@ def generate_source_mesh():
     """
     args = parse_args()
 
-    vmec_file, source = read_yaml_src(args.filename)
+    vmec_file, source_mesh_dict = read_yaml_src(args.filename)
 
-    vmec = read_vmec.VMECData(vmec_file)
+    vmec_obj = read_vmec.VMECData(vmec_file)
 
-    source_dict = source_def.copy()
-    source_dict.update(source)
+    sm_allowed_kwargs = ['scale']
+    sm_kwargs = construct_kwargs_from_dict(
+        source_mesh_dict,
+        sm_allowed_kwargs
+    )
 
     source_mesh = SourceMesh(
-        vmec, source_dict['num_s'], source_dict['num_theta'],
-        source_dict['num_phi'], source_dict['toroidal_extent'],
-        scale=source_dict['scale']
+        vmec_obj,
+        source_mesh_dict['mesh_size'],
+        source_mesh_dict['toroidal_extent']
+        **sm_kwargs
     )
 
     source_mesh.create_vertices()
     source_mesh.create_mesh()
-    source_mesh.export_mesh(
-        filename=source_dict['filename'],
-        export_dir=source_dict['export_dir']
+
+    sm_export_allowed_kwargs = ['filename', 'export_dir']
+    sm_export_kwargs = construct_kwargs_from_dict(
+        source_mesh_dict,
+        sm_export_allowed_kwargs
     )
+
+    source_mesh.export_mesh(**sm_export_kwargs)
 
 
 if __name__ == "__main__":
