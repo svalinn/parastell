@@ -688,7 +688,7 @@ class RadialBuild(object):
                 self._logger.error(e.args[0])
                 raise e
             
-            if np.any(np.array(component['thickness_matrix']) < 0):
+            if np.any(component['thickness_matrix'] < 0):
                 e = ValueError(
                     'Component thicknesses must be greater than or equal to 0. '
                     'Check thickness inputs for negative values.'

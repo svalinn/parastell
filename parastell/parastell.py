@@ -546,7 +546,7 @@ def parastell():
     stellarator.construct_magnets(
         magnet_coils['coils_file'],
         magnet_coils['cross_section'],
-        magnet_coils['toroidal_extenet'],
+        magnet_coils['toroidal_extent'],
         **mc_construct_kwargs
     )
 
