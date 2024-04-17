@@ -517,7 +517,7 @@ def parastell():
         invessel_build['toroidal_angles'],
         invessel_build['poloidal_angles'],
         invessel_build['wall_s'],
-        invessel_build['radial_build']
+        invessel_build['radial_build'],
         **ivb_construct_kwargs
     )
 
@@ -572,7 +572,7 @@ def parastell():
 
     stellarator.construct_source_mesh(
         source_mesh['mesh_size'],
-        source_mesh['toroidal_extent']
+        source_mesh['toroidal_extent'],
         **sm_construct_kwargs
     )
 
