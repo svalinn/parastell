@@ -1,4 +1,5 @@
 import logging
+import time
 
 
 class NullLogger(object):
@@ -11,8 +12,10 @@ class NullLogger(object):
     def hasHandlers(self):
         return True
 
-    def info(self, *args):
-        pass
+    def info(self, message):
+        current_time = time.localtime()
+        current_time = time.strftime('%H:%M:%S', current_time)
+        print(f'{current_time}: {message}')
 
     def warning(self, *args):
         pass
@@ -34,7 +37,10 @@ def init():
     # Configure stream handler
     s_handler = logging.StreamHandler()
     # Configure file handler
-    f_handler = logging.FileHandler('stellarator.log')
+    f_handler = logging.FileHandler(
+        filename='stellarator.log',
+        mode='w'
+    )
     # Define and set logging format
     format = logging.Formatter(
         fmt = '%(asctime)s: %(message)s',

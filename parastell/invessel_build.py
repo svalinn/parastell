@@ -671,6 +671,8 @@ class RadialBuild(object):
         }
         
         for name, component in self._radial_build.items():
+            component['thickness_matrix'] = \
+                np.array(component['thickness_matrix'])
             if (
                 component['thickness_matrix'].shape !=
                 (len(self._toroidal_angles), len(self._poloidal_angles))
