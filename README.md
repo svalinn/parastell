@@ -84,3 +84,5 @@ Now, each executable can be run from command line with a corresponding YAML file
 ```bash
 stellarator.py config.yaml
 ```
+
+See each executable's help message for more details.

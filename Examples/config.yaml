@@ -43,7 +43,6 @@ invessel_build:
       mat_tag: vac_vessel
   export_cad_to_dagmc: False
   dagmc_filename: dagmc
-  export_dir: ''
 
 magnet_coils:
   coils_file: coils.example
@@ -53,16 +52,13 @@ magnet_coils:
   step_filename: magnet_coils
   export_mesh: True
   mesh_filename: magnet_mesh
-  export_dir: ''
 
 source_mesh:
   mesh_size: [11, 81, 61]
   toroidal_extent: 90.0
   filename: source_mesh
-  export_dir: ''
 
 dagmc_export:
   skip_imprint: False
   legacy_faceting: True
   filename: dagmc
-  export_dir: ''

@@ -411,6 +411,15 @@ def parse_args():
         help='YAML file defining ParaStell source mesh configuration'
     )
     parser.add_argument(
+        '-e', '--export_dir',
+        default='',
+        help=(
+            'Directory to which output files are exported (default: working '
+            'directory)'
+        ),
+        metavar=''
+    )
+    parser.add_argument(
         '-l', '--logger',
         default=False,
         help=(
@@ -457,13 +466,16 @@ def generate_source_mesh():
     source_mesh.create_vertices()
     source_mesh.create_mesh()
 
-    sm_export_allowed_kwargs = ['filename', 'export_dir']
+    sm_export_allowed_kwargs = ['filename']
     sm_export_kwargs = construct_kwargs_from_dict(
         source_mesh_dict,
         sm_export_allowed_kwargs
     )
 
-    source_mesh.export_mesh(**sm_export_kwargs)
+    source_mesh.export_mesh(
+        export_dir=args.export_dir,
+        **sm_export_kwargs
+    )
 
 
 if __name__ == "__main__":

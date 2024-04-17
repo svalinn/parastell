@@ -591,6 +591,15 @@ def parse_args():
         'filename', help='YAML file defining ParaStell magnet configuration'
     )
     parser.add_argument(
+        '-e', '--export_dir',
+        default='',
+        help=(
+            'Directory to which output files are exported (default: working '
+            'directory)'
+        ),
+        metavar=''
+    )
+    parser.add_argument(
         '-l', '--logger',
         default=False,
         help=(
@@ -635,22 +644,28 @@ def generate_magnet_set():
 
     magnet_set.build_magnet_coils()
 
-    mc_step_export_allowed_kwargs = ['step_filename', 'export_dir']
+    mc_step_export_allowed_kwargs = ['step_filename']
     mc_step_export_kwargs = construct_kwargs_from_dict(
         magnet_coils_dict,
         mc_step_export_allowed_kwargs
     )
 
-    magnet_set.export_step(**mc_step_export_kwargs)
+    magnet_set.export_step(
+        export_dir=args.export_dir,
+        **mc_step_export_kwargs
+    )
 
     if magnet_coils_dict['export_mesh']:
-        mc_mesh_export_allowed_kwargs = ['step_filename', 'export_dir']
+        mc_mesh_export_allowed_kwargs = ['mesh_filename']
         mc_mesh_export_kwargs = construct_kwargs_from_dict(
             magnet_coils_dict,
             mc_mesh_export_allowed_kwargs
         )
 
-        magnet_set.export_mesh(**mc_mesh_export_kwargs)
+        magnet_set.export_mesh(
+            export_dir=args.export_dir,
+            **mc_mesh_export_kwargs
+        )
 
 
 if __name__ == '__main__':

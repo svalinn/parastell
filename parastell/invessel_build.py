@@ -742,6 +742,15 @@ def parse_args():
         help='YAML file defining ParaStell in-vessel component configuration'
     )
     parser.add_argument(
+        '-e', '--export_dir',
+        default='',
+        help=(
+            'Directory to which output files are exported (default: working '
+            'directory)'
+        ),
+        metavar=''
+    )
+    parser.add_argument(
         '-l', '--logger',
         default=False,
         help=(
@@ -803,24 +812,21 @@ def generate_invessel_build():
     invessel_build.calculate_loci()
     invessel_build.generate_components()
 
-    ivb_step_export_allowed_kwargs = ['export_dir']
-    ivb_step_export_kwargs = construct_kwargs_from_dict(
-        invessel_build_dict,
-        ivb_step_export_allowed_kwargs
-    )
-
-    invessel_build.export_step(**ivb_step_export_kwargs)
+    invessel_build.export_step(export_dir=args.export_dir)
 
     if invessel_build_dict['export_cad_to_dagmc']:
         ivb_dagmc_export_allowed_kwargs = [
-            'export_cad_to_dagmc', 'dagmc_filename', 'export_dir'
+            'export_cad_to_dagmc', 'dagmc_filename'
         ]
         ivb_dagmc_export_kwargs = construct_kwargs_from_dict(
             invessel_build_dict,
             ivb_dagmc_export_allowed_kwargs
         )
 
-        invessel_build.export_cad_to_dagmc(**ivb_dagmc_export_kwargs)
+        invessel_build.export_cad_to_dagmc(
+            export_dir=args.export_dir,
+            **ivb_dagmc_export_kwargs
+        )
 
 
 if __name__ == "__main__":

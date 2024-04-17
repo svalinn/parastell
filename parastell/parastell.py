@@ -468,6 +468,15 @@ def parse_args():
         help='YAML file defining ParaStell stellarator configuration'
     )
     parser.add_argument(
+        '-e', '--export_dir',
+        default='',
+        help=(
+            'Directory to which output files are exported (default: working '
+            'directory)'
+        ),
+        metavar=''
+    )
+    parser.add_argument(
         '-l', '--logger',
         default=False,
         help=(
@@ -522,14 +531,17 @@ def parastell():
     )
 
     ivb_export_allowed_kwargs = [
-        'export_cad_to_dagmc', 'dagmc_filename', 'export_dir'
+        'export_cad_to_dagmc', 'dagmc_filename'
     ]
     ivb_export_kwargs = construct_kwargs_from_dict(
         invessel_build,
         ivb_export_allowed_kwargs
     )
 
-    stellarator.export_invessel_build(**ivb_export_kwargs)
+    stellarator.export_invessel_build(
+        export_dir=args.export_dir,
+        **ivb_export_kwargs
+    )
 
     # Magnet Coils
 
@@ -551,14 +563,17 @@ def parastell():
     )
 
     mc_export_allowed_kwargs = [
-        'step_filename', 'export_mesh', 'mesh_filename', 'export_dir'
+        'step_filename', 'export_mesh', 'mesh_filename'
     ]
     mc_export_kwargs = construct_kwargs_from_dict(
         magnet_coils,
         mc_export_allowed_kwargs
     )
 
-    stellarator.export_magnets(**mc_export_kwargs)
+    stellarator.export_magnets(
+        export_dir=args.export_dir,
+        **mc_export_kwargs
+    )
 
     # Source Mesh
 
@@ -576,18 +591,24 @@ def parastell():
         **sm_construct_kwargs
     )
 
-    sm_export_allowed_kwargs = ['filename', 'export_dir']
+    sm_export_allowed_kwargs = ['filename']
     sm_export_kwargs = construct_kwargs_from_dict(
         source_mesh,
         sm_export_allowed_kwargs
     )
 
-    stellarator.export_source_mesh(**sm_export_kwargs)
+    stellarator.export_source_mesh(
+        export_dir=args.export_dir,
+        **sm_export_kwargs
+    )
     
     # DAGMC export
     dagmc_export = all_data['dagmc_export']
 
-    stellarator.export_dagmc(**dagmc_export)
+    stellarator.export_dagmc(
+        export_dir=args.export_dir,
+        **dagmc_export
+    )
 
 
 if __name__ == "__main__":
