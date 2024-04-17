@@ -11,7 +11,7 @@ from . import invessel_build as ivb
 from . import magnet_coils as mc
 from . import source_mesh as sm
 from . import cubit_io
-from .utils import construct_kwargs_from_dict
+from .utils import read_yaml_config, construct_kwargs_from_dict
 
 
 def make_material_block(mat_tag, block_id, vol_id_str):
@@ -499,7 +499,8 @@ def parastell():
         logger=logger
     )
 
-    # In--Vessel Build
+    # In-Vessel Build
+
     invessel_build = all_data['invessel_build']
 
     
@@ -531,8 +532,8 @@ def parastell():
     stellarator.export_invessel_build(**ivb_export_kwargs)
 
     # Magnet Coils
-    magnets = all_data['magnet_coils']
 
+    magnet_coils = all_data['magnet_coils']
     
     mc_construct_allowed_kwargs = [
         'start_line', 'sample_mod', 'scale', 'mat_tag'
@@ -560,8 +561,8 @@ def parastell():
     stellarator.export_magnets(**mc_export_kwargs)
 
     # Source Mesh
-    source = all_data['source_mesh']
 
+    source_mesh = all_data['source_mesh']
 
     sm_construct_allowed_kwargs = ['scale']
     sm_construct_kwargs = construct_kwargs_from_dict(

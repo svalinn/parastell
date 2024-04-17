@@ -6,7 +6,10 @@ import cubit
 
 from . import log
 from . import cubit_io as cubit_io 
-from .utils import normalize, construct_kwargs_from_dict, set_kwarg_attrs, read_yaml_config, m2cm
+from .utils import (
+    normalize, read_yaml_config, construct_kwargs_from_dict, set_kwarg_attrs,
+    m2cm
+)
 
 
 class MagnetSet(object):
@@ -612,7 +615,8 @@ def generate_magnet_set():
     else:
         logger = log.NullLogger()
 
-    magnets = all_data['magnet_coils']
+    magnet_coils_dict = all_data['magnet_coils']
+
     mc_allowed_kwargs = [
         'start_line', 'sample_mod', 'scale', 'mat_tag'
     ]

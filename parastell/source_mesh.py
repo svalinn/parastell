@@ -6,7 +6,9 @@ from pymoab import core, types
 import src.pystell.read_vmec as read_vmec
 
 from . import log as log
-from .utils import read_yaml_config, construct_kwargs_from_dict, set_kwarg_attrs, m2cm
+from .utils import (
+    read_yaml_config, construct_kwargs_from_dict, set_kwarg_attrs, m2cm
+)
 
 
 def rxn_rate(s):
@@ -436,7 +438,8 @@ def generate_source_mesh():
     vmec_file = all_data['vmec_file']
     vmec_obj = read_vmec.VMECData(vmec_file)
 
-    source = all_data['source']
+    source_mesh_dict = all_data['source_mesh']
+
     sm_allowed_kwargs = ['scale']
     sm_kwargs = construct_kwargs_from_dict(
         source_mesh_dict,

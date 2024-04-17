@@ -11,8 +11,8 @@ import src.pystell.read_vmec as read_vmec
 
 from . import log
 from .utils import (
-    expand_ang_list, normalize, construct_kwargs_from_dict, set_kwarg_attrs,
-    m2cm
+    normalize, expand_ang_list, read_yaml_config, construct_kwargs_from_dict,
+    set_kwarg_attrs, m2cm
 )
 
 
@@ -769,7 +769,8 @@ def generate_invessel_build():
     vmec_file = all_data['vmec_file']
     vmec_obj = read_vmec.VMECData(vmec_file)
 
-    invessel_build = all_data['invessel_build']
+    invessel_build_dict = all_data['invessel_build']
+
     rb_allowed_kwargs = ['plasma_mat_tag', 'sol_mat_tag']
     rb_kwargs = construct_kwargs_from_dict(
         invessel_build_dict,
