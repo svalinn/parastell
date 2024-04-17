@@ -140,7 +140,7 @@ class MagnetSet(object):
                     'radius; did you mean to use "rectangle"?'
                 )
                 self._logger.warning(w.args[0])
-                raise w
+            
             # Extract parameters
             mag_len = self._cross_section[1]
             # Define string to pass to Cubit for cross-section generation

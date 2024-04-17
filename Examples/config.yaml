@@ -42,7 +42,6 @@ invessel_build:
         - [15, 15, 15, 15, 15]
       mat_tag: vac_vessel
   export_cad_to_dagmc: False
-  dagmc_filename: dagmc
 
 magnet_coils:
   coils_file: coils.example

@@ -11,7 +11,7 @@ from . import invessel_build as ivb
 from . import magnet_coils as mc
 from . import source_mesh as sm
 from . import cubit_io
-from .utils import read_yaml_config, construct_kwargs_from_dict
+from .utils import read_yaml_config, construct_kwargs_from_dict, m2cm
 
 
 def make_material_block(mat_tag, block_id, vol_id_str):
@@ -489,12 +489,109 @@ def parse_args():
     return parser.parse_args()
 
 
+def check_inputs(
+    invessel_build, magnet_coils, source_mesh, dagmc_export, logger
+):
+    """Checks inputs for consistency across ParaStell classes.
+
+    Arguments:
+        invessel_build (dict): dictionary of RadialBuild and InVesselBuild
+            parameters.
+        magnet_coils (dict): dictionary of MagnetSet parameters.
+        source_mesh (dict): dictionary of SourceMesh parameters.
+        dagmc_export (dict): dictionary of DAGMC export parameters.
+        logger (object): logger object.
+    """
+    if 'repeat' in invessel_build:
+        repeat = invessel_build['repeat']
+    else:
+        repeat = 0
+
+    ivb_tor_ext = (repeat + 1) * invessel_build['toroidal_angles'][-1]
+    mag_tor_ext = magnet_coils['toroidal_extent']
+    src_tor_ext = source_mesh['toroidal_extent']
+    
+    if ivb_tor_ext != mag_tor_ext:
+        w = Warning(
+            f'The total toroidal extent of the in-vessel build, {ivb_tor_ext} '
+            'degrees, does not match the toroidal extent of the magnet coils, '
+            f'{mag_tor_ext} degrees.'
+        )
+        logger.warning(w.args[0])
+    
+    if ivb_tor_ext != src_tor_ext:
+        w = Warning(
+            f'The total toroidal extent of the in-vessel build, {ivb_tor_ext} '
+            'degrees, does not match the toroidal extent of the source mesh, '
+            f'{src_tor_ext} degrees.'
+        )
+        logger.warning(w.args[0])
+    
+    if mag_tor_ext != src_tor_ext:
+        w = Warning(
+            f'The toroidal extent of the magnet coils, {mag_tor_ext} degrees, '
+            f'does not match that of the source mesh, {src_tor_ext} degrees.'
+        )
+        logger.warning(w.args[0])
+    
+    if 'scale' in invessel_build:
+        ivb_scale = invessel_build['scale']
+    else:
+        ivb_scale = m2cm
+
+    if 'scale' in source_mesh:
+        src_scale = source_mesh['scale']
+    else:
+        src_scale = m2cm
+
+    if ivb_scale != src_scale:
+        e = ValueError(
+            f'The conversion scale of the in-vessel build, {ivb_scale}, does '
+            f'not match that of the source mesh, {src_scale}.'
+        )
+        logger.error(e.args[0])
+        raise e
+    
+    if (
+        'export_cad_to_dagmc' in invessel_build and
+        invessel_build['export_cad_to_dagmc']
+    ):
+        if 'dagmc_filename' in invessel_build:
+            ivb_dagmc_filename = invessel_build['dagmc_filename']
+        else:
+            ivb_dagmc_filename = 'dagmc'
+        
+        if 'filename' in dagmc_export:
+            ps_dagmc_filename = dagmc_export['filename']
+        else:
+            ps_dagmc_filename = 'dagmc'
+
+        if ivb_dagmc_filename == ps_dagmc_filename:
+            e = ValueError(
+                'The DAGMC H5M filename for the CAD-to-DAGMC export matches '
+                'that of the Coreform Cubit DAGMC export. Please change one to '
+                'prevent overwriting files.'
+            )
+            logger.error(e.args[0])
+            raise e
+
+
 def parastell():
     """Main method when run as a command line script.
     """
     args = parse_args()
 
     all_data = read_yaml_config(args.filename)
+
+    logger = log.check_init(None)
+
+    check_inputs(
+        all_data['invessel_build'],
+        all_data['magnet_coils'],
+        all_data['source_mesh'],
+        all_data['dagmc_export'],
+        logger
+    )
 
     vmec_file = all_data['vmec_file']
 
@@ -511,7 +608,6 @@ def parastell():
     # In-Vessel Build
 
     invessel_build = all_data['invessel_build']
-
     
     ivb_construct_allowed_kwargs = [
         'plasma_mat_tag', 'sol_mat_tag', 'repeat', 'num_ribs', 'num_rib_pts',
