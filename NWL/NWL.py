@@ -441,6 +441,12 @@ def NWL_plot(
         num_levels (int): number of contour regions (defaults to 10).
         num_crossings (int): number of crossings to use from the surface source.
             If none, then all crossings will be used
+
+    Returns:
+        NWL_mat (numpy array): array used to create the NWL plot
+        phi_pts (numpy array): phi axis of NWL plot
+        theta_pts (numpy array): theta axis of NWL plot
+        area_array (numpy array): area array used to normalize NWL_mat
     """
     import read_vmec
     
@@ -520,3 +526,5 @@ def NWL_plot(
 
     NWL_mat = neutron_crossing_mat/area_array
     plot(NWL_mat, phi_pts, theta_pts, num_levels)
+
+    return NWL_mat, phi_pts, theta_pts, area_array
