@@ -82,7 +82,7 @@ chmod -R u+x $HOME/parastell/executables/
 Now, each executable can be run from command line with a corresponding YAML file argument. For example, for the `Stellarator` class:
 
 ```bash
-stellarator.py config.yaml
+stellarator config.yaml
 ```
 
 See each executable's help message for more details.
