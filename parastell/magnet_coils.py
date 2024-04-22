@@ -588,6 +588,15 @@ def parse_args():
     parser.add_argument(
         'filename', help='YAML file defining ParaStell magnet configuration'
     )
+    parser.add_argument(
+        '-l', '--logger',
+        default=False,
+        help=(
+            'Flag to indicate whether to instantiate a logger object (default: '
+            'False)'
+        ),
+        metavar=''
+    )
 
     return parser.parse_args()
 
@@ -609,7 +618,10 @@ def generate_magnet_set():
 
     magnet_coils_dict = read_yaml_config(args.filename)
 
-    logger = log.check_init(None, null_logger=False)
+    if args.logger == True:
+        logger = log.init()
+    else:
+        logger = log.NullLogger()
 
     mc_allowed_kwargs = [
         'start_line', 'sample_mod', 'scale', 'mat_tag'

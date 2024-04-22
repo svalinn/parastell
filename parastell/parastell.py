@@ -467,6 +467,15 @@ def parse_args():
         'filename',
         help='YAML file defining ParaStell stellarator configuration'
     )
+    parser.add_argument(
+        '-l', '--logger',
+        default=False,
+        help=(
+            'Flag to indicate whether to instantiate a logger object (default: '
+            'False)'
+        ),
+        metavar=''
+    )
 
     return parser.parse_args()
 
@@ -494,7 +503,10 @@ def parastell():
         vmec_file, invessel_build, magnet_coils, source_mesh, dagmc_export
     ) = read_yaml_config(args.filename)
 
-    logger = log.check_init(None, null_logger=False)
+    if args.logger == True:
+        logger = log.init()
+    else:
+        logger = log.NullLogger()
 
     stellarator = Stellarator(
         vmec_file,

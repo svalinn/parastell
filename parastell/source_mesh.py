@@ -409,6 +409,15 @@ def parse_args():
         'filename',
         help='YAML file defining ParaStell source mesh configuration'
     )
+    parser.add_argument(
+        '-l', '--logger',
+        default=False,
+        help=(
+            'Flag to indicate whether to instantiate a logger object (default: '
+            'False)'
+        ),
+        metavar=''
+    )
 
     return parser.parse_args()
 
@@ -430,7 +439,10 @@ def generate_source_mesh():
 
     vmec_file, source_mesh_dict = read_yaml_src(args.filename)
 
-    logger = log.check_init(None, null_logger=False)
+    if args.logger == True:
+        logger = log.init()
+    else:
+        logger = log.NullLogger()
 
     vmec_obj = read_vmec.VMECData(vmec_file)
 
