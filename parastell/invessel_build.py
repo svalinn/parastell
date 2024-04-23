@@ -671,6 +671,8 @@ class RadialBuild(object):
         }
         
         for name, component in self._radial_build.items():
+            component['thickness_matrix'] = \
+                np.array(component['thickness_matrix'])
             if (
                 component['thickness_matrix'].shape !=
                 (len(self._toroidal_angles), len(self._poloidal_angles))
@@ -740,6 +742,15 @@ def parse_args():
         'filename',
         help='YAML file defining ParaStell in-vessel component configuration'
     )
+    parser.add_argument(
+        '-l', '--logger',
+        default=False,
+        help=(
+            'Flag to indicate whether to instantiate a logger object (default: '
+            'False)'
+        ),
+        metavar=''
+    )
 
     return parser.parse_args()
 
@@ -761,6 +772,11 @@ def generate_invessel_build():
 
     vmec_file, invessel_build_dict = read_yaml_config(args.filename)
 
+    if args.logger == True:
+        logger = log.init()
+    else:
+        logger = log.NullLogger()
+
     vmec_obj = read_vmec.VMECData(vmec_file)
 
     rb_allowed_kwargs = ['plasma_mat_tag', 'sol_mat_tag']
@@ -774,6 +790,7 @@ def generate_invessel_build():
         invessel_build_dict['poloidal_angles'],
         invessel_build_dict['wall_s'],
         invessel_build_dict['radial_build'],
+        logger=logger
         **rb_kwargs
     )
 
@@ -786,7 +803,7 @@ def generate_invessel_build():
     invessel_build = InVesselBuild(
         vmec_obj,
         radial_build,
-        logger=radial_build.logger,
+        logger=logger,
         **ivb_kwargs
     )
 
