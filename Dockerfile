@@ -59,5 +59,5 @@ from parastell-deps as parastell
 # install parastell
 RUN git clone https://github.com/svalinn/parastell.git && \
     cd parastell && \
-    git checkout gh_action
+    git checkout gh-action
 ENV PYTHONPATH=$PYTHONPATH:/opt/parastell
