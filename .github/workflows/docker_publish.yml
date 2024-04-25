@@ -50,15 +50,12 @@ jobs:
 
       - name: populate environment
         run: |
-          echo "rlmSERVER=${{ secrets.RLMSERVER }}" >> "$GITHUB_ENV"
-          echo "rlmPASSWD=${{ secrets.RLMPASSWORD}}" >> "$GITHUB_ENV"
           . /opt/etc/bashrc
           conda activate parastell_env
-          printenv
           sed -e "s/@SERVER@/${rlmSERVER}/" -e "s/@PASSWORD@/${rlmPASSWD}/" /opt/Coreform-Cubit-2023.11/bin/licenses/rlmcloud.in > /opt/Coreform-Cubit-2023.11/bin/licenses/rlmcloud.lic
           export PYTHONPATH=${PYTHONPATH}:`pwd`
-
-      - name: test environment
-        run: |
           cd tests
           pytest -v test_parastell.py
+        env:
+          rlmSERVER: ${{ secrets.RLMSERVER }}
+          rlmPASSWD: ${{ secrets.RLMPASSWORD}}
