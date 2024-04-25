@@ -5,7 +5,7 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 RUN apt-get update -y
 RUN apt-get upgrade -y
 
-# install dependencies
+# Install dependencies
 RUN apt-get install -y libgl1-mesa-glx \
                         libgl1-mesa-dev \
                         libglu1-mesa-dev \
@@ -30,10 +30,10 @@ RUN apt-get install -y libgl1-mesa-glx \
                         libxcursor1 \
                         libxinerama1
 
-# download cubit
+# Download Coreform Cubit
 RUN wget -O /cubit.deb https://f002.backblazeb2.com/file/cubit-downloads/Coreform-Cubit/Releases/Linux/Coreform-Cubit-2023.11%2B43088-Lin64.deb
 
-# install cubit
+# Install Cubit
 RUN dpkg -i cubit.deb
 ENV PYTHONPATH=/opt/Coreform-Cubit-2023.11/bin/
 COPY ./rlmcloud.in /opt/Coreform-Cubit-2023.11/bin/licenses/rlmcloud.in
@@ -41,14 +41,14 @@ COPY ./rlmcloud.in /opt/Coreform-Cubit-2023.11/bin/licenses/rlmcloud.in
 RUN mkdir -p /opt/etc
 RUN cp /root/.bashrc /opt/etc/bashrc
 
-# parastell env
+# Install Python dependencies in parastell env conda environment
 COPY ./environment.yml /environment.yml
 RUN conda env create -f environment.yml
 RUN echo "conda activate parastell_env" >> /opt/etc/bashrc
 
 WORKDIR /opt
 
-# install pystell_uw
+# Install PyStell-UW
 RUN git clone https://github.com/aaroncbader/pystell_uw.git
 ENV PYTHONPATH=$PYTHONPATH:/opt/pystell_uw
 
@@ -56,7 +56,6 @@ WORKDIR /
 
 from parastell-deps as parastell
 
-# install parastell
-RUN mkdir parastell
-COPY . parastell/
+# Install ParaStell
+COPY . parastell
 ENV PYTHONPATH=$PYTHONPATH:/opt/parastell
