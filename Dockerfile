@@ -55,9 +55,3 @@ ENV PYTHONPATH=$PYTHONPATH:/opt/pystell_uw
 WORKDIR /
 
 FROM parastell-deps as parastell
-
-# Install ParaStell
-RUN mkdir /opt/parastell
-WORKDIR /opt
-COPY . parastell/
-ENV PYTHONPATH=$PYTHONPATH:/opt/parastell
