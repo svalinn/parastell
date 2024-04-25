@@ -48,7 +48,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: populate environment
+      - name: Populate environment and run tests
         run: |
           . /opt/etc/bashrc
           sed -e "s/@SERVER@/${rlmSERVER}/" -e "s/@PASSWORD@/${rlmPASSWD}/" /opt/Coreform-Cubit-2023.11/bin/licenses/rlmcloud.in > /opt/Coreform-Cubit-2023.11/bin/licenses/rlmcloud.lic
