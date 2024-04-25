@@ -37,7 +37,6 @@ jobs:
           push: true
           target: parastell-deps
           tags: ghcr.io/svalinn/parastell-ci
-        run: git checkout gh-action
 
   test-dependency-img:
     needs: build-dependency-img
