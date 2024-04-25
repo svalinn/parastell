@@ -53,5 +53,3 @@ RUN git clone https://github.com/aaroncbader/pystell_uw.git
 ENV PYTHONPATH=$PYTHONPATH:/opt/pystell_uw
 
 WORKDIR /
-
-FROM parastell-deps as parastell
