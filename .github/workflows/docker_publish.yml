@@ -36,12 +36,12 @@ jobs:
           file: Dockerfile
           push: true
           target: parastell-deps
-          tags: ghcr.io/svalinn/parstell-ci
+          tags: ghcr.io/svalinn/parastell-ci
 
   test-dependency-img:
     needs: build-dependency-img
     runs-on: ubuntu-latest
-    container: ghcr.io/svalinn/parstell-ci
+    container: ghcr.io/svalinn/parastell-ci
 
     name: Testing CI image
     steps:
@@ -51,9 +51,9 @@ jobs:
       - name: populate environment
         run: |
           . /opt/etc/bashrc
-          conda activate parastell_env
           sed -e "s/@SERVER@/${rlmSERVER}/" -e "s/@PASSWORD@/${rlmPASSWD}/" /opt/Coreform-Cubit-2023.11/bin/licenses/rlmcloud.in > /opt/Coreform-Cubit-2023.11/bin/licenses/rlmcloud.lic
           export PYTHONPATH=${PYTHONPATH}:`pwd`
+          git checkout gh-action
           cd tests
           pytest -v .
         env:

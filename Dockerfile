@@ -57,7 +57,6 @@ WORKDIR /
 from parastell-deps as parastell
 
 # install parastell
-RUN git clone https://github.com/svalinn/parastell.git && \
-    cd parastell && \
-    git checkout gh-action
+RUN mkdir parastell
+COPY . parastell/
 ENV PYTHONPATH=$PYTHONPATH:/opt/parastell
