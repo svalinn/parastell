@@ -1,4 +1,3 @@
-import yaml
 import argparse
 
 import numpy as np
@@ -7,7 +6,10 @@ import cubit
 
 from . import log
 from . import cubit_io as cubit_io 
-from .utils import normalize, construct_kwargs_from_dict, set_kwarg_attrs, m2cm
+from .utils import (
+    normalize, read_yaml_config, construct_kwargs_from_dict, set_kwarg_attrs,
+    m2cm
+)
 
 
 class MagnetSet(object):
@@ -138,7 +140,7 @@ class MagnetSet(object):
                     'radius; did you mean to use "rectangle"?'
                 )
                 self._logger.warning(w.args[0])
-                raise w
+            
             # Extract parameters
             mag_len = self._cross_section[1]
             # Define string to pass to Cubit for cross-section generation
@@ -589,6 +591,15 @@ def parse_args():
         'filename', help='YAML file defining ParaStell magnet configuration'
     )
     parser.add_argument(
+        '-e', '--export_dir',
+        default='',
+        help=(
+            'Directory to which output files are exported (default: working '
+            'directory)'
+        ),
+        metavar=''
+    )
+    parser.add_argument(
         '-l', '--logger',
         default=False,
         help=(
@@ -601,27 +612,19 @@ def parse_args():
     return parser.parse_args()
 
 
-def read_yaml_config(filename):
-    """Read YAML file describing the stellarator magnet configuration and
-    extract all data.
-    """
-    with open(filename) as yaml_file:
-        all_data = yaml.safe_load(yaml_file)
-
-    return all_data['magnet_coils']
-
-
 def generate_magnet_set():
     """Main method when run as command line script.
     """
     args = parse_args()
 
-    magnet_coils_dict = read_yaml_config(args.filename)
+    all_data = read_yaml_config(args.filename)
 
     if args.logger == True:
         logger = log.init()
     else:
         logger = log.NullLogger()
+
+    magnet_coils_dict = all_data['magnet_coils']
 
     mc_allowed_kwargs = [
         'start_line', 'sample_mod', 'scale', 'mat_tag'
@@ -641,22 +644,28 @@ def generate_magnet_set():
 
     magnet_set.build_magnet_coils()
 
-    mc_step_export_allowed_kwargs = ['step_filename', 'export_dir']
+    mc_step_export_allowed_kwargs = ['step_filename']
     mc_step_export_kwargs = construct_kwargs_from_dict(
         magnet_coils_dict,
         mc_step_export_allowed_kwargs
     )
 
-    magnet_set.export_step(**mc_step_export_kwargs)
+    magnet_set.export_step(
+        export_dir=args.export_dir,
+        **mc_step_export_kwargs
+    )
 
     if magnet_coils_dict['export_mesh']:
-        mc_mesh_export_allowed_kwargs = ['step_filename', 'export_dir']
+        mc_mesh_export_allowed_kwargs = ['mesh_filename']
         mc_mesh_export_kwargs = construct_kwargs_from_dict(
             magnet_coils_dict,
             mc_mesh_export_allowed_kwargs
         )
 
-        magnet_set.export_mesh(**mc_mesh_export_kwargs)
+        magnet_set.export_mesh(
+            export_dir=args.export_dir,
+            **mc_mesh_export_kwargs
+        )
 
 
 if __name__ == '__main__':

@@ -11,7 +11,7 @@ from . import invessel_build as ivb
 from . import magnet_coils as mc
 from . import source_mesh as sm
 from . import cubit_io
-from .utils import construct_kwargs_from_dict
+from .utils import read_yaml_config, construct_kwargs_from_dict, m2cm
 
 
 def make_material_block(mat_tag, block_id, vol_id_str):
@@ -468,6 +468,15 @@ def parse_args():
         help='YAML file defining ParaStell stellarator configuration'
     )
     parser.add_argument(
+        '-e', '--export_dir',
+        default='',
+        help=(
+            'Directory to which output files are exported (default: working '
+            'directory)'
+        ),
+        metavar=''
+    )
+    parser.add_argument(
         '-l', '--logger',
         default=False,
         help=(
@@ -480,18 +489,91 @@ def parse_args():
     return parser.parse_args()
 
 
-def read_yaml_config(filename):
-    """Read YAML file describing the stellarator configuration and extract all
-    data.
-    """
-    with open(filename) as yaml_file:
-        all_data = yaml.safe_load(yaml_file)
+def check_inputs(
+    invessel_build, magnet_coils, source_mesh, dagmc_export, logger
+):
+    """Checks inputs for consistency across ParaStell classes.
 
-    return (
-        all_data['vmec_file'], all_data['invessel_build'],
-        all_data['magnet_coils'], all_data['source_mesh'],
-        all_data['dagmc_export']
-    )
+    Arguments:
+        invessel_build (dict): dictionary of RadialBuild and InVesselBuild
+            parameters.
+        magnet_coils (dict): dictionary of MagnetSet parameters.
+        source_mesh (dict): dictionary of SourceMesh parameters.
+        dagmc_export (dict): dictionary of DAGMC export parameters.
+        logger (object): logger object.
+    """
+    if 'repeat' in invessel_build:
+        repeat = invessel_build['repeat']
+    else:
+        repeat = 0
+
+    ivb_tor_ext = (repeat + 1) * invessel_build['toroidal_angles'][-1]
+    mag_tor_ext = magnet_coils['toroidal_extent']
+    src_tor_ext = source_mesh['toroidal_extent']
+    
+    if ivb_tor_ext != mag_tor_ext:
+        w = Warning(
+            f'The total toroidal extent of the in-vessel build, {ivb_tor_ext} '
+            'degrees, does not match the toroidal extent of the magnet coils, '
+            f'{mag_tor_ext} degrees.'
+        )
+        logger.warning(w.args[0])
+    
+    if ivb_tor_ext != src_tor_ext:
+        w = Warning(
+            f'The total toroidal extent of the in-vessel build, {ivb_tor_ext} '
+            'degrees, does not match the toroidal extent of the source mesh, '
+            f'{src_tor_ext} degrees.'
+        )
+        logger.warning(w.args[0])
+    
+    if mag_tor_ext != src_tor_ext:
+        w = Warning(
+            f'The toroidal extent of the magnet coils, {mag_tor_ext} degrees, '
+            f'does not match that of the source mesh, {src_tor_ext} degrees.'
+        )
+        logger.warning(w.args[0])
+    
+    if 'scale' in invessel_build:
+        ivb_scale = invessel_build['scale']
+    else:
+        ivb_scale = m2cm
+
+    if 'scale' in source_mesh:
+        src_scale = source_mesh['scale']
+    else:
+        src_scale = m2cm
+
+    if ivb_scale != src_scale:
+        e = ValueError(
+            f'The conversion scale of the in-vessel build, {ivb_scale}, does '
+            f'not match that of the source mesh, {src_scale}.'
+        )
+        logger.error(e.args[0])
+        raise e
+    
+    if (
+        'export_cad_to_dagmc' in invessel_build and
+        invessel_build['export_cad_to_dagmc']
+    ):
+        if 'dagmc_filename' in invessel_build:
+            ivb_dagmc_filename = invessel_build['dagmc_filename']
+        else:
+            ivb_dagmc_filename = 'dagmc'
+        
+        if 'filename' in dagmc_export:
+            ps_dagmc_filename = dagmc_export['filename']
+        else:
+            ps_dagmc_filename = 'dagmc'
+
+        if ivb_dagmc_filename == ps_dagmc_filename:
+            e = ValueError(
+                'The DAGMC H5M filename for the CAD-to-DAGMC export matches '
+                'that of the Coreform Cubit DAGMC export. Please change one to '
+                'prevent overwriting files.'
+            )
+            logger.error(e.args[0])
+            raise e
 
 
 def parastell():
@@ -499,9 +581,19 @@ def parastell():
     """
     args = parse_args()
 
-    (
-        vmec_file, invessel_build, magnet_coils, source_mesh, dagmc_export
-    ) = read_yaml_config(args.filename)
+    all_data = read_yaml_config(args.filename)
+
+    logger = log.check_init(None)
+
+    check_inputs(
+        all_data['invessel_build'],
+        all_data['magnet_coils'],
+        all_data['source_mesh'],
+        all_data['dagmc_export'],
+        logger
+    )
+
+    vmec_file = all_data['vmec_file']
 
     if args.logger == True:
         logger = log.init()
@@ -514,6 +606,8 @@ def parastell():
     )
 
     # In-Vessel Build
+
+    invessel_build = all_data['invessel_build']
     
     ivb_construct_allowed_kwargs = [
         'plasma_mat_tag', 'sol_mat_tag', 'repeat', 'num_ribs', 'num_rib_pts',
@@ -528,21 +622,26 @@ def parastell():
         invessel_build['toroidal_angles'],
         invessel_build['poloidal_angles'],
         invessel_build['wall_s'],
-        invessel_build['radial_build']
+        invessel_build['radial_build'],
         **ivb_construct_kwargs
     )
 
     ivb_export_allowed_kwargs = [
-        'export_cad_to_dagmc', 'dagmc_filename', 'export_dir'
+        'export_cad_to_dagmc', 'dagmc_filename'
     ]
     ivb_export_kwargs = construct_kwargs_from_dict(
         invessel_build,
         ivb_export_allowed_kwargs
     )
 
-    stellarator.export_invessel_build(**ivb_export_kwargs)
+    stellarator.export_invessel_build(
+        export_dir=args.export_dir,
+        **ivb_export_kwargs
+    )
 
     # Magnet Coils
+
+    magnet_coils = all_data['magnet_coils']
     
     mc_construct_allowed_kwargs = [
         'start_line', 'sample_mod', 'scale', 'mat_tag'
@@ -555,21 +654,26 @@ def parastell():
     stellarator.construct_magnets(
         magnet_coils['coils_file'],
         magnet_coils['cross_section'],
-        magnet_coils['toroidal_extenet'],
+        magnet_coils['toroidal_extent'],
         **mc_construct_kwargs
     )
 
     mc_export_allowed_kwargs = [
-        'step_filename', 'export_mesh', 'mesh_filename', 'export_dir'
+        'step_filename', 'export_mesh', 'mesh_filename'
     ]
     mc_export_kwargs = construct_kwargs_from_dict(
         magnet_coils,
         mc_export_allowed_kwargs
     )
 
-    stellarator.export_magnets(**mc_export_kwargs)
+    stellarator.export_magnets(
+        export_dir=args.export_dir,
+        **mc_export_kwargs
+    )
 
     # Source Mesh
+
+    source_mesh = all_data['source_mesh']
 
     sm_construct_allowed_kwargs = ['scale']
     sm_construct_kwargs = construct_kwargs_from_dict(
@@ -579,20 +683,28 @@ def parastell():
 
     stellarator.construct_source_mesh(
         source_mesh['mesh_size'],
-        source_mesh['toroidal_extent']
+        source_mesh['toroidal_extent'],
         **sm_construct_kwargs
     )
 
-    sm_export_allowed_kwargs = ['filename', 'export_dir']
+    sm_export_allowed_kwargs = ['filename']
     sm_export_kwargs = construct_kwargs_from_dict(
         source_mesh,
         sm_export_allowed_kwargs
     )
 
-    stellarator.export_source_mesh(**sm_export_kwargs)
+    stellarator.export_source_mesh(
+        export_dir=args.export_dir,
+        **sm_export_kwargs
+    )
     
     # DAGMC export
-    stellarator.export_dagmc(**dagmc_export)
+    dagmc_export = all_data['dagmc_export']
+
+    stellarator.export_dagmc(
+        export_dir=args.export_dir,
+        **dagmc_export
+    )
 
 
 if __name__ == "__main__":

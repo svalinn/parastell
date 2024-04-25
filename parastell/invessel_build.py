@@ -1,5 +1,4 @@
 import argparse
-import yaml
 from pathlib import Path
 
 import numpy as np
@@ -12,8 +11,8 @@ import src.pystell.read_vmec as read_vmec
 
 from . import log
 from .utils import (
-    expand_ang_list, normalize, construct_kwargs_from_dict, set_kwarg_attrs,
-    m2cm
+    normalize, expand_ang_list, read_yaml_config, construct_kwargs_from_dict,
+    set_kwarg_attrs, m2cm
 )
 
 
@@ -689,7 +688,7 @@ class RadialBuild(object):
                 self._logger.error(e.args[0])
                 raise e
             
-            if np.any(np.array(component['thickness_matrix']) < 0):
+            if np.any(component['thickness_matrix'] < 0):
                 e = ValueError(
                     'Component thicknesses must be greater than or equal to 0. '
                     'Check thickness inputs for negative values.'
@@ -743,6 +742,15 @@ def parse_args():
         help='YAML file defining ParaStell in-vessel component configuration'
     )
     parser.add_argument(
+        '-e', '--export_dir',
+        default='',
+        help=(
+            'Directory to which output files are exported (default: working '
+            'directory)'
+        ),
+        metavar=''
+    )
+    parser.add_argument(
         '-l', '--logger',
         default=False,
         help=(
@@ -755,29 +763,22 @@ def parse_args():
     return parser.parse_args()
 
 
-def read_yaml_config(filename):
-    """Read YAML file describing the stellarator in-vessel component
-    configuration and extract all data.
-    """
-    with open(filename) as yaml_file:
-        all_data = yaml.safe_load(yaml_file)
-
-    return all_data['vmec_file'], all_data['invessel_build']
-
-
 def generate_invessel_build():
     """Main method when run as a command line script.
     """
     args = parse_args()
 
-    vmec_file, invessel_build_dict = read_yaml_config(args.filename)
+    all_data = read_yaml_config(args.filename)
 
     if args.logger == True:
         logger = log.init()
     else:
         logger = log.NullLogger()
 
+    vmec_file = all_data['vmec_file']
     vmec_obj = read_vmec.VMECData(vmec_file)
+
+    invessel_build_dict = all_data['invessel_build']
 
     rb_allowed_kwargs = ['plasma_mat_tag', 'sol_mat_tag']
     rb_kwargs = construct_kwargs_from_dict(
@@ -811,24 +812,21 @@ def generate_invessel_build():
     invessel_build.calculate_loci()
     invessel_build.generate_components()
 
-    ivb_step_export_allowed_kwargs = ['export_dir']
-    ivb_step_export_kwargs = construct_kwargs_from_dict(
-        invessel_build_dict,
-        ivb_step_export_allowed_kwargs
-    )
-
-    invessel_build.export_step(**ivb_step_export_kwargs)
+    invessel_build.export_step(export_dir=args.export_dir)
 
     if invessel_build_dict['export_cad_to_dagmc']:
         ivb_dagmc_export_allowed_kwargs = [
-            'export_cad_to_dagmc', 'dagmc_filename', 'export_dir'
+            'export_cad_to_dagmc', 'dagmc_filename'
         ]
         ivb_dagmc_export_kwargs = construct_kwargs_from_dict(
             invessel_build_dict,
             ivb_dagmc_export_allowed_kwargs
         )
 
-        invessel_build.export_cad_to_dagmc(**ivb_dagmc_export_kwargs)
+        invessel_build.export_cad_to_dagmc(
+            export_dir=args.export_dir,
+            **ivb_dagmc_export_kwargs
+        )
 
 
 if __name__ == "__main__":
