@@ -60,5 +60,4 @@ from parastell-deps as parastell
 RUN git clone https://github.com/svalinn/parastell.git && \
     cd parastell && \
     git checkout gh-action
-RUN ls /opt/parastell/
 ENV PYTHONPATH=$PYTHONPATH:/opt/parastell
