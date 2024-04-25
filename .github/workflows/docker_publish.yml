@@ -57,4 +57,4 @@ jobs:
           sed -e "s/@SERVER@/${rlmSERVER}/" -e "s/@PASSWORD@/${rlmPASSWD}/" /opt/Coreform-Cubit-2023.11/bin/licenses/rlmcloud.in > /opt/Coreform-Cubit-2023.11/bin/licenses/rlmcloud.lic
           export PYTHONPATH=${PYTHONPATH}:`pwd`
           cd tests
-          pytest -v test_invessel_build.py
+          pytest -v test_parastell.py
