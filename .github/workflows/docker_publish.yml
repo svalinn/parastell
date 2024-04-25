@@ -37,6 +37,7 @@ jobs:
           push: true
           target: parastell-deps
           tags: ghcr.io/svalinn/parastell-ci
+        run: git checkout gh-action
 
   test-dependency-img:
     needs: build-dependency-img
@@ -53,7 +54,6 @@ jobs:
           . /opt/etc/bashrc
           sed -e "s/@SERVER@/${rlmSERVER}/" -e "s/@PASSWORD@/${rlmPASSWD}/" /opt/Coreform-Cubit-2023.11/bin/licenses/rlmcloud.in > /opt/Coreform-Cubit-2023.11/bin/licenses/rlmcloud.lic
           export PYTHONPATH=${PYTHONPATH}:`pwd`
-          git checkout gh-action
           cd tests
           pytest -v .
         env:
