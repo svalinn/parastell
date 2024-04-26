@@ -3,7 +3,7 @@ name: Regular CI testing for parastell
 on:
   # allows us to run workflows manually
   workflow_dispatch:
-  push:
+  pull_request:
 
 jobs:
   test-dependency-img:
