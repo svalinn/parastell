@@ -4,6 +4,9 @@ on:
   # allows us to run workflows manually
   workflow_dispatch:
   pull_request:
+    paths-ignore:
+      - 'Dockerfile'
+      - '.github/workflows/docker_publish.yml'
 
 jobs:
   test-dependency-img:
