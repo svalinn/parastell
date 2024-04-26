@@ -7,6 +7,7 @@ on:
     paths:
       - 'Dockerfile'
       - '.github/workflows/docker_publish.yml'
+      - 'environment.yml'
 
 jobs:
   build-dependency-img:
