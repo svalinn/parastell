@@ -457,6 +457,107 @@ class Stellarator(object):
                 **kwargs
             )
 
+    def build_full_model(self, invessel_build, magnet_coils, source_mesh):
+        """Use all of the input to make a complete stellarator model
+        with invessel components, magnets, and a source mesh
+        """
+
+        # In-Vessel Build
+                
+        ivb_construct_allowed_kwargs = [
+            'plasma_mat_tag', 'sol_mat_tag', 'repeat', 'num_ribs', 'num_rib_pts',
+            'scale'
+        ]
+        ivb_construct_kwargs = construct_kwargs_from_dict(
+            invessel_build,
+            ivb_construct_allowed_kwargs
+        )
+        
+        self.construct_invessel_build(
+            invessel_build['toroidal_angles'],
+            invessel_build['poloidal_angles'],
+            invessel_build['wall_s'],
+            invessel_build['radial_build'],
+            **ivb_construct_kwargs
+        )
+
+        # Magnet Coils
+        
+        mc_construct_allowed_kwargs = [
+            'start_line', 'sample_mod', 'scale', 'mat_tag'
+        ]
+        mc_construct_kwargs = construct_kwargs_from_dict(
+            magnet_coils,
+            mc_construct_allowed_kwargs
+        )
+        
+        self.construct_magnets(
+            magnet_coils['coils_file'],
+            magnet_coils['cross_section'],
+            magnet_coils['toroidal_extent'],
+            **mc_construct_kwargs
+        )
+
+        # Source Mesh
+
+        sm_construct_allowed_kwargs = ['scale']
+        sm_construct_kwargs = construct_kwargs_from_dict(
+            source_mesh,
+            sm_construct_allowed_kwargs
+        )
+
+        self.construct_source_mesh(
+            source_mesh['mesh_size'],
+            source_mesh['toroidal_extent'],
+            **sm_construct_kwargs
+        )
+
+    def export_full_model(self, export_dir, invessel_build, 
+                          magnet_coils, source_mesh, dagmc_export):
+    
+        ivb_export_allowed_kwargs = [
+            'export_cad_to_dagmc', 'dagmc_filename'
+        ]
+        ivb_export_kwargs = construct_kwargs_from_dict(
+            invessel_build,
+            ivb_export_allowed_kwargs
+        )
+
+        self.export_invessel_build(
+            export_dir=export_dir,
+            **ivb_export_kwargs
+        )
+
+        mc_export_allowed_kwargs = [
+            'step_filename', 'export_mesh', 'mesh_filename'
+        ]
+        mc_export_kwargs = construct_kwargs_from_dict(
+            magnet_coils,
+            mc_export_allowed_kwargs
+        )
+
+        self.export_magnets(
+            export_dir=export_dir,
+            **mc_export_kwargs
+        )
+
+        sm_export_allowed_kwargs = ['filename']
+        sm_export_kwargs = construct_kwargs_from_dict(
+            source_mesh,
+            sm_export_allowed_kwargs
+        )
+
+        self.export_source_mesh(
+            export_dir=export_dir,
+            **sm_export_kwargs
+        )
+        
+        # DAGMC export
+        self.export_dagmc(
+            export_dir=export_dir,
+            **dagmc_export
+        )
+
 
 def parse_args():
     """Parser for running as a script.
@@ -605,107 +706,16 @@ def parastell():
         logger=logger
     )
 
-    # In-Vessel Build
+    stellarator.build_full_model(all_data['invessel_build'],
+                                 all_data['magnet_coils'],
+                                 all_data['source_mesh'])
 
-    invessel_build = all_data['invessel_build']
+    stellarator.export_full_model(args.export_dir,
+                                  all_data['invesel_build'],
+                                  all_data['magnet_coils'],
+                                  all_data['source_mesh'],
+                                  all_data['dagmc_export'])
     
-    ivb_construct_allowed_kwargs = [
-        'plasma_mat_tag', 'sol_mat_tag', 'repeat', 'num_ribs', 'num_rib_pts',
-        'scale'
-    ]
-    ivb_construct_kwargs = construct_kwargs_from_dict(
-        invessel_build,
-        ivb_construct_allowed_kwargs
-    )
-    
-    stellarator.construct_invessel_build(
-        invessel_build['toroidal_angles'],
-        invessel_build['poloidal_angles'],
-        invessel_build['wall_s'],
-        invessel_build['radial_build'],
-        **ivb_construct_kwargs
-    )
-
-    ivb_export_allowed_kwargs = [
-        'export_cad_to_dagmc', 'dagmc_filename'
-    ]
-    ivb_export_kwargs = construct_kwargs_from_dict(
-        invessel_build,
-        ivb_export_allowed_kwargs
-    )
-
-    stellarator.export_invessel_build(
-        export_dir=args.export_dir,
-        **ivb_export_kwargs
-    )
-
-    # Magnet Coils
-
-    magnet_coils = all_data['magnet_coils']
-    
-    mc_construct_allowed_kwargs = [
-        'start_line', 'sample_mod', 'scale', 'mat_tag'
-    ]
-    mc_construct_kwargs = construct_kwargs_from_dict(
-        magnet_coils,
-        mc_construct_allowed_kwargs
-    )
-    
-    stellarator.construct_magnets(
-        magnet_coils['coils_file'],
-        magnet_coils['cross_section'],
-        magnet_coils['toroidal_extent'],
-        **mc_construct_kwargs
-    )
-
-    mc_export_allowed_kwargs = [
-        'step_filename', 'export_mesh', 'mesh_filename'
-    ]
-    mc_export_kwargs = construct_kwargs_from_dict(
-        magnet_coils,
-        mc_export_allowed_kwargs
-    )
-
-    stellarator.export_magnets(
-        export_dir=args.export_dir,
-        **mc_export_kwargs
-    )
-
-    # Source Mesh
-
-    source_mesh = all_data['source_mesh']
-
-    sm_construct_allowed_kwargs = ['scale']
-    sm_construct_kwargs = construct_kwargs_from_dict(
-        source_mesh,
-        sm_construct_allowed_kwargs
-    )
-
-    stellarator.construct_source_mesh(
-        source_mesh['mesh_size'],
-        source_mesh['toroidal_extent'],
-        **sm_construct_kwargs
-    )
-
-    sm_export_allowed_kwargs = ['filename']
-    sm_export_kwargs = construct_kwargs_from_dict(
-        source_mesh,
-        sm_export_allowed_kwargs
-    )
-
-    stellarator.export_source_mesh(
-        export_dir=args.export_dir,
-        **sm_export_kwargs
-    )
-    
-    # DAGMC export
-    dagmc_export = all_data['dagmc_export']
-
-    stellarator.export_dagmc(
-        export_dir=args.export_dir,
-        **dagmc_export
-    )
-
 
 if __name__ == "__main__":
     parastell()
