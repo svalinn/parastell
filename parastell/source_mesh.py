@@ -6,10 +6,9 @@ from pymoab import core, types
 import src.pystell.read_vmec as read_vmec
 
 from . import log as log
-from .utils import (
-    read_yaml_config, construct_kwargs_from_dict, set_kwarg_attrs, m2cm
-)
+from .utils import read_yaml_config, filter_kwargs, m2cm
 
+export_allowed_kwargs = ['filename']
 
 def rxn_rate(s):
     """Calculates fusion reaction rate in plasma.
@@ -96,11 +95,9 @@ class SourceMesh(object):
         self.scale = m2cm
 
         allowed_kwargs = ['scale']
-        set_kwarg_attrs(
-            self,
-            kwargs,
-            allowed_kwargs
-        )
+        for name in allowed_kwargs:
+            if name in kwargs.keys():
+                self.__setattr__(name,kwargs[name])
         
         self.strengths = []
 
@@ -449,32 +446,20 @@ def generate_source_mesh():
 
     source_mesh_dict = all_data['source_mesh']
 
-    sm_allowed_kwargs = ['scale']
-    sm_kwargs = construct_kwargs_from_dict(
-        source_mesh_dict,
-        sm_allowed_kwargs
-    )
-
     source_mesh = SourceMesh(
         vmec_obj,
         source_mesh_dict['mesh_size'],
         source_mesh_dict['toroidal_extent'],
         logger=logger
-        **sm_kwargs
+        **source_mesh_dict
     )
 
     source_mesh.create_vertices()
     source_mesh.create_mesh()
 
-    sm_export_allowed_kwargs = ['filename']
-    sm_export_kwargs = construct_kwargs_from_dict(
-        source_mesh_dict,
-        sm_export_allowed_kwargs
-    )
-
     source_mesh.export_mesh(
         export_dir=args.export_dir,
-        **sm_export_kwargs
+        **(filter_kwargs(source_mesh_dict,['filename']))
     )
 
 

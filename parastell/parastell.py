@@ -11,7 +11,7 @@ from . import invessel_build as ivb
 from . import magnet_coils as mc
 from . import source_mesh as sm
 from . import cubit_io
-from .utils import read_yaml_config, construct_kwargs_from_dict, m2cm
+from .utils import read_yaml_config, filter_kwargs, m2cm
 
 
 def make_material_block(mat_tag, block_id, vol_id_str):
@@ -140,47 +140,20 @@ class Stellarator(object):
             scale (float): a scaling factor between the units of VMEC and [cm]
                 (defaults to m2cm = 100).
         """
-        # This block checks the user-supplied keyword arguments; not all
-        # keyword arguments present in 'kwargs' can be passed to each class
-        # object below
-        allowed_kwargs = [
-            'plasma_mat_tag', 'sol_mat_tag', 'repeat', 'num_ribs',
-            'num_rib_pts', 'scale'
-        ]
-        kwargs = construct_kwargs_from_dict(
-            kwargs,
-            allowed_kwargs,
-            all_kwargs=True,
-            fn_name='construct_invessel_build',
-            logger=self._logger 
-        )
-
-        rb_allowed_kwargs = ['plasma_mat_tag', 'sol_mat_tag']
-        rb_kwargs = construct_kwargs_from_dict(
-            kwargs,
-            rb_allowed_kwargs
-        )
-        
         self.radial_build = ivb.RadialBuild(
             toroidal_angles,
             poloidal_angles,
             wall_s,
             radial_build,
             logger=self._logger,
-            **rb_kwargs
-        )
-
-        ivb_allowed_kwargs = ['repeat', 'num_ribs', 'num_rib_pts', 'scale']
-        ivb_kwargs = construct_kwargs_from_dict(
-            kwargs,
-            ivb_allowed_kwargs
+            **kwargs
         )
 
         self.invessel_build = ivb.InVesselBuild(
             self._vmec_obj,
             self.radial_build,
             logger=self._logger,
-            **ivb_kwargs
+            **kwargs
         )
 
         self.invessel_build.populate_surfaces()
@@ -235,21 +208,12 @@ class Stellarator(object):
             mat_tag (str): DAGMC material tag to use for magnets in DAGMC
                 neutronics model (defaults to 'magnets').
         """
-        allowed_kwargs = ['start_line', 'sample_mod', 'scale', 'mat_tag']
-        mc_kwargs = construct_kwargs_from_dict(
-            kwargs,
-            allowed_kwargs,
-            all_kwargs=True,
-            fn_name='construct_magnets',
-            logger=self._logger 
-        )
-        
         self.magnet_set = mc.MagnetSet(
             coils_file,
             cross_section,
             toroidal_extent,
             logger=self._logger,
-            **mc_kwargs
+            **kwargs
         )
 
         self.magnet_set.build_magnet_coils()
@@ -302,21 +266,12 @@ class Stellarator(object):
             scale (float): a scaling factor between the units of VMEC and [cm]
                 (defaults to m2cm = 100).
         """
-        allowed_kwargs = ['scale']
-        sm_kwargs = construct_kwargs_from_dict(
-            kwargs,
-            allowed_kwargs,
-            all_kwargs=True,
-            fn_name='construct_source_mesh',
-            logger=self._logger 
-        )
-
         self.source_mesh = sm.SourceMesh(
             self._vmec_obj,
             mesh_size,
             toroidal_extent,
             logger=self._logger,
-            **sm_kwargs
+            **kwargs
         )
 
         self.source_mesh.create_vertices()
@@ -463,93 +418,49 @@ class Stellarator(object):
         """
 
         # In-Vessel Build
-                
-        ivb_construct_allowed_kwargs = [
-            'plasma_mat_tag', 'sol_mat_tag', 'repeat', 'num_ribs', 'num_rib_pts',
-            'scale'
-        ]
-        ivb_construct_kwargs = construct_kwargs_from_dict(
-            invessel_build,
-            ivb_construct_allowed_kwargs
-        )
-        
         self.construct_invessel_build(
             invessel_build['toroidal_angles'],
             invessel_build['poloidal_angles'],
             invessel_build['wall_s'],
             invessel_build['radial_build'],
-            **ivb_construct_kwargs
+            **invessel_build
         )
 
         # Magnet Coils
-        
-        mc_construct_allowed_kwargs = [
-            'start_line', 'sample_mod', 'scale', 'mat_tag'
-        ]
-        mc_construct_kwargs = construct_kwargs_from_dict(
-            magnet_coils,
-            mc_construct_allowed_kwargs
-        )
-        
         self.construct_magnets(
             magnet_coils['coils_file'],
             magnet_coils['cross_section'],
             magnet_coils['toroidal_extent'],
-            **mc_construct_kwargs
+            **magnet_coils
         )
 
         # Source Mesh
-
-        sm_construct_allowed_kwargs = ['scale']
-        sm_construct_kwargs = construct_kwargs_from_dict(
-            source_mesh,
-            sm_construct_allowed_kwargs
-        )
-
         self.construct_source_mesh(
             source_mesh['mesh_size'],
             source_mesh['toroidal_extent'],
-            **sm_construct_kwargs
+            **source_mesh
         )
 
     def export_full_model(self, export_dir, invessel_build, 
                           magnet_coils, source_mesh, dagmc_export):
     
-        ivb_export_allowed_kwargs = [
-            'export_cad_to_dagmc', 'dagmc_filename'
-        ]
-        ivb_export_kwargs = construct_kwargs_from_dict(
-            invessel_build,
-            ivb_export_allowed_kwargs
-        )
+        export_cad_to_dagmc = invessel_build.get('export_cad_to_dagmc', False)
+        dagmc_filename = invessel_build.get('dagmc_filename', 'dagmc')
 
         self.export_invessel_build(
             export_dir=export_dir,
-            **ivb_export_kwargs
+            export_cad_to_dagmc=export_cad_to_dagmc,
+            dagmc_filename=dagmc_filename
         )
-
-        mc_export_allowed_kwargs = [
-            'step_filename', 'export_mesh', 'mesh_filename'
-        ]
-        mc_export_kwargs = construct_kwargs_from_dict(
-            magnet_coils,
-            mc_export_allowed_kwargs
-        )
-
+        
         self.export_magnets(
             export_dir=export_dir,
-            **mc_export_kwargs
-        )
-
-        sm_export_allowed_kwargs = ['filename']
-        sm_export_kwargs = construct_kwargs_from_dict(
-            source_mesh,
-            sm_export_allowed_kwargs
+            **(filter_kwargs(magnet_coils,mc.export_allowed_kwargs))
         )
 
         self.export_source_mesh(
             export_dir=export_dir,
-            **sm_export_kwargs
+            **(filter_kwargs(source_mesh, sm.export_allowed_kwargs))
         )
         
         # DAGMC export

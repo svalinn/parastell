@@ -11,10 +11,8 @@ import src.pystell.read_vmec as read_vmec
 
 from . import log
 from .utils import (
-    normalize, expand_ang_list, read_yaml_config, construct_kwargs_from_dict,
-    set_kwarg_attrs, m2cm
+    normalize, expand_ang_list, read_yaml_config, filter_kwargs, m2cm
 )
-
 
 def orient_spline_surfaces(volume_id):
     """Extracts the inner and outer surface IDs for a given ParaStell in-vessel
@@ -101,11 +99,9 @@ class InVesselBuild(object):
         self.scale = m2cm
 
         allowed_kwargs = ['repeat', 'num_ribs', 'num_rib_pts', 'scale']
-        set_kwarg_attrs(
-            self,
-            kwargs,
-            allowed_kwargs
-        )
+        for name in allowed_kwargs:
+            if name in kwargs.keys():
+                self.__setattr__(name,kwargs[name])
 
         self.Surfaces = {}
         self.Components = {}
@@ -575,11 +571,9 @@ class RadialBuild(object):
         self.sol_mat_tag = 'Vacuum'
 
         allowed_kwargs = ['plasma_mat_tag', 'sol_mat_tag']
-        set_kwarg_attrs(
-            self,
-            kwargs,
-            allowed_kwargs
-        )
+        for name in allowed_kwargs:
+            if name in kwargs.keys():
+                self.__setattr__(name,kwargs[name])
 
         self._logger.info(
             'Constructing radial build...'
@@ -780,32 +774,20 @@ def generate_invessel_build():
 
     invessel_build_dict = all_data['invessel_build']
 
-    rb_allowed_kwargs = ['plasma_mat_tag', 'sol_mat_tag']
-    rb_kwargs = construct_kwargs_from_dict(
-        invessel_build_dict,
-        rb_allowed_kwargs
-    )
-
     radial_build = RadialBuild(
         invessel_build_dict['toroidal_angles'],
         invessel_build_dict['poloidal_angles'],
         invessel_build_dict['wall_s'],
         invessel_build_dict['radial_build'],
         logger=logger
-        **rb_kwargs
-    )
-
-    ivb_allowed_kwargs = ['repeat', 'num_ribs', 'num_rib_pts', 'scale']
-    ivb_kwargs = construct_kwargs_from_dict(
-        invessel_build_dict,
-        ivb_allowed_kwargs
+        **invessel_build_dict
     )
 
     invessel_build = InVesselBuild(
         vmec_obj,
         radial_build,
         logger=logger,
-        **ivb_kwargs
+        **invessel_build_dict
     )
 
     invessel_build.populate_surfaces()
@@ -815,17 +797,10 @@ def generate_invessel_build():
     invessel_build.export_step(export_dir=args.export_dir)
 
     if invessel_build_dict['export_cad_to_dagmc']:
-        ivb_dagmc_export_allowed_kwargs = [
-            'export_cad_to_dagmc', 'dagmc_filename'
-        ]
-        ivb_dagmc_export_kwargs = construct_kwargs_from_dict(
-            invessel_build_dict,
-            ivb_dagmc_export_allowed_kwargs
-        )
-
+        
         invessel_build.export_cad_to_dagmc(
             export_dir=args.export_dir,
-            **ivb_dagmc_export_kwargs
+            **(filter_kwargs(invessel_build_dict,['dagmc_filename']))
         )
 
 
