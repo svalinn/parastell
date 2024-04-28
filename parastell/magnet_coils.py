@@ -56,7 +56,7 @@ class MagnetSet(object):
         self.scale = m2cm
         self.mat_tag = 'magnets'
 
-        for name in kwarg.keys() & ('start_line', 'sample_mod', 'scale', 'mat_tag'):
+        for name in kwargs.keys() & ('start_line', 'sample_mod', 'scale', 'mat_tag'):
             self.__setattr__(name,kwargs[name])
 
         cubit_io.init_cubit()
