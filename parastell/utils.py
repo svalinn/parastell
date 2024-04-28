@@ -92,16 +92,15 @@ def filter_kwargs(
     Returns:
         kwarg_dict (dict): dictionary of keyword arguments and values.
     """
-    kwarg_dict = {}
-    for name, value in dict.items():
-        if name in allowed_kwargs:
-            kwarg_dict.update({name: value})
-        elif all_kwargs:
-            e = ValueError(
-                f'{name} is not a supported keyword argument of '
-                f'"{fn_name}"'
-            )
-            logger.error(e.args[0])
-            raise e
+    allowed_keys = dict.keys() & allowed_kwargs
+    extra_keys = dict.keys() - allowed_kwargs
 
-    return kwarg_dict
+    if all_kwargs and extra_keys:
+        e = ValueError(
+            f'{extra_keys} not supported keyword argument(s) of '
+            f'"{fn_name}"'
+        )
+        logger.error(e.args[0])
+        raise e
+            
+    return {name: dict[name] for name in allowed_keys}
