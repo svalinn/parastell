@@ -585,14 +585,12 @@ def check_inputs(
                 'prevent overwriting files.'
             )
             logger.error(e.args[0])
-            raise e
+            raise e    
 
-
-def parastell():
-    """Main method when run as a command line script.
-    """
-    args = parse_args()
-
+def full_model_mode(args):
+    """Primary use case of parastell reads all the input and builds and exports
+    a full stellarator model."""
+    
     all_data = read_yaml_config(args.filename)
 
     logger = log.check_init(None)
@@ -626,6 +624,13 @@ def parastell():
                                   all_data['magnet_coils'],
                                   all_data['source_mesh'],
                                   all_data['dagmc_export'])
+
+def parastell():
+    """Main method when run as a command line script.
+    """
+    args = parse_args()
+
+    full_model_mode(args)
     
 
 if __name__ == "__main__":
