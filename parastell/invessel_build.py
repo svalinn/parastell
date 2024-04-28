@@ -98,10 +98,8 @@ class InVesselBuild(object):
         self.num_rib_pts = 67
         self.scale = m2cm
 
-        allowed_kwargs = ['repeat', 'num_ribs', 'num_rib_pts', 'scale']
-        for name in allowed_kwargs:
-            if name in kwargs.keys():
-                self.__setattr__(name,kwargs[name])
+        for name in kwarg.keys() & ('repeat', 'num_ribs', 'num_rib_pts', 'scale'):
+            self.__setattr__(name,kwargs[name])
 
         self.Surfaces = {}
         self.Components = {}
@@ -570,10 +568,8 @@ class RadialBuild(object):
         self.plasma_mat_tag = 'Vacuum'
         self.sol_mat_tag = 'Vacuum'
 
-        allowed_kwargs = ['plasma_mat_tag', 'sol_mat_tag']
-        for name in allowed_kwargs:
-            if name in kwargs.keys():
-                self.__setattr__(name,kwargs[name])
+        for name in kwarg.keys() & ('plasma_mat_tag', 'sol_mat_tag'):
+            self.__setattr__(name,kwargs[name])
 
         self._logger.info(
             'Constructing radial build...'

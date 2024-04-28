@@ -94,10 +94,8 @@ class SourceMesh(object):
 
         self.scale = m2cm
 
-        allowed_kwargs = ['scale']
-        for name in allowed_kwargs:
-            if name in kwargs.keys():
-                self.__setattr__(name,kwargs[name])
+        for name in kwarg.keys() & ('scale'):
+            self.__setattr__(name,kwargs[name])
         
         self.strengths = []
 
