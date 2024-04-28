@@ -412,7 +412,7 @@ class Stellarator(object):
                 **kwargs
             )
 
-    def build_full_model(self, invessel_build, magnet_coils, source_mesh):
+    def build_full_model(self, invessel_build, magnet_coils, source_mesh, logger):
         """Use all of the input to make a complete stellarator model
         with invessel components, magnets, and a source mesh
         """
@@ -423,6 +423,7 @@ class Stellarator(object):
             invessel_build['poloidal_angles'],
             invessel_build['wall_s'],
             invessel_build['radial_build'],
+            logger=logger,
             **invessel_build
         )
 
@@ -431,6 +432,7 @@ class Stellarator(object):
             magnet_coils['coils_file'],
             magnet_coils['cross_section'],
             magnet_coils['toroidal_extent'],
+            logger=logger,
             **magnet_coils
         )
 
@@ -438,6 +440,7 @@ class Stellarator(object):
         self.construct_source_mesh(
             source_mesh['mesh_size'],
             source_mesh['toroidal_extent'],
+            logger=logger,
             **source_mesh
         )
 
@@ -469,6 +472,28 @@ class Stellarator(object):
             **dagmc_export
         )
 
+    def export_NWL_model(self, export_dir, invessel_build,
+                         source_mesh, dagmc_export):
+        
+        export_cad_to_dagmc = invessel_build.get('export_cad_to_dagmc', False)
+        dagmc_filename = invessel_build.get('dagmc_filename', 'dagmc')
+
+        self.export_invessel_build(
+            export_dir=export_dir,
+            export_cad_to_dagmc=export_cad_to_dagmc,
+            dagmc_filename=dagmc_filename
+        )
+        
+        self.export_source_mesh(
+            export_dir=export_dir,
+            **(filter_kwargs(source_mesh, sm.export_allowed_kwargs))
+        )
+        
+        # DAGMC export
+        self.export_dagmc(
+            export_dir=export_dir,
+            **dagmc_export
+        )
 
 def parse_args():
     """Parser for running as a script.
@@ -496,6 +521,13 @@ def parse_args():
             'False)'
         ),
         metavar=''
+    )
+
+    parser.add_argument(
+        '--nwl', 
+        default=False,
+        help=('Neutron wall loading mode - specify a surface in the radial build '
+              'for the NWL surface. (default: False)')
     )
 
     return parser.parse_args()
@@ -587,13 +619,56 @@ def check_inputs(
             logger.error(e.args[0])
             raise e    
 
-def full_model_mode(args):
+def full_model_mode(args, all_data, stellarator, logger):
     """Primary use case of parastell reads all the input and builds and exports
     a full stellarator model."""
     
+
+    stellarator.build_full_model(all_data['invessel_build'],
+                                 all_data['magnet_coils'],
+                                 all_data['source_mesh'],
+                                 logger)
+
+    stellarator.export_full_model(args.export_dir,
+                                  all_data['invesel_build'],
+                                  all_data['magnet_coils'],
+                                  all_data['source_mesh'],
+                                  all_data['dagmc_export'])
+
+def NWL_mode(args, all_data, stellarator, logger):
+
+    if args.nwl == 'sol':
+        stellarator.build_sol_NWL(all_data['invessel_build'],
+                                 logger)
+    else:
+        stellarator.build_NWL(all_data['invessel_build'],
+                              logger)
+        
+    source_mesh = all_data['source_mesh']
+    stellarator.construct_source_mesh(
+        source_mesh['mesh_size'],
+        source_mesh['toroidal_extent'],
+        logger=logger,
+        **source_mesh
+    )
+
+    stellarator.export_NWL_model(args.export_dir,
+                                  all_data['invesel_build'],
+                                  all_data['magnet_coils'],
+                                  all_data['source_mesh'],
+                                  all_data['dagmc_export'])
+
+def parastell():
+    """Main method when run as a command line script.
+    """
+    args = parse_args()
+
     all_data = read_yaml_config(args.filename)
 
-    logger = log.check_init(None)
+    if args.logger == True:
+        logger = log.init()
+    else:
+        logger = log.NullLogger()
 
     check_inputs(
         all_data['invessel_build'],
@@ -605,32 +680,15 @@ def full_model_mode(args):
 
     vmec_file = all_data['vmec_file']
 
-    if args.logger == True:
-        logger = log.init()
-    else:
-        logger = log.NullLogger()
-
     stellarator = Stellarator(
         vmec_file,
         logger=logger
     )
 
-    stellarator.build_full_model(all_data['invessel_build'],
-                                 all_data['magnet_coils'],
-                                 all_data['source_mesh'])
-
-    stellarator.export_full_model(args.export_dir,
-                                  all_data['invesel_build'],
-                                  all_data['magnet_coils'],
-                                  all_data['source_mesh'],
-                                  all_data['dagmc_export'])
-
-def parastell():
-    """Main method when run as a command line script.
-    """
-    args = parse_args()
-
-    full_model_mode(args)
+    if args.nwl:
+        NWL_mode(args, all_data, stellarator, logger)
+    else:
+        full_model_mode(args, all_data, stellarator, logger)
     
 
 if __name__ == "__main__":
