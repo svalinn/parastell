@@ -3,7 +3,6 @@ import math
 
 import numpy as np
 
-
 m2cm = 100
 
 
@@ -70,7 +69,7 @@ def read_yaml_config(filename):
 
 
 
-def construct_kwargs_from_dict(
+def filter_kwargs(
     dict, allowed_kwargs, all_kwargs=False, fn_name=None, logger=None
 ):
     """Constructs a dictionary of keyword arguments with corresponding values
@@ -92,39 +91,15 @@ def construct_kwargs_from_dict(
     Returns:
         kwarg_dict (dict): dictionary of keyword arguments and values.
     """
-    kwarg_dict = {}
-    for name, value in dict.items():
-        if name in allowed_kwargs:
-            kwarg_dict.update({name: value})
-        elif all_kwargs:
-            e = ValueError(
-                f'{name} is not a supported keyword argument of '
-                f'"{fn_name}"'
-            )
-            logger.error(e.args[0])
-            raise e
+    allowed_keys = dict.keys() & allowed_kwargs
+    extra_keys = dict.keys() - allowed_kwargs
 
-    return kwarg_dict
-
-
-def set_kwarg_attrs(
-    class_obj, kwargs, allowed_kwargs
-):
-    """Sets the attributes of a given class object according to a dictionary of
-    keyword argument names and corresponding values.
-
-    Arguments:
-        class_obj (object): class object.
-        kwargs (dict): dictionary of keyword arguments and corresponding values.
-        allowed_kwargs (list of str): list of allowed keyword argument names.
-    """
-    for name, value in kwargs.items():
-        if name in allowed_kwargs:
-            class_obj.__setattr__(name, value)
-        else:
-            e = ValueError(
-                f'{name} is not a supported keyword argument of '
-                f'"{type(class_obj).__name__}"'
-            )
-            class_obj._logger.error(e.args[0])
-            raise e
+    if all_kwargs and extra_keys:
+        e = ValueError(
+            f'{extra_keys} not supported keyword argument(s) of '
+            f'"{fn_name}"'
+        )
+        logger.error(e.args[0])
+        raise e
+            
+    return {name: dict[name] for name in allowed_keys}

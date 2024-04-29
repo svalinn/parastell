@@ -7,9 +7,10 @@ import cubit
 from . import log
 from . import cubit_io as cubit_io 
 from .utils import (
-    normalize, read_yaml_config, construct_kwargs_from_dict, set_kwarg_attrs,
-    m2cm
+    normalize, read_yaml_config, filter_kwargs, m2cm
 )
+
+export_allowed_kwargs = ['step_filename', 'export_mesh', 'mesh_filename']
 
 
 class MagnetSet(object):
@@ -57,12 +58,8 @@ class MagnetSet(object):
         self.scale = m2cm
         self.mat_tag = 'magnets'
 
-        allowed_kwargs = ['start_line', 'sample_mod', 'scale', 'mat_tag']
-        set_kwarg_attrs(
-            self,
-            kwargs,
-            allowed_kwargs
-        )
+        for name in kwargs.keys() & ('start_line', 'sample_mod', 'scale', 'mat_tag'):
+            self.__setattr__(name,kwargs[name])
 
         cubit_io.init_cubit()
 
@@ -626,45 +623,25 @@ def generate_magnet_set():
 
     magnet_coils_dict = all_data['magnet_coils']
 
-    mc_allowed_kwargs = [
-        'start_line', 'sample_mod', 'scale', 'mat_tag'
-    ]
-    mc_kwargs = construct_kwargs_from_dict(
-        magnet_coils_dict,
-        mc_allowed_kwargs
-    )
-    
     magnet_set = MagnetSet(
         magnet_coils_dict['coils_file'],
         magnet_coils_dict['cross_section'],
         magnet_coils_dict['toroidal_extent'],
         logger=logger
-        **mc_kwargs
+        **magnet_coils_dict
     )
 
     magnet_set.build_magnet_coils()
 
-    mc_step_export_allowed_kwargs = ['step_filename']
-    mc_step_export_kwargs = construct_kwargs_from_dict(
-        magnet_coils_dict,
-        mc_step_export_allowed_kwargs
-    )
-
     magnet_set.export_step(
         export_dir=args.export_dir,
-        **mc_step_export_kwargs
+        **(filter_kwargs(magnet_coils_dict, ['step_filename']))
     )
 
     if magnet_coils_dict['export_mesh']:
-        mc_mesh_export_allowed_kwargs = ['mesh_filename']
-        mc_mesh_export_kwargs = construct_kwargs_from_dict(
-            magnet_coils_dict,
-            mc_mesh_export_allowed_kwargs
-        )
-
         magnet_set.export_mesh(
             export_dir=args.export_dir,
-            **mc_mesh_export_kwargs
+            **(filter_kwargs(magnet_coils_dict, ['mesh_filename']))
         )
 
 
