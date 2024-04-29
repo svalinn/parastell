@@ -10,6 +10,7 @@ from .utils import read_yaml_config, filter_kwargs, m2cm
 
 export_allowed_kwargs = ['filename']
 
+
 def rxn_rate(s):
     """Calculates fusion reaction rate in plasma.
 
@@ -457,7 +458,7 @@ def generate_source_mesh():
 
     source_mesh.export_mesh(
         export_dir=args.export_dir,
-        **(filter_kwargs(source_mesh_dict,['filename']))
+        **(filter_kwargs(source_mesh_dict, ['filename']))
     )
 
 

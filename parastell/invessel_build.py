@@ -14,6 +14,7 @@ from .utils import (
     normalize, expand_ang_list, read_yaml_config, filter_kwargs, m2cm
 )
 
+
 def orient_spline_surfaces(volume_id):
     """Extracts the inner and outer surface IDs for a given ParaStell in-vessel
     component volume in Coreform Cubit.
@@ -796,7 +797,7 @@ def generate_invessel_build():
         
         invessel_build.export_cad_to_dagmc(
             export_dir=args.export_dir,
-            **(filter_kwargs(invessel_build_dict,['dagmc_filename']))
+            **(filter_kwargs(invessel_build_dict, ['dagmc_filename']))
         )
 
 
