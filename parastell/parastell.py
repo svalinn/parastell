@@ -291,6 +291,67 @@ class Stellarator(object):
             export_dir=export_dir
         )
 
+    def construct_nwl_geom(
+        self, toroidal_angles, poloidal_angles, wall_s, mat_tag='nwl_geom',
+        **kwargs
+    ):
+        """Construct special InVesselBuild class object for neutron wall loading
+        geometry.
+
+        Arguments:
+            toroidal_angles (array of float): toroidal angles at which radial
+                build is specified. This list should always begin at 0.0 and it
+                is advised not to extend beyond one stellarator period. To
+                build a geometry that extends beyond one period, make use of
+                the 'repeat' parameter [deg].
+            poloidal_angles (array of float): poloidal angles at which radial
+                build is specified. This array should always span 360 degrees
+                [deg].
+            wall_s (float): closed flux surface label extrapolation at wall.
+            mat_tag (str): DAGMC material tag to use for neutron wall loading
+                geomery (defaults to 'nwl_geom').
+
+        Optional attributes:
+            repeat (int): number of times to repeat build segment for full model
+                (defaults to 0).
+            num_ribs (int): total number of ribs over which to loft for each
+                build segment (defaults to 61). Ribs are set at toroidal angles
+                interpolated between those specified in 'toroidal_angles' if
+                this value is greater than the number of entries in
+                'toroidal_angles'.
+            num_rib_pts (int): total number of points defining each rib spline
+                (defaults to 61). Points are set at poloidal angles interpolated
+                between those specified in 'poloidal_angles' if this value is
+                greater than the number of entries in 'poloidal_angles'.
+            scale (float): a scaling factor between the units of VMEC and [cm]
+                (defaults to m2cm = 100).
+        """
+        self.radial_build = ivb.RadialBuild(
+            toroidal_angles,
+            poloidal_angles,
+            wall_s,
+            radial_build={},
+            logger=self._logger,
+            **kwargs
+        )
+        self.radial_build.radial_build['nwl_geom'] = \
+            self.radial_build.radial_build['sol']
+        self.radial_build._set_mat_tag('nwl_geom', mat_tag)
+        
+        del self.radial_build.radial_build['plasma']
+        del self.radial_build.radial_build['sol']
+
+        self.invessel_build = ivb.InVesselBuild(
+            self._vmec_obj,
+            self.radial_build,
+            logger=self._logger,
+            **kwargs
+        )
+
+        self.invessel_build.populate_surfaces()
+        self.invessel_build.calculate_loci()
+        self.invessel_build.generate_components()
+
     def _import_ivb_step(self):
         """Imports STEP files from in-vessel build into Coreform Cubit.
         (Internal function not intended to be called externally)
@@ -442,10 +503,42 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--nwl', 
+        '-i', '--ivb', 
+        default=True,
+        help=(
+            'Flag to indicate the creation of in-vessel component geometry '
+            '(default: True)'
+        ),
+        metavar=''
+    )
+
+    parser.add_argument(
+        '-m', '--magnets', 
+        default=True,
+        help=(
+            'Flag to indicate the creation of magnet geometry (default: True)'
+        ),
+        metavar=''
+    )
+    
+    parser.add_argument(
+        '-s', '--source', 
+        default=True,
+        help=(
+            'Flag to indicate the creation of a tetrahedral source mesh '
+            '(default: True)'
+        ),
+        metavar=''
+    )
+
+    parser.add_argument(
+        '-n', '--nwl', 
         default=False,
-        help=('Neutron wall loading mode - specify a surface in the radial build '
-              'for the NWL surface. (default: False)')
+        help=(
+            'Flag to indicate the creation of a geometry for neutron wall '
+            'loading calculations (default: False)'
+        ),
+        metavar=''
     )
 
     return parser.parse_args()
@@ -536,102 +629,7 @@ def check_inputs(
             )
             logger.error(e.args[0])
             raise e
-        
 
-def build_full_model(stellarator, invessel_build, magnet_coils, source_mesh):
-    """Use all of the input to make a complete stellarator model with in-vessel
-    components, magnets, and a source mesh.
-
-    Arguments:
-        stellarator (object): Stellarator class object.
-        invessel_build (dict): dictionary of RadialBuild and InVesselBuild
-            parameters.
-        magnet_coils (dict): dictionary of MagnetSet parameters.
-        source_mesh (dict): dictionary of SourceMesh parameters.
-    """
-    stellarator.construct_invessel_build(**invessel_build)
-    stellarator.construct_magnets(**magnet_coils)
-    stellarator.construct_source_mesh(**source_mesh)
-
-
-def export_full_model(
-    stellarator, export_dir, invessel_build, magnet_coils, source_mesh,
-    dagmc_export
-):
-    """Exports a complete stellarator model when in-vessel components, magnets,
-    and source mesh have been constructed.
-
-    Arguments:
-        stellarator (object): Stellarator class object.
-        export_dir (str): directory to which output files are exported.
-        invessel_build (dict): dictionary of RadialBuild and InVesselBuild
-            parameters.
-        magnet_coils (dict): dictionary of MagnetSet parameters.
-        source_mesh (dict): dictionary of SourceMesh parameters.
-        dagmc_export (dict): dictionary of DAGMC export parameters.
-    """
-    export_cad_to_dagmc = invessel_build.get('export_cad_to_dagmc', False)
-    dagmc_filename = invessel_build.get('dagmc_filename', 'dagmc')
-
-    stellarator.export_invessel_build(
-        export_dir=export_dir,
-        export_cad_to_dagmc=export_cad_to_dagmc,
-        dagmc_filename=dagmc_filename
-    )
-    
-    stellarator.export_magnets(
-        export_dir=export_dir,
-        **(filter_kwargs(magnet_coils, mc.export_allowed_kwargs))
-    )
-
-    stellarator.export_source_mesh(
-        export_dir=export_dir,
-        **(filter_kwargs(source_mesh, sm.export_allowed_kwargs))
-    )
-    
-    stellarator.export_dagmc(
-        export_dir=export_dir,
-        **dagmc_export
-    )
-
-def full_model_mode(args, all_data, stellarator, logger):
-    """Primary use case of parastell reads all the input and builds and exports
-    a full stellarator model."""
-    
-
-    stellarator.build_full_model(all_data['invessel_build'],
-                                 all_data['magnet_coils'],
-                                 all_data['source_mesh'],
-                                 logger)
-
-    stellarator.export_full_model(args.export_dir,
-                                  all_data['invesel_build'],
-                                  all_data['magnet_coils'],
-                                  all_data['source_mesh'],
-                                  all_data['dagmc_export'])
-
-def NWL_mode(args, all_data, stellarator, logger):
-
-    if args.nwl == 'sol':
-        stellarator.build_sol_NWL(all_data['invessel_build'],
-                                 logger)
-    else:
-        stellarator.build_NWL(all_data['invessel_build'],
-                              logger)
-        
-    source_mesh = all_data['source_mesh']
-    stellarator.construct_source_mesh(
-        source_mesh['mesh_size'],
-        source_mesh['toroidal_extent'],
-        logger=logger,
-        **source_mesh
-    )
-
-    stellarator.export_NWL_model(args.export_dir,
-                                  all_data['invesel_build'],
-                                  all_data['magnet_coils'],
-                                  all_data['source_mesh'],
-                                  all_data['dagmc_export'])
 
 def parastell():
     """Main method when run as a command line script.
@@ -660,11 +658,57 @@ def parastell():
         logger=logger
     )
 
-    if args.nwl:
-        NWL_mode(args, all_data, stellarator, logger)
-    else:
-        full_model_mode(args, all_data, stellarator, logger)
+    if args.ivb:
+        invessel_build = all_data['invessel_build']
+        stellarator.construct_invessel_build(**invessel_build)
+        stellarator.export_invessel_build(
+            export_dir=args.export_dir,
+            **(filter_kwargs(invessel_build, ivb.export_allowed_kwargs))
+        )
+
+    if args.magnets:
+        magnet_coils = all_data['magnet_coils']
+        stellarator.construct_magnets(**magnet_coils)
+        stellarator.export_magnets(
+            export_dir=args.export_dir,
+            **(filter_kwargs(magnet_coils, mc.export_allowed_kwargs))
+    )
+
+    if args.source:
+        source_mesh = all_data['source_mesh']
+        stellarator.construct_source_mesh(**source_mesh)
+        stellarator.export_source_mesh(
+            export_dir=args.export_dir,
+            **(filter_kwargs(source_mesh, sm.export_allowed_kwargs))
+        )
     
+    dagmc_export = all_data['dagmc_export']
+
+    stellarator.export_dagmc(
+        export_dir=args.export_dir,
+        **dagmc_export
+    )
+    
+    if args.nwl:
+        nwl_build = all_data['invessel_build']
+        del nwl_build['radial_build']
+
+        cubit.cmd('new')
+        nwl_geom = Stellarator(
+            vmec_file,
+            logger=logger
+        )
+        nwl_geom.construct_nwl_geom(**nwl_build)
+        nwl_geom.invessel_build.export_step(export_dir=args.export_dir)
+
+        nwl_export = dagmc_export
+        nwl_export['filename'] = 'nwl_geom'
+
+        nwl_geom.export_dagmc(
+            export_dir=args.export_dir,
+            **nwl_export
+        )
+
 
 if __name__ == "__main__":
     parastell()

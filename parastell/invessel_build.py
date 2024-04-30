@@ -14,6 +14,8 @@ from .utils import (
     normalize, expand_ang_list, read_yaml_config, filter_kwargs, m2cm
 )
 
+export_allowed_kwargs = ['export_cad_to_dagmc', 'dagmc_filename']
+
 
 def orient_spline_surfaces(volume_id):
     """Extracts the inner and outer surface IDs for a given ParaStell in-vessel
