@@ -412,88 +412,6 @@ class Stellarator(object):
                 **kwargs
             )
 
-    def build_full_model(self, invessel_build, magnet_coils, source_mesh, logger):
-        """Use all of the input to make a complete stellarator model
-        with invessel components, magnets, and a source mesh
-        """
-
-        # In-Vessel Build
-        self.construct_invessel_build(
-            invessel_build['toroidal_angles'],
-            invessel_build['poloidal_angles'],
-            invessel_build['wall_s'],
-            invessel_build['radial_build'],
-            logger=logger,
-            **invessel_build
-        )
-
-        # Magnet Coils
-        self.construct_magnets(
-            magnet_coils['coils_file'],
-            magnet_coils['cross_section'],
-            magnet_coils['toroidal_extent'],
-            logger=logger,
-            **magnet_coils
-        )
-
-        # Source Mesh
-        self.construct_source_mesh(
-            source_mesh['mesh_size'],
-            source_mesh['toroidal_extent'],
-            logger=logger,
-            **source_mesh
-        )
-
-    def export_full_model(self, export_dir, invessel_build, 
-                          magnet_coils, source_mesh, dagmc_export):
-    
-        export_cad_to_dagmc = invessel_build.get('export_cad_to_dagmc', False)
-        dagmc_filename = invessel_build.get('dagmc_filename', 'dagmc')
-
-        self.export_invessel_build(
-            export_dir=export_dir,
-            export_cad_to_dagmc=export_cad_to_dagmc,
-            dagmc_filename=dagmc_filename
-        )
-        
-        self.export_magnets(
-            export_dir=export_dir,
-            **(filter_kwargs(magnet_coils,mc.export_allowed_kwargs))
-        )
-
-        self.export_source_mesh(
-            export_dir=export_dir,
-            **(filter_kwargs(source_mesh, sm.export_allowed_kwargs))
-        )
-        
-        # DAGMC export
-        self.export_dagmc(
-            export_dir=export_dir,
-            **dagmc_export
-        )
-
-    def export_NWL_model(self, export_dir, invessel_build,
-                         source_mesh, dagmc_export):
-        
-        export_cad_to_dagmc = invessel_build.get('export_cad_to_dagmc', False)
-        dagmc_filename = invessel_build.get('dagmc_filename', 'dagmc')
-
-        self.export_invessel_build(
-            export_dir=export_dir,
-            export_cad_to_dagmc=export_cad_to_dagmc,
-            dagmc_filename=dagmc_filename
-        )
-        
-        self.export_source_mesh(
-            export_dir=export_dir,
-            **(filter_kwargs(source_mesh, sm.export_allowed_kwargs))
-        )
-        
-        # DAGMC export
-        self.export_dagmc(
-            export_dir=export_dir,
-            **dagmc_export
-        )
 
 def parse_args():
     """Parser for running as a script.
@@ -617,7 +535,64 @@ def check_inputs(
                 'prevent overwriting files.'
             )
             logger.error(e.args[0])
-            raise e    
+            raise e
+        
+
+def build_full_model(stellarator, invessel_build, magnet_coils, source_mesh):
+    """Use all of the input to make a complete stellarator model with in-vessel
+    components, magnets, and a source mesh.
+
+    Arguments:
+        stellarator (object): Stellarator class object.
+        invessel_build (dict): dictionary of RadialBuild and InVesselBuild
+            parameters.
+        magnet_coils (dict): dictionary of MagnetSet parameters.
+        source_mesh (dict): dictionary of SourceMesh parameters.
+    """
+    stellarator.construct_invessel_build(**invessel_build)
+    stellarator.construct_magnets(**magnet_coils)
+    stellarator.construct_source_mesh(**source_mesh)
+
+
+def export_full_model(
+    stellarator, export_dir, invessel_build, magnet_coils, source_mesh,
+    dagmc_export
+):
+    """Exports a complete stellarator model when in-vessel components, magnets,
+    and source mesh have been constructed.
+
+    Arguments:
+        stellarator (object): Stellarator class object.
+        export_dir (str): directory to which output files are exported.
+        invessel_build (dict): dictionary of RadialBuild and InVesselBuild
+            parameters.
+        magnet_coils (dict): dictionary of MagnetSet parameters.
+        source_mesh (dict): dictionary of SourceMesh parameters.
+        dagmc_export (dict): dictionary of DAGMC export parameters.
+    """
+    export_cad_to_dagmc = invessel_build.get('export_cad_to_dagmc', False)
+    dagmc_filename = invessel_build.get('dagmc_filename', 'dagmc')
+
+    stellarator.export_invessel_build(
+        export_dir=export_dir,
+        export_cad_to_dagmc=export_cad_to_dagmc,
+        dagmc_filename=dagmc_filename
+    )
+    
+    stellarator.export_magnets(
+        export_dir=export_dir,
+        **(filter_kwargs(magnet_coils, mc.export_allowed_kwargs))
+    )
+
+    stellarator.export_source_mesh(
+        export_dir=export_dir,
+        **(filter_kwargs(source_mesh, sm.export_allowed_kwargs))
+    )
+    
+    stellarator.export_dagmc(
+        export_dir=export_dir,
+        **dagmc_export
+    )
 
 def full_model_mode(args, all_data, stellarator, logger):
     """Primary use case of parastell reads all the input and builds and exports
