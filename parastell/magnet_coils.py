@@ -9,7 +9,9 @@ from . import cubit_io as cubit_io
 from .utils import (
     normalize, read_yaml_config, filter_kwargs, m2cm
 )
+
 export_allowed_kwargs = ['step_filename', 'export_mesh', 'mesh_filename']
+
 
 class MagnetSet(object):
     """An object representing a set of modular stellarator magnet coils.
@@ -633,7 +635,7 @@ def generate_magnet_set():
 
     magnet_set.export_step(
         export_dir=args.export_dir,
-        **(filter_kwargs(magnet_coils_dict,['step_filename']))
+        **(filter_kwargs(magnet_coils_dict, ['step_filename']))
     )
 
     if magnet_coils_dict['export_mesh']:
