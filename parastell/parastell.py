@@ -3,6 +3,7 @@ import yaml
 from pathlib import Path
 
 import cubit
+import numpy as np
 import src.pystell.read_vmec as read_vmec
 
 from . import log
@@ -291,22 +292,15 @@ class Stellarator(object):
             export_dir=export_dir
         )
 
-    def construct_nwl_geom(
-        self, toroidal_angles, poloidal_angles, wall_s, mat_tag='nwl_geom',
-        **kwargs
+    def construct_nwl_build(
+        self, toroidal_extent, wall_s, mat_tag='nwl_geom', **kwargs
     ):
         """Construct special InVesselBuild class object for neutron wall loading
         geometry.
 
         Arguments:
-            toroidal_angles (array of float): toroidal angles at which radial
-                build is specified. This list should always begin at 0.0 and it
-                is advised not to extend beyond one stellarator period. To
-                build a geometry that extends beyond one period, make use of
-                the 'repeat' parameter [deg].
-            poloidal_angles (array of float): poloidal angles at which radial
-                build is specified. This array should always span 360 degrees
-                [deg].
+            toroidal_extent (float): angular extent to model in toroidal
+                direction [deg].
             wall_s (float): closed flux surface label extrapolation at wall.
             mat_tag (str): DAGMC material tag to use for neutron wall loading
                 geomery (defaults to 'nwl_geom').
@@ -327,19 +321,23 @@ class Stellarator(object):
                 (defaults to m2cm = 100).
         """
         self.radial_build = ivb.RadialBuild(
-            toroidal_angles,
-            poloidal_angles,
+            np.linspace(0.0, toroidal_extent, num = 4),
+            np.linspace(0.0, 360.0, num = 4),
             wall_s,
             radial_build={},
             logger=self._logger,
             **kwargs
         )
-        self.radial_build.radial_build['nwl_geom'] = \
-            self.radial_build.radial_build['sol']
-        self.radial_build._set_mat_tag('nwl_geom', mat_tag)
         
-        del self.radial_build.radial_build['plasma']
-        del self.radial_build.radial_build['sol']
+        if wall_s > 1.0:
+            self.radial_build.radial_build['nwl_geom'] = \
+                self.radial_build.radial_build.pop('sol')
+            del self.radial_build.radial_build['plasma']
+        else:
+            self.radial_build.radial_build['nwl_geom'] = \
+                self.radial_build.radial_build.pop('plasma')
+        
+        self.radial_build._set_mat_tag('nwl_geom', mat_tag)
 
         self.invessel_build = ivb.InVesselBuild(
             self._vmec_obj,
@@ -351,6 +349,54 @@ class Stellarator(object):
         self.invessel_build.populate_surfaces()
         self.invessel_build.calculate_loci()
         self.invessel_build.generate_components()
+
+    def export_nwl_build(
+        self, step_filename='nwl_geom', dagmc_filename='nwl_geom', legacy_faceting=True, export_dir='', **kwargs
+    ):
+        """Exports DAGMC neutronics H5M file of ParaStell components via
+        Coreform Cubit.
+
+        Arguments:
+            step_filename (str): name of STEP output file, excluding '.step'
+                extension (optional, defaults to 'nwl_geom').
+            dagmc_filename (str): name of DAGMC output file, excluding '.h5m'
+                extension (optional, defaults to 'dagmc').
+            legacy_faceting (bool): choose legacy or native faceting for DAGMC
+                export (optional, defaults to True).
+            export_dir (str): directory to which to export DAGMC output file
+                (optional, defaults to empty string).
+
+        Optional arguments:
+            faceting_tolerance (float): maximum distance a facet may be from
+                surface of CAD representation for DAGMC export (defaults to
+                None). This attribute is used only for the legacy faceting
+                method.
+            length_tolerance (float): maximum length of facet edge for DAGMC
+                export (defaults to None). This attribute is used only for the
+                legacy faceting method.
+            normal_tolerance (float): maximum change in angle between normal
+                vector of adjacent facets (defaults to None). This attribute is
+                used only for the legacy faceting method.
+            anisotropic_ratio (float): controls edge length ratio of elements
+                (defaults to 100.0). This attribute is used only for the native
+                faceting method.
+            deviation_angle (float): controls deviation angle of facet from
+                surface (i.e., lesser deviation angle results in more elements
+                in areas with higher curvature) (defaults to 5.0). This
+                attribute is used only for the native faceting method.
+        """
+        self.invessel_build.Components[step_filename] = \
+            self.invessel_build.Components.pop('nwl_geom')
+        
+        self.invessel_build.export_step(export_dir=export_dir)
+
+        self.export_dagmc(
+            skip_imprint=True,
+            legacy_faceting=legacy_faceting,
+            filename=dagmc_filename,
+            export_dir=export_dir,
+            **kwargs
+        )
 
     def _import_ivb_step(self):
         """Imports STEP files from in-vessel build into Coreform Cubit.
@@ -487,58 +533,53 @@ def parse_args():
         '-e', '--export_dir',
         default='',
         help=(
-            'Directory to which output files are exported (default: working '
+            'directory to which output files are exported (default: working '
             'directory)'
         ),
         metavar=''
     )
     parser.add_argument(
         '-l', '--logger',
-        default=False,
+        action='store_true',
         help=(
-            'Flag to indicate whether to instantiate a logger object (default: '
+            'flag to indicate the instantiation of a logger object (default: '
             'False)'
-        ),
-        metavar=''
+        )
     )
 
     parser.add_argument(
         '-i', '--ivb', 
-        default=True,
+        action='store_true',
         help=(
-            'Flag to indicate the creation of in-vessel component geometry '
-            '(default: True)'
-        ),
-        metavar=''
+            'flag to indicate the creation of in-vessel component geometry '
+            '(default: False)'
+        )
     )
 
     parser.add_argument(
         '-m', '--magnets', 
-        default=True,
+        action='store_true',
         help=(
-            'Flag to indicate the creation of magnet geometry (default: True)'
-        ),
-        metavar=''
+            'flag to indicate the creation of magnet geometry (default: False)'
+        )
     )
     
     parser.add_argument(
         '-s', '--source', 
-        default=True,
+        action='store_true',
         help=(
-            'Flag to indicate the creation of a tetrahedral source mesh '
-            '(default: True)'
-        ),
-        metavar=''
+            'flag to indicate the creation of a tetrahedral source mesh '
+            '(default: False)'
+        )
     )
 
     parser.add_argument(
         '-n', '--nwl', 
-        default=False,
+        action='store_true',
         help=(
-            'Flag to indicate the creation of a geometry for neutron wall '
+            'flag to indicate the creation of a geometry for neutron wall '
             'loading calculations (default: False)'
-        ),
-        metavar=''
+        )
     )
 
     return parser.parse_args()
@@ -682,31 +723,32 @@ def parastell():
             **(filter_kwargs(source_mesh, sm.export_allowed_kwargs))
         )
     
-    dagmc_export = all_data['dagmc_export']
-
-    stellarator.export_dagmc(
-        export_dir=args.export_dir,
-        **dagmc_export
-    )
+    if args.ivb or args.magnets:
+        dagmc_export = all_data['dagmc_export']
+        stellarator.export_dagmc(
+            export_dir=args.export_dir,
+            **dagmc_export
+        )
     
     if args.nwl:
-        nwl_build = all_data['invessel_build']
-        del nwl_build['radial_build']
-
-        cubit.cmd('new')
+        if cubit_io.initialized:
+            cubit.cmd('new')
+        
+        nwl_build = all_data['nwl_build']
         nwl_geom = Stellarator(
             vmec_file,
             logger=logger
         )
-        nwl_geom.construct_nwl_geom(**nwl_build)
-        nwl_geom.invessel_build.export_step(export_dir=args.export_dir)
+        nwl_geom.construct_nwl_build(**nwl_build)
 
-        nwl_export = dagmc_export
-        nwl_export['filename'] = 'nwl_geom'
-
-        nwl_geom.export_dagmc(
+        nwl_export_allowed_kwargs = [
+            'step_filename', 'dagmc_filename', 'legacy_faceting',
+            'faceting_tolerance', 'length_tolerance', 'normal_tolerance',
+            'anisotropic_ratio', 'deviation_angle'
+        ]
+        nwl_geom.export_nwl_build(
             export_dir=args.export_dir,
-            **nwl_export
+            **(filter_kwargs(nwl_build, nwl_export_allowed_kwargs))
         )
 
 

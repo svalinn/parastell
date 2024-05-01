@@ -7,6 +7,7 @@ import cubit
 
 initialized = False
 
+
 def init_cubit():
     """Initializes Coreform Cubit with the DAGMC plugin.
     """
