@@ -26,8 +26,8 @@ def default_dt_rxn_rate(n_i, T_i):
     return rr/m3tocm3
 
 def aries_cs_plasma_conditions(s):
-    """Calculates fusion ion density and temperature as a function of the
-    plasma paramter s.
+    """Calculates ion density and temperature as a function of the
+    plasma paramter s using assumptions of the ARIES design.
 
     Arguments:
         s (float): closed magnetic flux surface index in range of 0 (magnetic
@@ -49,8 +49,6 @@ def aries_cs_plasma_conditions(s):
 
     return n_i, T_i
 
-rxn_rate = default_dt_rxn_rate
-plasma_conditions = aries_cs_plasma_conditions
 
 class SourceMesh(object):
     """Generates a source mesh that describes the relative source intensity of
@@ -90,6 +88,9 @@ class SourceMesh(object):
         scale (float): a scaling factor between the units of VMEC and [cm]
             (defaults to m2cm = 100).
     """
+
+    rxn_rate = default_dt_rxn_rate
+    plasma_conditions = aries_cs_plasma_conditions
 
     def __init__(
         self,
@@ -137,6 +138,14 @@ class SourceMesh(object):
     @logger.setter
     def logger(self, logger_object):
         self._logger = log.check_init(logger_object)
+
+    @staticmethod
+    def set_plasma_conditions(plasma_conditions_function):
+        SourceMesh.plasma_conditions = plasma_conditions_function
+
+    @staticmethod
+    def set_rxt_rate(rxn_rate_function):
+        SourceMesh.rxn_rate = rxn_rate_function
 
     def _create_mbc(self):
         """Creates PyMOAB core instance with source strength tag.
@@ -225,7 +234,7 @@ class SourceMesh(object):
         tet_coords = [self.coords[id] for id in tet_ids]
 
         # Initialize list of source strengths for each tetrahedron vertex
-        vertex_strengths = [rxn_rate(plasma_conditions(self.coords_s[id])) for id in tet_ids]
+        vertex_strengths = [SourceMesh.rxn_rate(SourceMesh.plasma_conditions(self.coords_s[id])) for id in tet_ids]
 
         # Define barycentric coordinates for integration points
         bary_coords = np.array([
