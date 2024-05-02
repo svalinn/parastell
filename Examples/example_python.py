@@ -1,7 +1,25 @@
 import numpy as np
 
+from parastell.source_mesh import set_plasma_conditions, set_rxn_rate
 import parastell.parastell as ps
 
+def my_plasma_conditions(s):
+
+    if s >= 1:
+        n_i = 0
+        T_i = 0
+    else:
+        n_i = 5e18 * (1 - s)**4
+        T_i = 1e6/s
+
+    return n_i, T_i
+
+def my_rxn_rate(n_i, T_i):
+
+    return 1e18 * n_i * n_i * T_i**4
+
+set_plasma_conditions(my_plasma_conditions)
+set_rxn_rate(my_rxn_rate)
 
 # Define directory to export all output files to
 export_dir = ''
