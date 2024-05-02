@@ -83,10 +83,3 @@ dagmc_export:
   skip_imprint: False
   legacy_faceting: True
   filename: dagmc
-
-nwl_build:
-  toroidal_extent: 90.0
-  wall_s: 1.08
-  mat_tag: Vacuum
-  step_filename: nwl_geom
-  dagmc_filename: nwl_geom

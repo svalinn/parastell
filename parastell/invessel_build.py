@@ -101,7 +101,9 @@ class InVesselBuild(object):
         self.num_rib_pts = 67
         self.scale = m2cm
 
-        for name in kwargs.keys() & ('repeat', 'num_ribs', 'num_rib_pts', 'scale'):
+        for name in kwargs.keys() & (
+            'repeat', 'num_ribs', 'num_rib_pts', 'scale'
+        ):
             self.__setattr__(name,kwargs[name])
 
         self.Surfaces = {}

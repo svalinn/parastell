@@ -293,7 +293,7 @@ class Stellarator(object):
         )
 
     def construct_nwl_build(
-        self, toroidal_extent, wall_s, mat_tag='nwl_geom', **kwargs
+        self, toroidal_extent, wall_s, mat_tag='Vacuum', **kwargs
     ):
         """Construct special InVesselBuild class object for neutron wall loading
         geometry.
@@ -303,7 +303,7 @@ class Stellarator(object):
                 direction [deg].
             wall_s (float): closed flux surface label extrapolation at wall.
             mat_tag (str): DAGMC material tag to use for neutron wall loading
-                geomery (defaults to 'nwl_geom').
+                geomery (defaults to 'Vacuum').
 
         Optional attributes:
             repeat (int): number of times to repeat build segment for full model
@@ -731,24 +731,35 @@ def parastell():
         )
     
     if args.nwl:
+        if not args.ivb:
+            invessel_build = all_data['invessel_build']
+            if not args.magnets:
+                dagmc_export = all_data['dagmc_export']
+
         if cubit_io.initialized:
             cubit.cmd('new')
         
-        nwl_build = all_data['nwl_build']
         nwl_geom = Stellarator(
             vmec_file,
             logger=logger
         )
-        nwl_geom.construct_nwl_build(**nwl_build)
+
+        nwl_construction_allowed_kwargs = [
+            'repeat', 'num_ribs', 'num_rib_pts', 'scale'
+        ]
+        nwl_geom.construct_nwl_build(
+            invessel_build['toroidal_angles'][-1],
+            invessel_build['wall_s'],
+            **(filter_kwargs(invessel_build, nwl_construction_allowed_kwargs))
+        )
 
         nwl_export_allowed_kwargs = [
-            'step_filename', 'dagmc_filename', 'legacy_faceting',
-            'faceting_tolerance', 'length_tolerance', 'normal_tolerance',
-            'anisotropic_ratio', 'deviation_angle'
+            'legacy_faceting', 'faceting_tolerance', 'length_tolerance',
+            'normal_tolerance', 'anisotropic_ratio', 'deviation_angle'
         ]
         nwl_geom.export_nwl_build(
             export_dir=args.export_dir,
-            **(filter_kwargs(nwl_build, nwl_export_allowed_kwargs))
+            **(filter_kwargs(dagmc_export, nwl_export_allowed_kwargs))
         )
 
 
