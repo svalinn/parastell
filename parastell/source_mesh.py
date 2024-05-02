@@ -10,33 +10,47 @@ from .utils import read_yaml_config, filter_kwargs, m2cm
 
 export_allowed_kwargs = ['filename']
 
+def default_dt_rxn_rate(n_i, T_i):
+    """Default reaction rate formula for DT fusion
+    assumes an equal mixture of D and T in a hot plasma.
+    
+    Arguments:
+        n_i (double) : ion density
+        T_i (double) : ion temperature
+    """
+    # Define m^3 to cm^3 constant
+    m3tocm3 = 1e6
 
-def rxn_rate(s):
-    """Calculates fusion reaction rate in plasma.
+    rr = 3.68e-18 * (n_i**2) / 4 * T_i**(-2/3) * np.exp(-19.94 * T**(-1/3))
+
+    return rr/m3tocm3
+
+def aries_cs_plasma_conditions(s):
+    """Calculates fusion ion density and temperature as a function of the
+    plasma paramter s.
 
     Arguments:
         s (float): closed magnetic flux surface index in range of 0 (magnetic
             axis) to 1 (plasma edge).
 
     Returns:
-        rr (float): fusion reaction rate (1/cm^3/s). Equates to neutron source
-            density.
+        n_i (float) : ion density in (??unts??)
+        T_i (float) : ion temperature in (??units??)
     """
-    # Define m^3 to cm^3 constant
-    m3tocm3 = 1e6
 
     if s == 1:
-        rr = 0
+        n_i = 0
+        T_i = 0
     else:
         # Temperature
-        T = 11.5 * (1 - s)
+        T_i = 11.5 * (1 - s)
         # Ion density
-        n = 4.8e20 * (1 - s**5)
-        # Reaction rate in 1/m^3/s
-        rr = 3.68e-18 * (n**2) / 4 * T**(-2/3) * np.exp(-19.94 * T**(-1/3))
+        n_i = 4.8e20 * (1 - s**5)
 
-    return rr/m3tocm3
+    return n_i, T_i
 
+rxn_rate = default_dt_rxn_rate
+plasma_conditions = aries_cs_plasma_conditions
 
 class SourceMesh(object):
     """Generates a source mesh that describes the relative source intensity of
@@ -211,7 +225,7 @@ class SourceMesh(object):
         tet_coords = [self.coords[id] for id in tet_ids]
 
         # Initialize list of source strengths for each tetrahedron vertex
-        vertex_strengths = [rxn_rate(self.coords_s[id]) for id in tet_ids]
+        vertex_strengths = [rxn_rate(plasma_conditions(self.coords_s[id])) for id in tet_ids]
 
         # Define barycentric coordinates for integration points
         bary_coords = np.array([
