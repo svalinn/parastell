@@ -144,7 +144,7 @@ class SourceMesh(object):
         SourceMesh.plasma_conditions = plasma_conditions_function
 
     @staticmethod
-    def set_rxt_rate(rxn_rate_function):
+    def set_rxn_rate(rxn_rate_function):
         SourceMesh.rxn_rate = rxn_rate_function
 
     def _create_mbc(self):
