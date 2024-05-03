@@ -4,6 +4,17 @@ from parastell.source_mesh import set_plasma_conditions, set_rxn_rate
 import parastell.parastell as ps
 
 def my_plasma_conditions(s):
+    """Made-up function to provide plasma conditions as a function
+    of the plasma parameter, s.  This has no physical meaning but
+    is here to demonstrate how to define such a function.
+    
+    It must take arguments:
+       s (float) : non-dimensional plasma parameter[0,1] that 
+                   describes the distance along the path between
+                   the magnetic axis and the last closed flux surface
+
+    Normally, this functon returns the ion density and ion temperature
+    in units convenient for use in the reaction rate function."""
 
     if s >= 1:
         n_i = 0
@@ -15,7 +26,16 @@ def my_plasma_conditions(s):
     return n_i, T_i
 
 def my_rxn_rate(n_i, T_i):
+    """Made-up function to describe the fusion reaction rate as a function of
+    the ion density and ion temperature.
 
+    It must take arguments:
+        n_i (float) : ion density in some appropriate units
+        T_i (float) : ion temperature in some appropriate units
+
+    It is expected to return a neutron source rate:
+        rr (float) : neutron source rate density [n/cm^3/s]
+    """
     return 1e18 * n_i * n_i * T_i**4
 
 set_plasma_conditions(my_plasma_conditions)
