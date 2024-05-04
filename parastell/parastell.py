@@ -122,10 +122,10 @@ class Stellarator(object):
 
         Optional attributes:
             plasma_mat_tag (str): alternate DAGMC material tag to use for
-                plasma. If none is supplied, 'plasma' will be used (defaults to
+                plasma. If none is supplied, 'Vacuum' will be used (defaults to
                 None).
             sol_mat_tag (str): alternate DAGMC material tag to use for
-                scrape-off layer. If none is supplied, 'sol' will be used
+                scrape-off layer. If none is supplied, 'Vacuum' will be used
                 (defaults to None).
             repeat (int): number of times to repeat build segment for full model
                 (defaults to 0).
@@ -290,112 +290,6 @@ class Stellarator(object):
         self.source_mesh.export_mesh(
             filename=filename,
             export_dir=export_dir
-        )
-
-    def construct_nwl_build(
-        self, toroidal_extent, wall_s, mat_tag='Vacuum', **kwargs
-    ):
-        """Construct special InVesselBuild class object for neutron wall loading
-        geometry.
-
-        Arguments:
-            toroidal_extent (float): angular extent to model in toroidal
-                direction [deg].
-            wall_s (float): closed flux surface label extrapolation at wall.
-            mat_tag (str): DAGMC material tag to use for neutron wall loading
-                geomery (defaults to 'Vacuum').
-
-        Optional attributes:
-            repeat (int): number of times to repeat build segment for full model
-                (defaults to 0).
-            num_ribs (int): total number of ribs over which to loft for each
-                build segment (defaults to 61). Ribs are set at toroidal angles
-                interpolated between those specified in 'toroidal_angles' if
-                this value is greater than the number of entries in
-                'toroidal_angles'.
-            num_rib_pts (int): total number of points defining each rib spline
-                (defaults to 61). Points are set at poloidal angles interpolated
-                between those specified in 'poloidal_angles' if this value is
-                greater than the number of entries in 'poloidal_angles'.
-            scale (float): a scaling factor between the units of VMEC and [cm]
-                (defaults to m2cm = 100).
-        """
-        self.radial_build = ivb.RadialBuild(
-            np.linspace(0.0, toroidal_extent, num = 4),
-            np.linspace(0.0, 360.0, num = 4),
-            wall_s,
-            radial_build={},
-            logger=self._logger,
-            **kwargs
-        )
-        
-        if wall_s > 1.0:
-            self.radial_build.radial_build['nwl_geom'] = \
-                self.radial_build.radial_build.pop('sol')
-            del self.radial_build.radial_build['plasma']
-        else:
-            self.radial_build.radial_build['nwl_geom'] = \
-                self.radial_build.radial_build.pop('plasma')
-        
-        self.radial_build._set_mat_tag('nwl_geom', mat_tag)
-
-        self.invessel_build = ivb.InVesselBuild(
-            self._vmec_obj,
-            self.radial_build,
-            logger=self._logger,
-            **kwargs
-        )
-
-        self.invessel_build.populate_surfaces()
-        self.invessel_build.calculate_loci()
-        self.invessel_build.generate_components()
-
-    def export_nwl_build(
-        self, step_filename='nwl_geom', dagmc_filename='nwl_geom', legacy_faceting=True, export_dir='', **kwargs
-    ):
-        """Exports DAGMC neutronics H5M file of ParaStell components via
-        Coreform Cubit.
-
-        Arguments:
-            step_filename (str): name of STEP output file, excluding '.step'
-                extension (optional, defaults to 'nwl_geom').
-            dagmc_filename (str): name of DAGMC output file, excluding '.h5m'
-                extension (optional, defaults to 'dagmc').
-            legacy_faceting (bool): choose legacy or native faceting for DAGMC
-                export (optional, defaults to True).
-            export_dir (str): directory to which to export DAGMC output file
-                (optional, defaults to empty string).
-
-        Optional arguments:
-            faceting_tolerance (float): maximum distance a facet may be from
-                surface of CAD representation for DAGMC export (defaults to
-                None). This attribute is used only for the legacy faceting
-                method.
-            length_tolerance (float): maximum length of facet edge for DAGMC
-                export (defaults to None). This attribute is used only for the
-                legacy faceting method.
-            normal_tolerance (float): maximum change in angle between normal
-                vector of adjacent facets (defaults to None). This attribute is
-                used only for the legacy faceting method.
-            anisotropic_ratio (float): controls edge length ratio of elements
-                (defaults to 100.0). This attribute is used only for the native
-                faceting method.
-            deviation_angle (float): controls deviation angle of facet from
-                surface (i.e., lesser deviation angle results in more elements
-                in areas with higher curvature) (defaults to 5.0). This
-                attribute is used only for the native faceting method.
-        """
-        self.invessel_build.Components[step_filename] = \
-            self.invessel_build.Components.pop('nwl_geom')
-        
-        self.invessel_build.export_step(export_dir=export_dir)
-
-        self.export_dagmc(
-            skip_imprint=True,
-            legacy_faceting=legacy_faceting,
-            filename=dagmc_filename,
-            export_dir=export_dir,
-            **kwargs
         )
 
     def _import_ivb_step(self):
@@ -729,35 +623,41 @@ def parastell():
             export_dir=args.export_dir,
             **dagmc_export
         )
-    
+
     if args.nwl:
         if not args.ivb:
             invessel_build = all_data['invessel_build']
             if not args.magnets:
                 dagmc_export = all_data['dagmc_export']
-
+        
         if cubit_io.initialized:
             cubit.cmd('new')
-        
+
         nwl_geom = Stellarator(
             vmec_file,
             logger=logger
         )
 
-        nwl_construction_allowed_kwargs = [
-            'repeat', 'num_ribs', 'num_rib_pts', 'scale'
+        nwl_construction_forbidden_kwargs = [
+            'plasma_mat_tag', 'sol_mat_tag', 'chamber_mat_tag',
+            'export_cad_to_dagmc', 'dagmc_filename'
         ]
-        nwl_geom.construct_nwl_build(
-            invessel_build['toroidal_angles'][-1],
-            invessel_build['wall_s'],
-            **(filter_kwargs(invessel_build, nwl_construction_allowed_kwargs))
-        )
+        nwl_build = invessel_build
+        nwl_build['radial_build'] = {}
+        nwl_build['separate_chamber'] = False
+        for name in nwl_build.keys() & nwl_construction_forbidden_kwargs:
+            del nwl_build[name]
 
+        nwl_geom.construct_invessel_build(**nwl_build)
+        nwl_geom.export_invessel_build(export_dir=args.export_dir)
+        
         nwl_export_allowed_kwargs = [
             'legacy_faceting', 'faceting_tolerance', 'length_tolerance',
             'normal_tolerance', 'anisotropic_ratio', 'deviation_angle'
         ]
-        nwl_geom.export_nwl_build(
+        nwl_geom.export_dagmc(
+            skip_imprint=True,
+            filename='nwl_geom',
             export_dir=args.export_dir,
             **(filter_kwargs(dagmc_export, nwl_export_allowed_kwargs))
         )

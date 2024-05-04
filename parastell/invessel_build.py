@@ -548,10 +548,15 @@ class RadialBuild(object):
             logger is supplied, a default logger will be instantiated.
 
     Optional attributes:
-        plasma_mat_tag (str): alternate DAGMC material tag to use for plasma.
-            If none is supplied, 'plasma' will be used (defaults to None).
-        sol_mat_tag (str): alternate DAGMC material tag to use for scrape-off
-            layer. If none is supplied, 'sol' will be used (defaults to None).
+        separate_chamber (bool): if wall_s > 1.0, separate interior vacuum
+            chamber into plasma and scrape-off layer components (defaults to
+            True).
+        plasma_mat_tag (str): DAGMC material tag to use for plasma if
+            separate_chamber is True (defaults to 'Vacuum').
+        sol_mat_tag (str): DAGMC material tag to use for scrape-off layer if
+            separate_chamber is True (defaults to 'Vacuum').
+        chamber_mat_tag (str): DAGMC material tag to use for interior vacuum
+            chamber if separate_chamber is False (defaults to 'Vacuum).
     """
 
     def __init__(
@@ -560,6 +565,7 @@ class RadialBuild(object):
         poloidal_angles,
         wall_s,
         radial_build,
+        separate_chamber=True,
         logger=None,
         **kwargs
     ):
@@ -569,11 +575,19 @@ class RadialBuild(object):
         self.poloidal_angles = poloidal_angles
         self.wall_s = wall_s
         self.radial_build = radial_build
+        self.separate_chamber = separate_chamber
 
-        self.plasma_mat_tag = 'Vacuum'
-        self.sol_mat_tag = 'Vacuum'
+        if self._separate_chamber:
+            self.plasma_mat_tag = 'Vacuum'
+            if self._wall_s > 1.0:
+                self.sol_mat_tag = 'Vacuum'
+        else:
+            self.chamber_mat_tag = 'Vacuum'
 
-        for name in kwargs.keys() & ('plasma_mat_tag', 'sol_mat_tag'):
+        for name in kwargs.keys() & (
+            'separate_chamber', 'plasma_mat_tag', 'sol_mat_tag',
+            'chamber_mat_tag'
+        ):
             self.__setattr__(name,kwargs[name])
 
         self._logger.info(
@@ -628,8 +642,8 @@ class RadialBuild(object):
             self._logger.error(e.args[0])
             raise e
         
-        if hasattr(self, 'radial_build'):
-            self.radial_build = self.radial_build
+        if hasattr(self, 'separate_chamber'):
+            self.separate_chamber = self.separate_chamber
     
     @property
     def radial_build(self):
@@ -638,31 +652,6 @@ class RadialBuild(object):
     @radial_build.setter
     def radial_build(self, build_dict):
         self._radial_build = build_dict
-        
-        if (
-            self._wall_s == 1.0 and not
-            np.any(self._radial_build['sol']['thickness_matrix'])
-        ):
-            del self.radial_build['sol']
-        elif self._wall_s > 1.0 and 'sol' not in self._radial_build:
-            self._radial_build = {
-                'sol': {
-                    'thickness_matrix': np.zeros((
-                        len(self._toroidal_angles),
-                        len(self._poloidal_angles)
-                    ))
-                },
-                **self._radial_build
-            }
-        self._radial_build = {
-            'plasma': {
-                'thickness_matrix': np.zeros((
-                    len(self._toroidal_angles),
-                    len(self._poloidal_angles)
-                ))
-            },
-            **self._radial_build
-        }
         
         for name, component in self._radial_build.items():
             component['thickness_matrix'] = \
@@ -703,6 +692,59 @@ class RadialBuild(object):
         self._logger = log.check_init(logger_object)
 
     @property
+    def separate_chamber(self):
+        return self._separate_chamber
+    
+    @separate_chamber.setter
+    def separate_chamber(self, value):
+        self._separate_chamber = value
+
+        if self._separate_chamber:
+            if 'chamber' in self._radial_build:
+                del self.radial_build['chamber']
+            if (
+                self._wall_s == 1.0 and
+                'sol' in self._radial_build and not
+                np.any(self._radial_build['sol']['thickness_matrix'])
+            ):
+                del self.radial_build['sol']
+            elif self._wall_s > 1.0 and 'sol' not in self._radial_build:
+                self.radial_build = {
+                    'sol': {
+                        'thickness_matrix': np.zeros((
+                            len(self._toroidal_angles),
+                            len(self._poloidal_angles)
+                        ))
+                    },
+                    **self.radial_build
+                }
+            self.radial_build = {
+                'plasma': {
+                    'thickness_matrix': np.zeros((
+                        len(self._toroidal_angles),
+                        len(self._poloidal_angles)
+                    ))
+                },
+                **self.radial_build
+            }
+
+        else:
+            if 'plasma' in self._radial_build:
+                del self.radial_build['plasma']
+            if 'sol' in self._radial_build:
+                del self.radial_build['sol']
+            
+            self.radial_build = {
+                'chamber': {
+                    'thickness_matrix': np.zeros((
+                        len(self._toroidal_angles),
+                        len(self._poloidal_angles)
+                    ))
+                },
+                **self.radial_build
+            }
+    
+    @property
     def plasma_mat_tag(self):
         return self._plasma_mat_tag
     
@@ -720,11 +762,20 @@ class RadialBuild(object):
         self._sol_mat_tag = mat_tag
         self._set_mat_tag('sol', self._sol_mat_tag)
 
+    @property
+    def chamber_mat_tag(self):
+        return self._chamber_mat_tag
+    
+    @chamber_mat_tag.setter
+    def chamber_mat_tag(self, mat_tag):
+        self._chamber_mat_tag = mat_tag
+        self._set_mat_tag('chamber', self._chamber_mat_tag)
+
     def _set_mat_tag(self, name, mat_tag):
         """Sets material tag for a given component.
         (Internal function not intended to be called externally)
         """
-        self._radial_build[name]['mat_tag'] = mat_tag
+        self.radial_build[name]['mat_tag'] = mat_tag
 
 
 def parse_args():
