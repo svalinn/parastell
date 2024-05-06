@@ -544,13 +544,13 @@ class RadialBuild(object):
                         none is supplied, the 'component' key will be used.
                 }
             }.
+        separate_chamber (bool): if wall_s > 1.0, separate interior vacuum
+            chamber into plasma and scrape-off layer components (optional,
+            defaults to True).
         logger (object): logger object (optional, defaults to None). If no
             logger is supplied, a default logger will be instantiated.
 
     Optional attributes:
-        separate_chamber (bool): if wall_s > 1.0, separate interior vacuum
-            chamber into plasma and scrape-off layer components (defaults to
-            True).
         plasma_mat_tag (str): DAGMC material tag to use for plasma if
             separate_chamber is True (defaults to 'Vacuum').
         sol_mat_tag (str): DAGMC material tag to use for scrape-off layer if
