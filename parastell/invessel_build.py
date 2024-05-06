@@ -157,7 +157,7 @@ class InVesselBuild(object):
                 self.radial_build.poloidal_angles
             ),
             offset_mat,
-            method='cubic'
+            method='pchip'
         )
 
         interpolated_offset_mat = np.array([
@@ -544,7 +544,7 @@ class RadialBuild(object):
                         none is supplied, the 'component' key will be used.
                 }
             }.
-        separate_chamber (bool): if wall_s > 1.0, separate interior vacuum
+        split_chamber (bool): if wall_s > 1.0, separate interior vacuum
             chamber into plasma and scrape-off layer components (optional,
             defaults to True).
         logger (object): logger object (optional, defaults to None). If no
@@ -552,11 +552,11 @@ class RadialBuild(object):
 
     Optional attributes:
         plasma_mat_tag (str): DAGMC material tag to use for plasma if
-            separate_chamber is True (defaults to 'Vacuum').
+            split_chamber is True (defaults to 'Vacuum').
         sol_mat_tag (str): DAGMC material tag to use for scrape-off layer if
-            separate_chamber is True (defaults to 'Vacuum').
+            split_chamber is True (defaults to 'Vacuum').
         chamber_mat_tag (str): DAGMC material tag to use for interior vacuum
-            chamber if separate_chamber is False (defaults to 'Vacuum).
+            chamber if split_chamber is False (defaults to 'Vacuum).
     """
 
     def __init__(
@@ -565,7 +565,7 @@ class RadialBuild(object):
         poloidal_angles,
         wall_s,
         radial_build,
-        separate_chamber=True,
+        split_chamber=True,
         logger=None,
         **kwargs
     ):
@@ -575,18 +575,10 @@ class RadialBuild(object):
         self.poloidal_angles = poloidal_angles
         self.wall_s = wall_s
         self.radial_build = radial_build
-        self.separate_chamber = separate_chamber
-
-        if self._separate_chamber:
-            self.plasma_mat_tag = 'Vacuum'
-            if self._wall_s > 1.0:
-                self.sol_mat_tag = 'Vacuum'
-        else:
-            self.chamber_mat_tag = 'Vacuum'
+        self.split_chamber = split_chamber
 
         for name in kwargs.keys() & (
-            'separate_chamber', 'plasma_mat_tag', 'sol_mat_tag',
-            'chamber_mat_tag'
+            'plasma_mat_tag', 'sol_mat_tag', 'chamber_mat_tag'
         ):
             self.__setattr__(name,kwargs[name])
 
@@ -642,8 +634,8 @@ class RadialBuild(object):
             self._logger.error(e.args[0])
             raise e
         
-        if hasattr(self, 'separate_chamber'):
-            self.separate_chamber = self.separate_chamber
+        if hasattr(self, 'split_chamber'):
+            self._construct_vacuum_chamber()
     
     @property
     def radial_build(self):
@@ -692,57 +684,13 @@ class RadialBuild(object):
         self._logger = log.check_init(logger_object)
 
     @property
-    def separate_chamber(self):
-        return self._separate_chamber
+    def split_chamber(self):
+        return self._split_chamber
     
-    @separate_chamber.setter
-    def separate_chamber(self, value):
-        self._separate_chamber = value
-
-        if self._separate_chamber:
-            if 'chamber' in self._radial_build:
-                del self.radial_build['chamber']
-            if (
-                self._wall_s == 1.0 and
-                'sol' in self._radial_build and not
-                np.any(self._radial_build['sol']['thickness_matrix'])
-            ):
-                del self.radial_build['sol']
-            elif self._wall_s > 1.0 and 'sol' not in self._radial_build:
-                self.radial_build = {
-                    'sol': {
-                        'thickness_matrix': np.zeros((
-                            len(self._toroidal_angles),
-                            len(self._poloidal_angles)
-                        ))
-                    },
-                    **self.radial_build
-                }
-            self.radial_build = {
-                'plasma': {
-                    'thickness_matrix': np.zeros((
-                        len(self._toroidal_angles),
-                        len(self._poloidal_angles)
-                    ))
-                },
-                **self.radial_build
-            }
-
-        else:
-            if 'plasma' in self._radial_build:
-                del self.radial_build['plasma']
-            if 'sol' in self._radial_build:
-                del self.radial_build['sol']
-            
-            self.radial_build = {
-                'chamber': {
-                    'thickness_matrix': np.zeros((
-                        len(self._toroidal_angles),
-                        len(self._poloidal_angles)
-                    ))
-                },
-                **self.radial_build
-            }
+    @split_chamber.setter
+    def split_chamber(self, value):
+        self._split_chamber = value
+        self._construct_vacuum_chamber()
     
     @property
     def plasma_mat_tag(self):
@@ -771,9 +719,71 @@ class RadialBuild(object):
         self._chamber_mat_tag = mat_tag
         self._set_mat_tag('chamber', self._chamber_mat_tag)
 
-    def _set_mat_tag(self, name, mat_tag):
-        """Sets material tag for a given component.
+    def _construct_vacuum_chamber(self):
+        """Constructs the vacuum chamber volume according to user-defined
+        parameters, conditionally splitting of the chamber into separate plasma
+        and scrape-off-layer volumes.
         (Internal function not intended to be called externally)
+        """
+        if self._split_chamber:
+            if 'chamber' in self._radial_build:
+                del self.radial_build['chamber']
+            if (
+                self._wall_s == 1.0 and
+                'sol' in self._radial_build and not
+                np.any(self._radial_build['sol']['thickness_matrix'])
+            ):
+                del self.radial_build['sol']
+            elif self._wall_s > 1.0 and 'sol' not in self._radial_build:
+                self.radial_build = {
+                    'sol': {
+                        'thickness_matrix': np.zeros((
+                            len(self._toroidal_angles),
+                            len(self._poloidal_angles)
+                        ))
+                    },
+                    **self.radial_build
+                }
+                if not hasattr(self, 'sol_mat_tag'):
+                    self.sol_mat_tag = 'Vacuum'
+
+            self.radial_build = {
+                'plasma': {
+                    'thickness_matrix': np.zeros((
+                        len(self._toroidal_angles),
+                        len(self._poloidal_angles)
+                    ))
+                },
+                **self.radial_build
+            }
+            if not hasattr(self, 'plasma_mat_tag'):
+                self.plasma_mat_tag = 'Vacuum'
+
+        else:
+            if 'plasma' in self._radial_build:
+                del self.radial_build['plasma']
+            if 'sol' in self._radial_build:
+                del self.radial_build['sol']
+            
+            self.radial_build = {
+                'chamber': {
+                    'thickness_matrix': np.zeros((
+                        len(self._toroidal_angles),
+                        len(self._poloidal_angles)
+                    ))
+                },
+                **self.radial_build
+            }
+            if not hasattr(self, 'chamber_mat_tag'):
+                self.chamber_mat_tag = 'Vacuum'
+    
+    def _set_mat_tag(self, name, mat_tag):
+        """Sets DAGMC material tag for a given component.
+        (Internal function not intended to be called externally)
+
+        Arguments:
+            name (str): name of component.
+            mat_tag (str): DAGMC material tag.
         """
         self.radial_build[name]['mat_tag'] = mat_tag
 

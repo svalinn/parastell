@@ -88,7 +88,7 @@ class Stellarator(object):
         self._logger = log.check_init(logger_object)
 
     def construct_invessel_build(
-        self, toroidal_angles, poloidal_angles, wall_s, radial_build, separate_chamber=True, **kwargs
+        self, toroidal_angles, poloidal_angles, wall_s, radial_build, split_chamber=True, **kwargs
     ):
         """Construct InVesselBuild class object.
 
@@ -118,7 +118,7 @@ class Stellarator(object):
                             used.
                     }
                 }.
-            separate_chamber (bool): if wall_s > 1.0, separate interior vacuum
+            split_chamber (bool): if wall_s > 1.0, separate interior vacuum
                 chamber into plasma and scrape-off layer components (optional,
                 defaults to True).
 
@@ -148,7 +148,7 @@ class Stellarator(object):
             poloidal_angles,
             wall_s,
             radial_build,
-            separate_chamber=separate_chamber,
+            split_chamber=split_chamber,
             logger=self._logger,
             **kwargs
         )
@@ -647,7 +647,7 @@ def parastell():
         ]
         nwl_build = invessel_build
         nwl_build['radial_build'] = {}
-        nwl_build['separate_chamber'] = False
+        nwl_build['split_chamber'] = False
         for name in nwl_build.keys() & nwl_construction_forbidden_kwargs:
             del nwl_build[name]
 
