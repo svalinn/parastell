@@ -49,7 +49,7 @@ stellarator.export_source_mesh(
 
 strengths = stellarator.source_mesh.strengths
         
-filepath = Path(export_dir) / 'strengths.txt'
+filepath = Path(export_dir) / 'source_strengths.txt'
 
 file = open(filepath, 'w')
 for tet in strengths:
