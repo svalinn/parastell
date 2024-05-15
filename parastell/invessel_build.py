@@ -546,7 +546,7 @@ class RadialBuild(object):
             }.
         split_chamber (bool): if wall_s > 1.0, separate interior vacuum
             chamber into plasma and scrape-off layer components (optional,
-            defaults to True).
+            defaults to False).
         logger (object): logger object (optional, defaults to None). If no
             logger is supplied, a default logger will be instantiated.
 
@@ -565,7 +565,7 @@ class RadialBuild(object):
         poloidal_angles,
         wall_s,
         radial_build,
-        split_chamber=True,
+        split_chamber=False,
         logger=None,
         **kwargs
     ):
@@ -592,6 +592,14 @@ class RadialBuild(object):
     
     @toroidal_angles.setter
     def toroidal_angles(self, angle_list):
+        if hasattr(self, 'toroidal_angles'):
+            e = AttributeError(
+                '"toroidal_angles" cannot be set after class initialization. '
+                'Please create new class instance to alter this attribute.'
+            )
+            self._logger.error(e.args[0])
+            raise e
+        
         self._toroidal_angles = angle_list
         if self._toroidal_angles[0] != 0.0:
             e = ValueError(
@@ -612,6 +620,14 @@ class RadialBuild(object):
     
     @poloidal_angles.setter
     def poloidal_angles(self, angle_list):
+        if hasattr(self, 'poloidal_angles'):
+            e = AttributeError(
+                '"poloidal_angles" cannot be set after class initialization. '
+                'Please create new class instance to alter this attribute.'
+            )
+            self._logger.error(e.args[0])
+            raise e
+        
         self._poloidal_angles = angle_list
         if self._poloidal_angles[-1] - self._poloidal_angles[0] > 360.0:
             e = AssertionError(
@@ -626,6 +642,15 @@ class RadialBuild(object):
     
     @wall_s.setter
     def wall_s(self, s):
+        if hasattr(self, 'wall_s'):
+            e = AttributeError(
+                '"wall_s" cannot be set after class initialization. Please '
+                'create new class instance to alter this attribute.'
+            )
+            self._logger.error(e.args[0])
+            raise e
+
+        
         self._wall_s = s
         if self._wall_s < 1.0:
             e = ValueError(
@@ -633,9 +658,6 @@ class RadialBuild(object):
             )
             self._logger.error(e.args[0])
             raise e
-        
-        if hasattr(self, 'split_chamber'):
-            self._construct_vacuum_chamber()
     
     @property
     def radial_build(self):
@@ -676,21 +698,67 @@ class RadialBuild(object):
                 self._set_mat_tag(name, name)
 
     @property
+    def split_chamber(self):
+        return self._split_chamber
+    
+    @split_chamber.setter
+    def split_chamber(self, value):
+        if hasattr(self, 'split_chamber'):
+            e = AttributeError(
+                '"split_chamber" cannot be set after class initialization. '
+                'Please create new class instance to alter this attribute.'
+                )
+            self._logger.error(e.args[0])
+            raise e
+        
+        self._split_chamber = value
+        
+        if self._split_chamber:
+            if self._wall_s > 1.0 and 'sol' not in self._radial_build:
+                self.radial_build = {
+                    'sol': {
+                        'thickness_matrix': np.zeros((
+                            len(self._toroidal_angles),
+                            len(self._poloidal_angles)
+                        ))
+                    },
+                    **self.radial_build
+                }
+                if not hasattr(self, 'sol_mat_tag'):
+                    self.sol_mat_tag = 'Vacuum'
+
+            self.radial_build = {
+                'plasma': {
+                    'thickness_matrix': np.zeros((
+                        len(self._toroidal_angles),
+                        len(self._poloidal_angles)
+                    ))
+                },
+                **self.radial_build
+            }
+            if not hasattr(self, 'plasma_mat_tag'):
+                self.plasma_mat_tag = 'Vacuum'
+
+        else:
+            self.radial_build = {
+                'chamber': {
+                    'thickness_matrix': np.zeros((
+                        len(self._toroidal_angles),
+                        len(self._poloidal_angles)
+                    ))
+                },
+                **self.radial_build
+            }
+            if not hasattr(self, 'chamber_mat_tag'):
+                self.chamber_mat_tag = 'Vacuum'
+
+    @property
     def logger(self):
         return self._logger
     
     @logger.setter
     def logger(self, logger_object):
         self._logger = log.check_init(logger_object)
-
-    @property
-    def split_chamber(self):
-        return self._split_chamber
-    
-    @split_chamber.setter
-    def split_chamber(self, value):
-        self._split_chamber = value
-        self._construct_vacuum_chamber()
     
     @property
     def plasma_mat_tag(self):
@@ -718,64 +786,6 @@ class RadialBuild(object):
     def chamber_mat_tag(self, mat_tag):
         self._chamber_mat_tag = mat_tag
         self._set_mat_tag('chamber', self._chamber_mat_tag)
-
-    def _construct_vacuum_chamber(self):
-        """Constructs the vacuum chamber volume according to user-defined
-        parameters, conditionally splitting of the chamber into separate plasma
-        and scrape-off-layer volumes.
-        (Internal function not intended to be called externally)
-        """
-        if self._split_chamber:
-            if 'chamber' in self._radial_build:
-                del self.radial_build['chamber']
-            if (
-                self._wall_s == 1.0 and
-                'sol' in self._radial_build and not
-                np.any(self._radial_build['sol']['thickness_matrix'])
-            ):
-                del self.radial_build['sol']
-            elif self._wall_s > 1.0 and 'sol' not in self._radial_build:
-                self.radial_build = {
-                    'sol': {
-                        'thickness_matrix': np.zeros((
-                            len(self._toroidal_angles),
-                            len(self._poloidal_angles)
-                        ))
-                    },
-                    **self.radial_build
-                }
-                if not hasattr(self, 'sol_mat_tag'):
-                    self.sol_mat_tag = 'Vacuum'
-
-            self.radial_build = {
-                'plasma': {
-                    'thickness_matrix': np.zeros((
-                        len(self._toroidal_angles),
-                        len(self._poloidal_angles)
-                    ))
-                },
-                **self.radial_build
-            }
-            if not hasattr(self, 'plasma_mat_tag'):
-                self.plasma_mat_tag = 'Vacuum'
-
-        else:
-            if 'plasma' in self._radial_build:
-                del self.radial_build['plasma']
-            if 'sol' in self._radial_build:
-                del self.radial_build['sol']
-            
-            self.radial_build = {
-                'chamber': {
-                    'thickness_matrix': np.zeros((
-                        len(self._toroidal_angles),
-                        len(self._poloidal_angles)
-                    ))
-                },
-                **self.radial_build
-            }
-            if not hasattr(self, 'chamber_mat_tag'):
-                self.chamber_mat_tag = 'Vacuum'
     
     def _set_mat_tag(self, name, mat_tag):
         """Sets DAGMC material tag for a given component.
