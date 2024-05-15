@@ -88,7 +88,7 @@ class Stellarator(object):
         self._logger = log.check_init(logger_object)
 
     def construct_invessel_build(
-        self, toroidal_angles, poloidal_angles, wall_s, radial_build, split_chamber=True, **kwargs
+        self, toroidal_angles, poloidal_angles, wall_s, radial_build, split_chamber=False, **kwargs
     ):
         """Construct InVesselBuild class object.
 
@@ -120,7 +120,7 @@ class Stellarator(object):
                 }.
             split_chamber (bool): if wall_s > 1.0, separate interior vacuum
                 chamber into plasma and scrape-off layer components (optional,
-                defaults to True).
+                defaults to False).
 
         Optional attributes:
             plasma_mat_tag (str): alternate DAGMC material tag to use for
