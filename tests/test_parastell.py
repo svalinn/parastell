@@ -8,10 +8,8 @@ import parastell.parastell as ps
 
 def remove_files():
 
-    if Path('plasma.step').exists():
-        Path.unlink('plasma.step')
-    if Path('sol.step').exists():
-        Path.unlink('sol.step')
+    if Path('chamber.step').exists():
+        Path.unlink('chamber.step')
     if Path('component.step').exists():
         Path.unlink('component.step')
     if Path('magnets.step').exists():
@@ -69,14 +67,13 @@ def test_parastell(stellarator):
         num_ribs=num_ribs
     )
 
-    plasma_filename_exp = Path('plasma').with_suffix('.step')
-    sol_filename_exp = Path('sol').with_suffix('.step')
+    chamber_filename_exp = Path('chamber').with_suffix('.step')
+    component_filename_exp = Path(component_name_exp).with_suffix('.step')
 
     stellarator.export_invessel_build()
 
-    assert plasma_filename_exp.exists()
-    assert sol_filename_exp.exists()
-    assert Path(component_name_exp).with_suffix('.step').exists()
+    assert chamber_filename_exp.exists()
+    assert component_filename_exp.exists()
 
     # Magnet Coils
    
