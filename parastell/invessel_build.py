@@ -727,30 +727,23 @@ class RadialBuild(object):
                 if not hasattr(self, 'sol_mat_tag'):
                     self.sol_mat_tag = 'Vacuum'
 
-            self.radial_build = {
-                'plasma': {
-                    'thickness_matrix': np.zeros((
-                        len(self._toroidal_angles),
-                        len(self._poloidal_angles)
-                    ))
-                },
-                **self.radial_build
-            }
-            if not hasattr(self, 'plasma_mat_tag'):
-                self.plasma_mat_tag = 'Vacuum'
-
+            inner_volume_name = 'plasma'
+            inner_volume_tag = 'plasma_mat_tag'
         else:
-            self.radial_build = {
-                'chamber': {
-                    'thickness_matrix': np.zeros((
-                        len(self._toroidal_angles),
-                        len(self._poloidal_angles)
-                    ))
-                },
-                **self.radial_build
-            }
-            if not hasattr(self, 'chamber_mat_tag'):
-                self.chamber_mat_tag = 'Vacuum'
+            inner_volume_name = 'chamber'
+            inner_volume_tag = 'chamber_mat_tag'
+            
+        self.radial_build = {
+            inner_volume_name: {
+                'thickness_matrix': np.zeros((
+                    len(self._toroidal_angles),
+                    len(self._poloidal_angles)
+                ))
+            },
+            **self.radial_build
+        }
+        if not hasattr(self, inner_volume_tag):
+            setattr(self, inner_volume_tag) = 'Vacuum'
 
     @property
     def logger(self):
