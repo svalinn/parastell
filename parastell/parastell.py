@@ -660,10 +660,6 @@ def parastell():
         nwl_geom.construct_invessel_build(**nwl_build)
         nwl_geom.export_invessel_build(export_dir=args.export_dir)
         
-        nwl_export_allowed_kwargs = [
-            'legacy_faceting', 'faceting_tolerance', 'length_tolerance',
-            'normal_tolerance', 'anisotropic_ratio', 'deviation_angle'
-        ]
         nwl_geom.export_dagmc(
             skip_imprint=True,
             filename='nwl_geom',
