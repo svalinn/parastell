@@ -641,15 +641,21 @@ def parastell():
             logger=logger
         )
 
-        nwl_construction_forbidden_kwargs = [
-            'plasma_mat_tag', 'sol_mat_tag', 'chamber_mat_tag',
-            'export_cad_to_dagmc', 'dagmc_filename'
+        nwl_required_keys = [
+            'toroidal_angles', 'poloidal_angles', 'wall_s'
         ]
-        nwl_build = invessel_build
+        
+        nwl_build = {}
+        for key in nwl_keys:
+            nwl_build[key] = invessel_build[key]
         nwl_build['radial_build'] = {}
-        nwl_build['split_chamber'] = False
-        for name in nwl_build.keys() & nwl_construction_forbidden_kwargs:
-            del nwl_build[name]
+        
+        nwl_optional_keys = [
+            'num_ribs', 'num_rib_pts', 'repeat', 'scale'
+        ]
+        
+        for key in invessel_build.keys() & nwl_optional_keys:
+            nwl_build[key] = invessel_build[key]
 
         nwl_geom.construct_invessel_build(**nwl_build)
         nwl_geom.export_invessel_build(export_dir=args.export_dir)
