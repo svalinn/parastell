@@ -68,7 +68,6 @@ def read_yaml_config(filename):
     return all_data
 
 
-
 def filter_kwargs(
     dict, allowed_kwargs, all_kwargs=False, fn_name=None, logger=None
 ):

@@ -12,10 +12,8 @@ import src.pystell.read_vmec as read_vmec
 
 def remove_files():
     
-    if Path('plasma.step').exists():
-        Path.unlink('plasma.step')
-    if Path('sol.step').exists():
-        Path.unlink('sol.step')
+    if Path('chamber.step').exists():
+        Path.unlink('chamber.step')
     if Path('component.step').exists():
         Path.unlink('component.step')
     if Path('dagmc.h5m').exists():
@@ -68,14 +66,13 @@ def test_ivb_basics(invessel_build):
 
     toroidal_angles_exp = [0.0, 5.0, 10.0, 15.0]
     poloidal_angles_exp = [0.0, 120.0, 240.0, 360.0]
-    num_components_exp = 3
+    num_components_exp = 2
     wall_s_exp = 1.08
     repeat_exp = 0
     num_ribs_exp = 11
     num_rib_pts_exp = 67
     scale_exp = 100
-    plasma_mat_tag_exp = 'Vacuum'
-    sol_mat_tag_exp = 'Vacuum'
+    chamber_mat_tag_exp = 'Vacuum'
 
     remove_files()
     
@@ -93,12 +90,8 @@ def test_ivb_basics(invessel_build):
     )
     assert invessel_build.radial_build.wall_s == wall_s_exp
     assert (
-        invessel_build.radial_build.radial_build['plasma']['mat_tag'] ==
-        plasma_mat_tag_exp
-    )
-    assert (
-        invessel_build.radial_build.radial_build['sol']['mat_tag'] ==
-        sol_mat_tag_exp
+        invessel_build.radial_build.radial_build['chamber']['mat_tag'] ==
+        chamber_mat_tag_exp
     )
     assert invessel_build.repeat == repeat_exp
     assert invessel_build.num_ribs == num_ribs_exp
@@ -110,7 +103,7 @@ def test_ivb_basics(invessel_build):
 
 def test_ivb_construction(invessel_build):
 
-    num_components_exp = 3
+    num_components_exp = 2
 
     remove_files()
 
@@ -133,8 +126,7 @@ def test_ivb_exports(invessel_build):
     invessel_build.export_step()
     invessel_build.export_cad_to_dagmc()
 
-    assert Path('plasma.step').exists() 
-    assert Path('sol.step').exists() 
+    assert Path('chamber.step').exists() 
     assert Path('component.step').exists()
     assert Path('dagmc.h5m').exists()
 
