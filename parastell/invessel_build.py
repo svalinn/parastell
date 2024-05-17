@@ -743,7 +743,7 @@ class RadialBuild(object):
             **self.radial_build
         }
         if not hasattr(self, inner_volume_tag):
-            setattr(self, inner_volume_tag) = 'Vacuum'
+            self.__setattr__(inner_volume_tag, 'Vacuum')
 
     @property
     def logger(self):
