@@ -667,8 +667,7 @@ def parastell():
         nwl_geom.export_dagmc(
             skip_imprint=True,
             filename='nwl_geom',
-            export_dir=args.export_dir,
-            **(filter_kwargs(dagmc_export, nwl_export_allowed_kwargs))
+            export_dir=args.export_dir
         )
 
 
