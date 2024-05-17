@@ -1,3 +1,23 @@
+
+# PRoject specific
+*.csv
+*.step
+*.h5m
+*.txt
+*.nc
+*.jou
+*.ods
+*.vtk
+*.cub
+*.cub5
+*.h5
+*.exo
+!wout_vmec.nc
+.vscode
+*.yaml
+!config.yaml
+*.lic
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -128,14 +148,3 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-*.csv
-*.step
-*.h5m
-*.txt
-*.nc
-*.jou
-*.ods
-*.vtk
-*.cub
-*.cub5
-*.h5

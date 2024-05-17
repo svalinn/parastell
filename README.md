@@ -16,38 +16,21 @@ ParaStell depends on:
 
 ### Install Python Dependencies
 
-This guide will use the mamba package manager to install Python dependencies in a conda environment. Conda allows for easily installing and switching between different versions of software packages through the use of [environments](https://conda.io/projects/conda/en/latest/user-guide/concepts/environments.html).
+This guide will use the conda package manager to install Python dependencies. Conda provides straight-forward installation of Python packages and switching between different collections of Python packages through the use of [environments](https://conda.io/projects/conda/en/latest/user-guide/concepts/environments.html).
 
 If you have not already installed conda, you can use one of the following installers to do so:
 - [Miniforge](https://github.com/conda-forge/miniforge)
 - [Miniconda](https://docs.conda.io/en/latest/miniconda.html)
 - [Anaconda](https://www.anaconda.com/)
 
-Mamba is a faster, more reliable conda alternative that is fully compatible with conda packages. Mamba is available via conda (note that Miniforge ships with mamba already installed).
+A working conda environment with all ParaStell Python dependencies can be found in this repository's `environment.yml` file. To create the corresponding `parastell_env` conda environment on your machine, create the environment from the `environment.yml` file and activate the new environment:
 
-Begin by creating a new conda environment, installing mamba if needed. Note that ParaStell's dependencies are sensitive to Python version; ensure that Python 3.11.6 is installed.
-
-```
-conda create --name parastell_env python=3.11.6
+```bash
+conda env create -f environment.yml
 conda activate parastell_env
-conda install -c conda-forge mamba
 ```
 
-The subsequent mamba and pip install commands should be run with this environment activated.
-
-Mamba install ParaStell and PyStell-UW Python dependencies available on `conda-forge`:
-
-```
-mamba install -c conda-forge numpy scipy scikit-learn cadquery cad_to_dagmc matplotlib
-mamba install -c conda-forge moab=5.5.0=nompi_tempest_*
-```
-
-Pip install the remaining ParaStell and PyStell-UW Python dependencies:
-
-```
-pip install netCDF4
-pip install pyyaml
-```
+Alternatively, view `INSTALL.md` for instructions on manually installing these Python dependencies using mamba.
 
 ### Install Coreform Cubit
 Download and install version 2023.11 from [Coreform's Website](https://coreform.com/products/downloads/), then add the `/Coreform-Cubit-2023.11/bin/` directory to your `PYTHONPATH` by adding a line similar to the following to your `.bashrc` file:
@@ -68,7 +51,7 @@ Download and extract the PyStell-UW repository:
 git clone https://github.com/aaroncbader/pystell_uw.git
 ```
 
-or download and extract the ZIP file from [PyStell-UW](https://github.com/aaroncbader/pystell_uw). Once extracted, add the repository directory to your `PYTHONPATH`.
+or download the and extract the ZIP file from [PyStell-UW](https://github.com/aaroncbader/pystell_uw). Once extracted, add the repository directory to your `PYTHONPATH`.
 
 ## Install ParaStell
 Download and extract the ParaStell repository:
@@ -78,3 +61,28 @@ git clone git@github.com:svalinn/parastell.git
 ```
 
 or download the ZIP file from the repository home page. Once extracted, add the repository directory to your `PYTHONPATH`.
+
+## Executing ParaStell Scripts with YAML Input
+While ParaStell can imported as a module to make use of its Python API, each ParaStell class has a corresponding command-line executable to alternatively call ParaStell functionality via command line. These executables use a YAML configuration file as a command-line argument to define input parameters.
+
+To make use of this feature, add the ParaStell `executables` directory to your `PATH` by adding a line similar to the following to your `.bashrc` file:
+
+```bash
+export PATH = $PATH:$HOME/parastell/executables/
+```
+
+Replace `$HOME` with the path to the ParaStell repository directory on your system. Information about adding directories to your `PATH` can be found [here](https://phoenixnap.com/kb/linux-add-to-path).
+
+Next, give each file in the `executables` directory file execution permission:
+
+```bash
+chmod -R u+x $HOME/parastell/executables/
+```
+
+Now, each executable can be run from command line with a corresponding YAML file argument. For example, for the `Stellarator` class:
+
+```bash
+stellarator config.yaml
+```
+
+See each executable's help message for more details.
