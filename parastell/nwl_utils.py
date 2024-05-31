@@ -208,7 +208,7 @@ def plot(nwl_mat, phi_pts, theta_pts, num_levels):
 
     levels = np.linspace(np.min(nwl_mat), np.max(nwl_mat), num = num_levels)
     fig, ax = plt.subplots()
-    CF = ax.contourf(phi_pts, theta_pts, nwl_mat, levels = levels)
+    CF = ax.contourf(phi_pts, theta_pts, nwl_mat.T, levels = levels)
     cbar = plt.colorbar(CF)
     cbar.ax.set_ylabel('NWL (MW/m2)')
     plt.xlabel('Toroidal Angle (degrees)')
@@ -248,7 +248,7 @@ def area_from_corners(corners):
     return area
 
 def nwl_plot(
-    source_file, ss_file, plas_eq, tor_ext, pol_ext, wall_s, num_phi = 100,
+    source_file, ss_file, plas_eq, tor_ext, pol_ext, wall_s, num_phi = 101,
     num_theta = 101, num_levels = 10, num_crossings = None
     ):
     """Computes and plots NWL. Assumes toroidal extent is less than 360 degrees
