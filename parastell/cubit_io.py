@@ -72,7 +72,7 @@ def export_cub5(filename, export_dir=''):
     init_cubit()
 
     export_path = Path(export_dir) / Path(filename).with_suffix('.cub5')
-    cubit.cmd(f'')
+    cubit.cmd(f'save cub5 "{export_path}" overwrite')
 
 def export_mesh_cubit(filename, export_dir=''):
     """Exports Cubit mesh to H5M file format, first exporting to Exodus format
