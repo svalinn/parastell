@@ -361,6 +361,8 @@ class Stellarator(object):
                 geometry information (optional, defaults to False).
             legacy_faceting (bool): choose legacy or native faceting for DAGMC
                 export (optional, defaults to True).
+            export_cub5 (bool): choose whether or not to save to the cubit
+                native format after exporting to DAGMC.
             filename (str): name of DAGMC output file, excluding '.h5m'
                 extension (optional, defaults to 'dagmc').
             export_dir (str): directory to which to export DAGMC output file
