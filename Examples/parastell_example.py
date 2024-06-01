@@ -97,6 +97,7 @@ stellarator.export_source_mesh(
 stellarator.export_dagmc(
     skip_imprint=False,
     legacy_faceting=True,
+    export_cub5=False,
     filename='dagmc',
     export_dir=export_dir
 )
