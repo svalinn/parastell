@@ -63,6 +63,7 @@ invessel_build:
       mat_tag: vac_vessel
   plasma_mat_tag: Vacuum
   sol_mat_tag: Vacuum
+  split_chamber: True
   export_cad_to_dagmc: False
 
 magnet_coils:
@@ -82,4 +83,5 @@ source_mesh:
 dagmc_export:
   skip_imprint: False
   legacy_faceting: True
+  export_cub5: False
   filename: dagmc
