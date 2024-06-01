@@ -61,6 +61,18 @@ def export_step_cubit(filename, export_dir=''):
     export_path = Path(export_dir) / Path(filename).with_suffix('.step')
     cubit.cmd(f'export step "{export_path}" overwrite')
 
+def export_cub5(filename, export_dir=''):
+    """Export cub5 representation of model (native cubit format)
+    
+    Arguments:
+        filename (str): name of cub5 output file, excluding '.cub5' extension.
+        export_dir (str): directory to which to export the cub5 output file
+        (defaults to empty string).
+    """
+    init_cubit()
+
+    export_path = Path(export_dir) / Path(filename).with_suffix('.cub5')
+    cubit.cmd(f'')
 
 def export_mesh_cubit(filename, export_dir=''):
     """Exports Cubit mesh to H5M file format, first exporting to Exodus format

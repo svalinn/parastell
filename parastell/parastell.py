@@ -350,9 +350,8 @@ class Stellarator(object):
                 make_material_block(data['mat_tag'], block_id, vol_id_str)
 
     def export_dagmc(
-        self, skip_imprint=False, legacy_faceting=True, filename='dagmc',
-        export_dir='', **kwargs
-    ):
+        self, skip_imprint=False, legacy_faceting=True, export_cub5=False,
+        filename='dagmc', export_dir='', **kwargs):
         """Exports DAGMC neutronics H5M file of ParaStell components via
         Coreform Cubit.
 
@@ -414,6 +413,12 @@ class Stellarator(object):
                 filename=filename,
                 export_dir=export_dir,
                 **kwargs
+            )
+
+        if export_cub5:
+            cubit_io.export_cub5(
+                filename=filename,
+                export_dir=export_dir
             )
 
 
