@@ -355,8 +355,8 @@ class Stellarator(object):
                 make_material_block(data['mat_tag'], block_id, vol_id_str)
 
     def build_cubit_model(
-            self, skip_imprint=False, legacy_faceting=True, **kwargs
-            ):
+        self, skip_imprint=False, legacy_faceting=True, **kwargs
+    ):
         """Build model for DAGMC neutronics H5M file of Parastell components via
         Coreform Cubit
 
