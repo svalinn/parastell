@@ -248,7 +248,7 @@ class InVesselBuild(object):
 
             for angle in segment_angles:
                 rot_segment = segment.rotate((0, 0, 0), (0, 0, 1), angle)
-                component = component.union(rot_segment)
+                component = component.fuse(rot_segment)
 
             self.Components[name] = component
             interior_surface = outer_surface
