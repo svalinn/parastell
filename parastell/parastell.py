@@ -661,7 +661,8 @@ def parastell():
     if args.ivb or args.magnets:
         dagmc_export = all_data['dagmc_export']
         stellarator.build_cubit_model(
-            **(filter_kwargs(dagmc_export, build_cubit_model_allowed_kwargs)))
+            **(filter_kwargs(dagmc_export, build_cubit_model_allowed_kwargs))
+        )
         stellarator.export_dagmc(
             export_dir=args.export_dir,
             **(filter_kwargs(dagmc_export, export_allowed_kwargs))
