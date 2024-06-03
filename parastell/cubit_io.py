@@ -67,7 +67,7 @@ def export_cub5(filename, export_dir=''):
     Arguments:
         filename (str): name of cub5 output file, excluding '.cub5' extension.
         export_dir (str): directory to which to export the cub5 output file
-        (defaults to empty string).
+            (defaults to empty string).
     """
     init_cubit()
 
