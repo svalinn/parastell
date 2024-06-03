@@ -14,6 +14,11 @@ from . import source_mesh as sm
 from . import cubit_io
 from .utils import read_yaml_config, filter_kwargs, m2cm
 
+build_cubit_model_allowed_kwargs = ['skip_imprint', 'legacy_faceting']
+export_allowed_kwargs = ['faceting_tolerance', 'length_tolerance',
+                         'normal_tolerance', 'anisotropic_ratio',
+                         'deviation_angle']
+
 
 def make_material_block(mat_tag, block_id, vol_id_str):
     """Issue commands to make a material block using Cubit's
@@ -349,11 +354,11 @@ class Stellarator(object):
                 vol_id_str = str(block_id)
                 make_material_block(data['mat_tag'], block_id, vol_id_str)
 
-    def export_dagmc(
-        self, skip_imprint=False, legacy_faceting=True, export_cub5=False,
-        filename='dagmc', export_dir='', **kwargs):
-        """Exports DAGMC neutronics H5M file of ParaStell components via
-        Coreform Cubit.
+    def build_cubit_model(
+            self, skip_imprint=False, legacy_faceting=True, **kwargs
+            ):
+        """Build model for DAGMC neutronics H5M file of Parastell components via
+        Coreform Cubit
 
         Arguments:
             skip_imprint (bool): choose whether to imprint and merge all in
@@ -361,8 +366,33 @@ class Stellarator(object):
                 geometry information (optional, defaults to False).
             legacy_faceting (bool): choose legacy or native faceting for DAGMC
                 export (optional, defaults to True).
-            export_cub5 (bool): choose whether or not to save to the cubit
-                native format after exporting to DAGMC.
+        """
+        self.legacy_faceting = legacy_faceting
+
+        self._logger.info(
+            'Building DAGMC neutronics model via Coreform Cubit...'
+        )
+
+        if self.invessel_build:
+            self._import_ivb_step()
+
+        if skip_imprint:
+            self.invessel_build.merge_layer_surfaces()
+        else:
+            cubit.cmd('imprint volume all')
+            cubit.cmd('merge volume all')
+
+        if legacy_faceting:
+            self._tag_materials_legacy()
+        else:
+            self._tag_materials_native()
+
+    
+    def export_dagmc(self, filename='dagmc', export_dir='', **kwargs):
+        """Exports DAGMC neutronics H5M file of ParaStell components via
+        Coreform Cubit.
+
+        Arguments:
             filename (str): name of DAGMC output file, excluding '.h5m'
                 extension (optional, defaults to 'dagmc').
             export_dir (str): directory to which to export DAGMC output file
@@ -393,35 +423,36 @@ class Stellarator(object):
             'Exporting DAGMC neutronics model...'
         )
 
-        if self.invessel_build:
-            self._import_ivb_step()
-
-        if skip_imprint:
-            self.invessel_build.merge_layer_surfaces()
-        else:
-            cubit.cmd('imprint volume all')
-            cubit.cmd('merge volume all')
-
-        if legacy_faceting:
-            self._tag_materials_legacy()
+        if self.legacy_faceting:
             cubit_io.export_dagmc_cubit_legacy(
                 filename=filename,
                 export_dir=export_dir,
                 **kwargs
             )
         else:
-            self._tag_materials_native()
             cubit_io.export_dagmc_cubit_native(
                 filename=filename,
                 export_dir=export_dir,
                 **kwargs
             )
+    
+    def export_cub5(self, filename='dagmc', export_dir='', **kwargs):
+        """Export native Coreform Cubit format (cub5) of Parastell model.
 
-        if export_cub5:
-            cubit_io.export_cub5(
-                filename=filename,
-                export_dir=export_dir
-            )
+        Arguments:
+            filename (str): name of DAGMC output file, excluding '.h5m'
+                extension (optional, defaults to 'dagmc').
+            export_dir (str): directory to which to export DAGMC output file
+                (optional, defaults to empty string).
+        """
+        cubit_io.init_cubit()
+
+        self._logger.info(
+            'Exporting cub5 model...'
+        )
+
+        cubit_io.export_cub5(filename=filename, 
+                             export_dir=export_dir)
 
 
 def parse_args():
@@ -629,10 +660,16 @@ def parastell():
     
     if args.ivb or args.magnets:
         dagmc_export = all_data['dagmc_export']
+        stellarator.build_cubit_model(
+            **(filter_kwargs(dagmc_export, build_cubit_model_allowed_kwargs)))
         stellarator.export_dagmc(
             export_dir=args.export_dir,
-            **dagmc_export
+            **(filter_kwargs(dagmc_export, export_allowed_kwargs))
         )
+        cub5_export = all_data['cub5_export']
+        if cub5_export['export_cub5']:
+            stellarator.export_cub5(export_dir=args.export_dir,
+                                    **cub5_export)
 
     if args.nwl:
         if not args.ivb:
