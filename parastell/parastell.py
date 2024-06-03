@@ -668,8 +668,9 @@ def parastell():
         )
         cub5_export = all_data['cub5_export']
         if cub5_export['export_cub5']:
-            stellarator.export_cub5(export_dir=args.export_dir,
-                                    **cub5_export)
+            stellarator.export_cub5(
+                export_dir=args.export_dir, **cub5_export
+            )
 
     if args.nwl:
         if not args.ivb:
