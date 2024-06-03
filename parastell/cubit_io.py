@@ -62,7 +62,7 @@ def export_step_cubit(filename, export_dir=''):
     cubit.cmd(f'export step "{export_path}" overwrite')
 
 def export_cub5(filename, export_dir=''):
-    """Export cub5 representation of model (native cubit format)
+    """Export cub5 representation of model (native Cubit format).
     
     Arguments:
         filename (str): name of cub5 output file, excluding '.cub5' extension.
