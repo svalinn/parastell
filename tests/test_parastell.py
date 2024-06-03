@@ -120,7 +120,9 @@ def test_parastell(stellarator):
 
     filename_exp = 'dagmc'
 
-    stellarator.export_dagmc(filename=filename_exp, export_cub5=True)
+    stellarator.build_cubit_model()
+    stellarator.export_dagmc(filename=filename_exp)
+    stellarator.export_cub5(filename=filename_exp)
 
     assert Path(filename_exp).with_suffix('.h5m').exists()
     assert Path(filename_exp).with_suffix('.cub5').exists()
