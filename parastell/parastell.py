@@ -15,15 +15,15 @@ from . import cubit_io
 from .utils import read_yaml_config, filter_kwargs, m2cm
 
 build_cubit_model_allowed_kwargs = ['skip_imprint', 'legacy_faceting']
-export_allowed_kwargs = ['faceting_tolerance', 'length_tolerance',
-                         'normal_tolerance', 'anisotropic_ratio',
-                         'deviation_angle']
+export_dagmc_allowed_kwargs = ['faceting_tolerance', 'length_tolerance',
+                               'normal_tolerance', 'anisotropic_ratio',
+                               'deviation_angle']
 
 
 def make_material_block(mat_tag, block_id, vol_id_str):
     """Issue commands to make a material block using Cubit's
     native capabilities.
-    
+
     Arguments:
        mat_tag (str) : name of material block
        block_id (int) : block number
@@ -63,7 +63,7 @@ class Stellarator(object):
         vmec_file,
         logger=None
     ):
-        
+
         self.logger = logger
         self.vmec_file = vmec_file
 
@@ -74,7 +74,7 @@ class Stellarator(object):
     @property
     def vmec_file(self):
         return self._vmec_file
-    
+
     @vmec_file.setter
     def vmec_file(self, file):
         self._vmec_file = file
@@ -87,7 +87,7 @@ class Stellarator(object):
     @property
     def logger(self):
         return self._logger
-    
+
     @logger.setter
     def logger(self, logger_object):
         self._logger = log.check_init(logger_object)
@@ -345,7 +345,7 @@ class Stellarator(object):
             block_id = min(vol_list)
             vol_id_str = " ".join(str(i) for i in vol_list)
             make_material_block(self.magnet_set.mat_tag, block_id, vol_id_str)
-        
+
         if self.invessel_build:
             for data in (
                 self.invessel_build.radial_build.radial_build.values()
@@ -354,9 +354,7 @@ class Stellarator(object):
                 vol_id_str = str(block_id)
                 make_material_block(data['mat_tag'], block_id, vol_id_str)
 
-    def build_cubit_model(
-        self, skip_imprint=False, legacy_faceting=True, **kwargs
-    ):
+    def build_cubit_model(self, skip_imprint=False, legacy_faceting=True):
         """Build model for DAGMC neutronics H5M file of Parastell components via
         Coreform Cubit
 
@@ -387,7 +385,6 @@ class Stellarator(object):
         else:
             self._tag_materials_native()
 
-    
     def export_dagmc(self, filename='dagmc', export_dir='', **kwargs):
         """Exports DAGMC neutronics H5M file of ParaStell components via
         Coreform Cubit.
@@ -418,7 +415,7 @@ class Stellarator(object):
                 attribute is used only for the native faceting method.
         """
         cubit_io.init_cubit()
-        
+
         self._logger.info(
             'Exporting DAGMC neutronics model...'
         )
@@ -435,8 +432,8 @@ class Stellarator(object):
                 export_dir=export_dir,
                 **kwargs
             )
-    
-    def export_cub5(self, filename='dagmc', export_dir='', **kwargs):
+
+    def export_cub5(self, filename='stellarator', export_dir=''):
         """Export native Coreform Cubit format (cub5) of Parastell model.
 
         Arguments:
@@ -451,7 +448,7 @@ class Stellarator(object):
             'Exporting cub5 model...'
         )
 
-        cubit_io.export_cub5(filename=filename, 
+        cubit_io.export_cub5(filename=filename,
                              export_dir=export_dir)
 
 
@@ -483,7 +480,7 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-i', '--ivb', 
+        '-i', '--ivb',
         action='store_true',
         help=(
             'flag to indicate the creation of in-vessel component geometry '
@@ -492,15 +489,15 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-m', '--magnets', 
+        '-m', '--magnets',
         action='store_true',
         help=(
             'flag to indicate the creation of magnet geometry (default: False)'
         )
     )
-    
+
     parser.add_argument(
-        '-s', '--source', 
+        '-s', '--source',
         action='store_true',
         help=(
             'flag to indicate the creation of a tetrahedral source mesh '
@@ -509,7 +506,7 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-n', '--nwl', 
+        '-n', '--nwl',
         action='store_true',
         help=(
             'flag to indicate the creation of a geometry for neutron wall '
@@ -541,7 +538,7 @@ def check_inputs(
     ivb_tor_ext = (repeat + 1) * invessel_build['toroidal_angles'][-1]
     mag_tor_ext = magnet_coils['toroidal_extent']
     src_tor_ext = source_mesh['toroidal_extent']
-    
+
     if ivb_tor_ext != mag_tor_ext:
         w = Warning(
             f'The total toroidal extent of the in-vessel build, {ivb_tor_ext} '
@@ -549,7 +546,7 @@ def check_inputs(
             f'{mag_tor_ext} degrees.'
         )
         logger.warning(w.args[0])
-    
+
     if ivb_tor_ext != src_tor_ext:
         w = Warning(
             f'The total toroidal extent of the in-vessel build, {ivb_tor_ext} '
@@ -557,14 +554,14 @@ def check_inputs(
             f'{src_tor_ext} degrees.'
         )
         logger.warning(w.args[0])
-    
+
     if mag_tor_ext != src_tor_ext:
         w = Warning(
             f'The toroidal extent of the magnet coils, {mag_tor_ext} degrees, '
             f'does not match that of the source mesh, {src_tor_ext} degrees.'
         )
         logger.warning(w.args[0])
-    
+
     if 'scale' in invessel_build:
         ivb_scale = invessel_build['scale']
     else:
@@ -582,7 +579,7 @@ def check_inputs(
         )
         logger.error(e.args[0])
         raise e
-    
+
     if (
         'export_cad_to_dagmc' in invessel_build and
         invessel_build['export_cad_to_dagmc']
@@ -591,7 +588,7 @@ def check_inputs(
             ivb_dagmc_filename = invessel_build['dagmc_filename']
         else:
             ivb_dagmc_filename = 'dagmc'
-        
+
         if 'filename' in dagmc_export:
             ps_dagmc_filename = dagmc_export['filename']
         else:
@@ -648,7 +645,7 @@ def parastell():
         stellarator.export_magnets(
             export_dir=args.export_dir,
             **(filter_kwargs(magnet_coils, mc.export_allowed_kwargs))
-    )
+        )
 
     if args.source:
         source_mesh = all_data['source_mesh']
@@ -657,7 +654,7 @@ def parastell():
             export_dir=args.export_dir,
             **(filter_kwargs(source_mesh, sm.export_allowed_kwargs))
         )
-    
+
     if args.ivb or args.magnets:
         dagmc_export = all_data['dagmc_export']
         stellarator.build_cubit_model(
@@ -665,20 +662,18 @@ def parastell():
         )
         stellarator.export_dagmc(
             export_dir=args.export_dir,
-            **(filter_kwargs(dagmc_export, export_allowed_kwargs))
+            **(filter_kwargs(dagmc_export, export_dagmc_allowed_kwargs))
         )
-        cub5_export = all_data['cub5_export']
-        if cub5_export['export_cub5']:
-            stellarator.export_cub5(
-                export_dir=args.export_dir, **cub5_export
-            )
+
+        if all_data['cub5_export']:
+            stellarator.export_cub5(export_dir=args.export_dir)
 
     if args.nwl:
         if not args.ivb:
             invessel_build = all_data['invessel_build']
             if not args.magnets:
                 dagmc_export = all_data['dagmc_export']
-        
+
         if cubit_io.initialized:
             cubit.cmd('new')
 
@@ -690,22 +685,22 @@ def parastell():
         nwl_required_keys = [
             'toroidal_angles', 'poloidal_angles', 'wall_s'
         ]
-        
+
         nwl_build = {}
         for key in nwl_keys:
             nwl_build[key] = invessel_build[key]
         nwl_build['radial_build'] = {}
-        
+
         nwl_optional_keys = [
             'num_ribs', 'num_rib_pts', 'repeat', 'scale'
         ]
-        
+
         for key in invessel_build.keys() & nwl_optional_keys:
             nwl_build[key] = invessel_build[key]
 
         nwl_geom.construct_invessel_build(**nwl_build)
         nwl_geom.export_invessel_build(export_dir=args.export_dir)
-        
+
         nwl_geom.export_dagmc(
             skip_imprint=True,
             filename='nwl_geom',
