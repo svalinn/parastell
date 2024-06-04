@@ -20,6 +20,8 @@ def remove_files():
         Path.unlink('magnet_mesh.h5m')
     if Path('dagmc.h5m').exists():
         Path.unlink('dagmc.h5m')
+    if Path('dagmc.cub5').exists():
+        Path.unlink('dagmc.cub5')
     if Path('source_mesh.h5m').exists():
         Path.unlink('source_mesh.h5m')
     if Path('stellarator.log').exists():
@@ -118,8 +120,11 @@ def test_parastell(stellarator):
 
     filename_exp = 'dagmc'
 
+    stellarator.build_cubit_model()
     stellarator.export_dagmc(filename=filename_exp)
+    stellarator.export_cub5(filename=filename_exp)
 
     assert Path(filename_exp).with_suffix('.h5m').exists()
+    assert Path(filename_exp).with_suffix('.cub5').exists()
 
     remove_files()
