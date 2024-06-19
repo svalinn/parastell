@@ -140,7 +140,6 @@ def find_coords(vmec, wall_s, phi, pt):
 
 
 def find_coord(data):
-    print("pid ", os.getpid())
     thetas = []
     vmec = read_vmec.VMECData(data[0])
     for t in data[2]:
@@ -166,7 +165,7 @@ def flux_coords(plas_eq, wall_s, coords):
 
     phi_coords = np.arctan2(coords[:, 1], coords[:, 0])
 
-    num_chunks = 5
+    num_chunks = 10
 
     chunk_size = len(phi_coords) // num_chunks
 
@@ -187,7 +186,7 @@ def flux_coords(plas_eq, wall_s, coords):
             list(executor.map(find_coord, chunks))
         ).flatten()
 
-    return phi_coords, theta_coords
+    return phi_coords.tolist(), theta_coords.tolist()
 
     # phi_coords = np.arctan2(coords[:, 1], coords[:, 0])
     # theta_coords = []
@@ -289,6 +288,7 @@ def nwl_plot(
     num_theta=101,
     num_levels=10,
     num_crossings=None,
+    step_size = 1_000_000
 ):
     """Computes and plots NWL. Assumes toroidal extent is less than 360 degrees
 
@@ -321,7 +321,16 @@ def nwl_plot(
 
     vmec = read_vmec.VMECData(plas_eq)
 
-    phi_coords, theta_coords = flux_coords(plas_eq, wall_s, coords)
+    phi_coords = []
+    theta_coords = []
+
+    iterations = len(coords)//step_size
+
+    for i in range(iterations):
+        print(i, ' million')
+        phi_coord_subset, theta_coord_subset = flux_coords(plas_eq, wall_s, coords[i*step_size:(i+1)*step_size])
+        phi_coords += phi_coord_subset
+        theta_coords += theta_coord_subset
 
     # Define minimum and maximum bin edges for each dimension
     phi_min = 0 - tor_ext / num_phi / 2
