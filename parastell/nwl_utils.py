@@ -4,6 +4,8 @@ from scipy.optimize import direct
 import openmc
 import pystell.read_vmec as read_vmec
 import matplotlib.pyplot as plt
+import concurrent.futures
+import os
 
 
 def extract_ss(ss_file):
@@ -17,8 +19,8 @@ def extract_ss(ss_file):
             Returned only if source mesh is generated.
     """
     strengths = []
-    
-    file_obj = open(ss_file, 'r')
+
+    file_obj = open(ss_file, "r")
     data = file_obj.readlines()
     for line in data:
         strengths.append(float(line))
@@ -37,48 +39,43 @@ def nwl_transport(dagmc_geom, source_mesh, tor_ext, ss_file, num_parts):
         num_parts (int): number of source particles to simulate.
     """
     tor_ext = np.deg2rad(tor_ext)
-    
+
     strengths = extract_ss(ss_file)
 
     # Initialize OpenMC model
     model = openmc.model.Model()
 
-    dag_univ = openmc.DAGMCUniverse(dagmc_geom, auto_geom_ids = False)
+    dag_univ = openmc.DAGMCUniverse(dagmc_geom, auto_geom_ids=False)
 
     # Define problem boundaries
-    vac_surf = openmc.Sphere(
-        r = 10000, surface_id = 9999, boundary_type = 'vacuum'
-    )
-    per_init = openmc.YPlane(
-        boundary_type = 'periodic',
-        surface_id = 9991
-    )
+    vac_surf = openmc.Sphere(r=10000, surface_id=9999, boundary_type="vacuum")
+    per_init = openmc.YPlane(boundary_type="periodic", surface_id=9991)
     per_fin = openmc.Plane(
-        a = np.sin(tor_ext),
-        b = -np.cos(tor_ext),
-        c = 0,
-        d = 0,
-        boundary_type = 'periodic',
-        surface_id = 9990
+        a=np.sin(tor_ext),
+        b=-np.cos(tor_ext),
+        c=0,
+        d=0,
+        boundary_type="periodic",
+        surface_id=9990,
     )
 
     # Define first period of geometry
-    region  = -vac_surf & +per_init & +per_fin
-    period = openmc.Cell(cell_id = 9996, region = region, fill = dag_univ)
+    region = -vac_surf & +per_init & +per_fin
+    period = openmc.Cell(cell_id=9996, region=region, fill=dag_univ)
     geometry = openmc.Geometry([period])
     model.geometry = geometry
 
     # Define run settings
     settings = openmc.Settings()
-    settings.run_mode = 'fixed source'
+    settings.run_mode = "fixed source"
     settings.particles = num_parts
     settings.batches = 1
 
     # Define neutron source
-    mesh = openmc.UnstructuredMesh(source_mesh, 'moab')
+    mesh = openmc.UnstructuredMesh(source_mesh, "moab")
     src = openmc.IndependentSource()
     src.space = openmc.stats.MeshSpatial(
-        mesh, strengths = strengths, volume_normalized = False
+        mesh, strengths=strengths, volume_normalized=False
     )
     src.angle = openmc.stats.Isotropic()
     src.energy = openmc.stats.Discrete([14.1e6], [1.0])
@@ -86,8 +83,8 @@ def nwl_transport(dagmc_geom, source_mesh, tor_ext, ss_file, num_parts):
 
     # Track surface crossings
     settings.surf_source_write = {
-        'surface_ids': [1],
-        'max_particles': num_parts
+        "surface_ids": [1],
+        "max_particles": num_parts,
     }
 
     model.settings = settings
@@ -112,8 +109,8 @@ def min_problem(theta, vmec, wall_s, phi, pt):
     # Compute first wall point
     fw_pt = np.array(vmec.vmec2xyz(wall_s, theta, phi))
     m2cm = 100
-    fw_pt = fw_pt*m2cm
-    
+    fw_pt = fw_pt * m2cm
+
     diff = np.linalg.norm(pt - fw_pt)
 
     return diff
@@ -134,9 +131,7 @@ def find_coords(vmec, wall_s, phi, pt):
     """
     # Solve for the poloidal angle via minimization
     theta = direct(
-        min_problem,
-        bounds = [(-np.pi, np.pi)],
-        args = (vmec, wall_s, phi, pt)
+        min_problem, bounds=[(-np.pi, np.pi)], args=(vmec, wall_s, phi, pt)
     )
     # Extract angle
     theta = theta.x[0]
@@ -144,10 +139,19 @@ def find_coords(vmec, wall_s, phi, pt):
     return theta
 
 
-def flux_coords(vmec, wall_s, coords):
+def find_coord(data):
+    print("pid ", os.getpid())
+    thetas = []
+    vmec = read_vmec.VMECData(data[0])
+    for t in data[2]:
+        thetas.append(find_coords(vmec, data[1], t[0], t[1]))
+    return thetas
+
+
+def flux_coords(plas_eq, wall_s, coords):
     """Computes flux-coordinate toroidal and poloidal angles corresponding to
     specified Cartesian coordinates.
-    
+
     Arguments:
         vmec (object): plasma equilibrium object.
         wall_s (float): closed flux surface label extrapolation at wall.
@@ -159,14 +163,40 @@ def flux_coords(vmec, wall_s, coords):
         theta_coords (array of float): poloidal angles of surface crossings
             (rad).
     """
-    phi_coords = np.arctan2(coords[:,1], coords[:,0])
-    theta_coords = []
-    
-    for pt, phi in zip(coords, phi_coords):
-        theta = find_coords(vmec, wall_s, phi, pt)
-        theta_coords.append(theta)
+
+    phi_coords = np.arctan2(coords[:, 1], coords[:, 0])
+
+    num_chunks = 5
+
+    chunk_size = len(phi_coords) // num_chunks
+
+    chunks = []
+    for i in range(num_chunks):
+        subchunk = list(
+            zip(
+                phi_coords[i * chunk_size : (i + 1) * chunk_size],
+                coords[i * chunk_size : (i + 1) * chunk_size],
+            )
+        )
+        chunks.append((plas_eq, wall_s, subchunk))
+
+    with concurrent.futures.ProcessPoolExecutor(
+        max_workers=num_chunks
+    ) as executor:
+        theta_coords = np.array(
+            list(executor.map(find_coord, chunks))
+        ).flatten()
 
     return phi_coords, theta_coords
+
+    # phi_coords = np.arctan2(coords[:, 1], coords[:, 0])
+    # theta_coords = []
+
+    # for pt, phi in zip(coords, phi_coords):
+    #     theta = find_coords(vmec, wall_s, phi, pt)
+    #     theta_coords.append(theta)
+
+    # return phi_coords, theta_coords
 
 
 def extract_coords(source_file):
@@ -175,20 +205,20 @@ def extract_coords(source_file):
 
     Arguments:
         source_file (str): path to OpenMC surface source file.
-    
+
     Returns:
         coords (array of array of float): Cartesian coordinates of all particle
             surface crossings.
     """
     # Load source file
-    file = h5py.File(source_file, 'r')
+    file = h5py.File(source_file, "r")
     # Extract source information
-    dataset = file['source_bank']['r']
+    dataset = file["source_bank"]["r"]
     # Construct matrix of particle crossing coordinates
     coords = np.empty((len(dataset), 3))
-    coords[:,0] = dataset['x']
-    coords[:,1] = dataset['y']
-    coords[:,2] = dataset['z']
+    coords[:, 0] = dataset["x"]
+    coords[:, 1] = dataset["y"]
+    coords[:, 2] = dataset["z"]
 
     return coords
 
@@ -206,14 +236,14 @@ def plot(nwl_mat, phi_pts, theta_pts, num_levels):
     phi_pts = np.rad2deg(phi_pts)
     theta_pts = np.rad2deg(theta_pts)
 
-    levels = np.linspace(np.min(nwl_mat), np.max(nwl_mat), num = num_levels)
+    levels = np.linspace(np.min(nwl_mat), np.max(nwl_mat), num=num_levels)
     fig, ax = plt.subplots()
-    CF = ax.contourf(phi_pts, theta_pts, nwl_mat.T, levels = levels)
+    CF = ax.contourf(phi_pts, theta_pts, nwl_mat.T, levels=levels)
     cbar = plt.colorbar(CF)
-    cbar.ax.set_ylabel('NWL (MW/m2)')
-    plt.xlabel('Toroidal Angle (degrees)')
-    plt.ylabel('Poloidal Angle (degrees)')
-    fig.savefig('NWL.png')
+    cbar.ax.set_ylabel("NWL (MW/m2)")
+    plt.xlabel("Toroidal Angle (degrees)")
+    plt.ylabel("Poloidal Angle (degrees)")
+    fig.savefig("NWL.png")
 
 
 def area_from_corners(corners):
@@ -221,7 +251,7 @@ def area_from_corners(corners):
     Calculate an approximation of the area defined by 4 xyz points
 
     Arguments:
-        corners (4x3 numpy array): list of 4 (x,y,z) points. Connecting the 
+        corners (4x3 numpy array): list of 4 (x,y,z) points. Connecting the
             points in the order given should result in a polygon
 
     Returns:
@@ -231,26 +261,35 @@ def area_from_corners(corners):
     v1 = corners[3] - corners[0]
     v2 = corners[2] - corners[0]
 
-    v3 = np.cross(v1,v2)
+    v3 = np.cross(v1, v2)
 
-    area1 = np.sqrt(np.sum(np.square(v3)))/2
+    area1 = np.sqrt(np.sum(np.square(v3))) / 2
 
     # triangle 2
     v1 = corners[1] - corners[0]
     v2 = corners[2] - corners[0]
 
-    v3 = np.cross(v1,v2)
+    v3 = np.cross(v1, v2)
 
-    area2 = np.sqrt(np.sum(np.square(v3)))/2
+    area2 = np.sqrt(np.sum(np.square(v3))) / 2
 
     area = area1 + area2
 
     return area
 
+
 def nwl_plot(
-    source_file, ss_file, plas_eq, tor_ext, pol_ext, wall_s, num_phi = 101,
-    num_theta = 101, num_levels = 10, num_crossings = None
-    ):
+    source_file,
+    ss_file,
+    plas_eq,
+    tor_ext,
+    pol_ext,
+    wall_s,
+    num_phi=101,
+    num_theta=101,
+    num_levels=10,
+    num_crossings=None,
+):
     """Computes and plots NWL. Assumes toroidal extent is less than 360 degrees
 
     Arguments:
@@ -274,40 +313,39 @@ def nwl_plot(
     """
     tor_ext = np.deg2rad(tor_ext)
     pol_ext = np.deg2rad(pol_ext)
-    
+
     coords = extract_coords(source_file)
 
     if num_crossings is not None:
         coords = coords[0:num_crossings]
-    
-    # Load plasma equilibrium data
+
     vmec = read_vmec.VMECData(plas_eq)
 
-    phi_coords, theta_coords = flux_coords(vmec, wall_s, coords)
+    phi_coords, theta_coords = flux_coords(plas_eq, wall_s, coords)
 
     # Define minimum and maximum bin edges for each dimension
-    phi_min = 0 - tor_ext/num_phi/2
-    phi_max = tor_ext + tor_ext/num_phi/2
-    theta_min = -pol_ext/2 - pol_ext/num_theta/2
-    theta_max = pol_ext/2 + pol_ext/num_theta/2
-    
+    phi_min = 0 - tor_ext / num_phi / 2
+    phi_max = tor_ext + tor_ext / num_phi / 2
+    theta_min = -pol_ext / 2 - pol_ext / num_theta / 2
+    theta_max = pol_ext / 2 + pol_ext / num_theta / 2
+
     # Bin particle crossings
     count_mat, phi_bins, theta_bins = np.histogram2d(
         phi_coords,
         theta_coords,
-        bins = [num_phi, num_theta],
-        range = [[phi_min, phi_max], [theta_min, theta_max]]
+        bins=[num_phi, num_theta],
+        range=[[phi_min, phi_max], [theta_min, theta_max]],
     )
 
     # adjust endpoints to eliminate overlap
     phi_bins[0] = 0
     phi_bins[-1] = tor_ext
-    theta_bins[0] = -pol_ext/2
-    theta_bins[-1] = pol_ext/2
+    theta_bins[0] = -pol_ext / 2
+    theta_bins[-1] = pol_ext / 2
 
     # Compute centroids of bin dimensions
-    phi_pts = np.linspace(0, tor_ext, num = num_phi)
-    theta_pts = np.linspace(-pol_ext/2, pol_ext/2, num = num_theta)
+    phi_pts = np.linspace(0, tor_ext, num=num_phi)
+    theta_pts = np.linspace(-pol_ext / 2, pol_ext / 2, num=num_theta)
 
     # Define fusion neutron energy (eV)
     n_energy = 14.1e6
@@ -321,16 +359,16 @@ def nwl_plot(
     # Define number of source particles
     num_parts = len(coords)
 
-    nwl_mat = count_mat*n_energy*eV2J*SS*J2MJ/num_parts
+    nwl_mat = count_mat * n_energy * eV2J * SS * J2MJ / num_parts
 
     # construct array of bin boundaries
-    bin_arr = np.zeros((num_phi+1, num_theta+1, 3))
+    bin_arr = np.zeros((num_phi + 1, num_theta + 1, 3))
 
     for phi_bin, phi in enumerate(phi_bins):
         for theta_bin, theta in enumerate(theta_bins):
 
-            x,y,z = vmec.vmec2xyz(wall_s,theta,phi)
-            bin_arr[phi_bin, theta_bin, :] = [x,y,z]
+            x, y, z = vmec.vmec2xyz(wall_s, theta, phi)
+            bin_arr[phi_bin, theta_bin, :] = [x, y, z]
 
     # construct area array
     area_array = np.zeros((num_phi, num_theta))
@@ -339,14 +377,14 @@ def nwl_plot(
         for theta_index in range(num_theta):
             # each bin has 4 (x,y,z) corners
             corner1 = bin_arr[phi_index, theta_index]
-            corner2 = bin_arr[phi_index, theta_index+1]
-            corner3 = bin_arr[phi_index+1, theta_index+1]
-            corner4 = bin_arr[phi_index+1, theta_index]
-            corners = np.array([corner1,corner2,corner3,corner4])
+            corner2 = bin_arr[phi_index, theta_index + 1]
+            corner3 = bin_arr[phi_index + 1, theta_index + 1]
+            corner4 = bin_arr[phi_index + 1, theta_index]
+            corners = np.array([corner1, corner2, corner3, corner4])
             area = area_from_corners(corners)
-            area_array[phi_index,theta_index] = area
+            area_array[phi_index, theta_index] = area
 
-    nwl_mat = nwl_mat/area_array
+    nwl_mat = nwl_mat / area_array
     plot(nwl_mat, phi_pts, theta_pts, num_levels)
 
     return nwl_mat, phi_pts, theta_pts, area_array
