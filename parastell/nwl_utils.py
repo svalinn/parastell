@@ -116,34 +116,32 @@ def min_problem(theta, vmec, wall_s, phi, pt):
     return diff
 
 
-def find_coords(vmec, wall_s, phi, pt):
+def find_coords(data):
     """Solves for poloidal angle of plasma equilibrium corresponding to
-    specified Cartesian coordinates.
+    specified Cartesian coordinates. Takes a single arg so it works nicely with
+    ProcessPoolExecutor
 
     Arguments:
-        vmec (object): plasma equilibrium object.
-        wall_s (float): closed flux surface label extrapolation at wall.
-        phi (float): toroidal angle (rad).
-        pt (array of float): Cartesian coordinates of interest (cm).
+        data (tuple of (str, float, list of tuple of float)): First element is
+            the path to the plasma equilibrium file, second is the wall_s value,
+            3rd is the list of phi, xyz coordinate pairs to solve for theta at.
 
     Returns:
-        theta (float): poloidal angle (rad).
+        thetas (list of float): poloidal angles (rad) corresponding to phi xyz
+            coordinate pairs.
     """
-    # Solve for the poloidal angle via minimization
-    theta = direct(
-        min_problem, bounds=[(-np.pi, np.pi)], args=(vmec, wall_s, phi, pt)
-    )
-    # Extract angle
-    theta = theta.x[0]
-
-    return theta
-
-
-def find_coord(data):
     thetas = []
     vmec = read_vmec.VMECData(data[0])
-    for t in data[2]:
-        thetas.append(find_coords(vmec, data[1], t[0], t[1]))
+    wall_s = data[1]
+    phi_xyz_coords = data[2]
+
+    for coords in phi_xyz_coords:
+        theta = direct(
+            min_problem,
+            bounds=[(-np.pi, np.pi)],
+            args=(vmec, wall_s, coords[0], coords[1]),
+        )
+        thetas.append(theta.x[0])
     return thetas
 
 
@@ -181,19 +179,10 @@ def flux_coords(plas_eq, wall_s, coords, num_threads):
         max_workers=num_threads
     ) as executor:
         theta_coords = np.array(
-            list(executor.map(find_coord, chunks))
+            list(executor.map(find_coords, chunks))
         ).flatten()
 
     return phi_coords.tolist(), theta_coords.tolist()
-
-    # phi_coords = np.arctan2(coords[:, 1], coords[:, 0])
-    # theta_coords = []
-
-    # for pt, phi in zip(coords, phi_coords):
-    #     theta = find_coords(vmec, wall_s, phi, pt)
-    #     theta_coords.append(theta)
-
-    # return phi_coords, theta_coords
 
 
 def extract_coords(source_file):
