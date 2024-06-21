@@ -288,7 +288,7 @@ def nwl_plot(
     num_theta=101,
     num_levels=10,
     num_crossings=None,
-    step_size = 1_000_000
+    step_size=1_000_000,
 ):
     """Computes and plots NWL. Assumes toroidal extent is less than 360 degrees
 
@@ -324,11 +324,13 @@ def nwl_plot(
     phi_coords = []
     theta_coords = []
 
-    iterations = len(coords)//step_size
+    num_subsets = len(coords) // step_size
 
-    for i in range(iterations):
-        print(i, ' million')
-        phi_coord_subset, theta_coord_subset = flux_coords(plas_eq, wall_s, coords[i*step_size:(i+1)*step_size])
+    for i in range(num_subsets):
+        print(i, " million")
+        phi_coord_subset, theta_coord_subset = flux_coords(
+            plas_eq, wall_s, coords[i * step_size : (i + 1) * step_size]
+        )
         phi_coords += phi_coord_subset
         theta_coords += theta_coord_subset
 
