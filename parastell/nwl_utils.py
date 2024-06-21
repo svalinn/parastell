@@ -147,7 +147,7 @@ def find_coord(data):
     return thetas
 
 
-def flux_coords(plas_eq, wall_s, coords):
+def flux_coords(plas_eq, wall_s, coords, num_threads):
     """Computes flux-coordinate toroidal and poloidal angles corresponding to
     specified Cartesian coordinates.
 
@@ -165,22 +165,20 @@ def flux_coords(plas_eq, wall_s, coords):
 
     phi_coords = np.arctan2(coords[:, 1], coords[:, 0])
 
-    num_chunks = 10
-
-    chunk_size = len(phi_coords) // num_chunks
+    chunk_size = len(phi_coords) // num_threads
 
     chunks = []
-    for i in range(num_chunks):
-        subchunk = list(
+    for i in range(num_threads):
+        chunk = list(
             zip(
                 phi_coords[i * chunk_size : (i + 1) * chunk_size],
                 coords[i * chunk_size : (i + 1) * chunk_size],
             )
         )
-        chunks.append((plas_eq, wall_s, subchunk))
+        chunks.append((plas_eq, wall_s, chunk))
 
     with concurrent.futures.ProcessPoolExecutor(
-        max_workers=num_chunks
+        max_workers=num_threads
     ) as executor:
         theta_coords = np.array(
             list(executor.map(find_coord, chunks))
@@ -288,7 +286,8 @@ def nwl_plot(
     num_theta=101,
     num_levels=10,
     num_crossings=None,
-    step_size=1_000_000,
+    step_size=None,
+    num_threads=2,
 ):
     """Computes and plots NWL. Assumes toroidal extent is less than 360 degrees
 
@@ -324,12 +323,17 @@ def nwl_plot(
     phi_coords = []
     theta_coords = []
 
-    num_subsets = len(coords) // step_size
+    # split up the work to avoid memory issues
+    iterations = 1
+    if step_size is not None:
+        iterations = len(coords) // step_size
 
-    for i in range(num_subsets):
-        print(i, " million")
+    for i in range(iterations):
         phi_coord_subset, theta_coord_subset = flux_coords(
-            plas_eq, wall_s, coords[i * step_size : (i + 1) * step_size]
+            plas_eq,
+            wall_s,
+            coords[i * step_size : (i + 1) * step_size],
+            num_threads,
         )
         phi_coords += phi_coord_subset
         theta_coords += theta_coord_subset
