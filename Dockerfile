@@ -1,4 +1,4 @@
-FROM continuumio/miniconda3:24.3.0-0 as parastell-deps
+FROM continuumio/miniconda3 as parastell-deps
 
 ENV TZ=America/Chicago
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
@@ -26,7 +26,7 @@ RUN apt-get install -y libgl1-mesa-glx \
                         libxcb-randr0 \
                         libxcb-xinerama0 \
                         libxm4 \
-                        libtiff5 \
+                        libtiff5-dev \
                         libxcursor1 \
                         libxinerama1
 
