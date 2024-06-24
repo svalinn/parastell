@@ -96,7 +96,6 @@ def test_ivb_basics(invessel_build):
     assert invessel_build.repeat == repeat_exp
     assert invessel_build.num_ribs == num_ribs_exp
     assert invessel_build.num_rib_pts == num_rib_pts_exp
-    assert len(invessel_build.Surfaces['component'].get_loci()) == num_rib_pts_exp
     assert invessel_build.scale == scale_exp
 
     remove_files()
@@ -105,6 +104,7 @@ def test_ivb_basics(invessel_build):
 def test_ivb_construction(invessel_build):
 
     num_components_exp = 2
+    len_loci_pt_exp = 3
 
     remove_files()
 
@@ -112,7 +112,11 @@ def test_ivb_construction(invessel_build):
     invessel_build.calculate_loci()
     invessel_build.generate_components()
 
+    rib_loci = invessel_build.Surfaces['component'].get_loci()[0]
+    
+
     assert len(invessel_build.Components) == num_components_exp
+    assert len(rib_loci[0]) == len_loci_pt_exp
 
     remove_files()
 
