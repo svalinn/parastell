@@ -26,7 +26,7 @@ RUN apt-get install -y libgl1-mesa-glx \
                         libxcb-randr0 \
                         libxcb-xinerama0 \
                         libxm4 \
-                        libtiff5 \
+                        libtiff5-dev \
                         libxcursor1 \
                         libxinerama1
 
