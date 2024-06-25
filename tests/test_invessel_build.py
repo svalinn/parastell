@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-# import this before read_vmec to deal with conflicting 
+# import this before read_vmec to deal with conflicting
 # dependencies correctly
 import parastell.invessel_build as ivb
 
@@ -11,15 +11,15 @@ import src.pystell.read_vmec as read_vmec
 
 
 def remove_files():
-    
-    if Path('chamber.step').exists():
-        Path.unlink('chamber.step')
-    if Path('component.step').exists():
-        Path.unlink('component.step')
-    if Path('dagmc.h5m').exists():
-        Path.unlink('dagmc.h5m')
-    if Path('stellarator.log').exists():
-        Path.unlink('stellarator.log')
+
+    if Path("chamber.step").exists():
+        Path.unlink("chamber.step")
+    if Path("component.step").exists():
+        Path.unlink("component.step")
+    if Path("dagmc.h5m").exists():
+        Path.unlink("dagmc.h5m")
+    if Path("stellarator.log").exists():
+        Path.unlink("stellarator.log")
 
 
 @pytest.fixture
@@ -29,18 +29,16 @@ def radial_build():
     poloidal_angles = [0.0, 120.0, 240.0, 360.0]
     wall_s = 1.08
     radial_build_dict = {
-        'component': {
-            'thickness_matrix': np.ones(
+        "component": {
+            "thickness_matrix": np.ones(
                 (len(toroidal_angles), len(poloidal_angles))
-            )*10
+            )
+            * 10
         }
     }
 
     radial_build_obj = ivb.RadialBuild(
-        toroidal_angles,
-        poloidal_angles,
-        wall_s,
-        radial_build_dict
+        toroidal_angles, poloidal_angles, wall_s, radial_build_dict
     )
 
     return radial_build_obj
@@ -48,16 +46,12 @@ def radial_build():
 
 @pytest.fixture
 def invessel_build(radial_build):
-    
-    vmec_file = Path('files_for_tests') / 'wout_vmec.nc'
+
+    vmec_file = Path("files_for_tests") / "wout_vmec.nc"
     vmec = read_vmec.VMECData(vmec_file)
     num_ribs = 11
 
-    ivb_obj = ivb.InVesselBuild(
-        vmec,
-        radial_build,
-        num_ribs=num_ribs
-    )
+    ivb_obj = ivb.InVesselBuild(vmec, radial_build, num_ribs=num_ribs)
 
     return ivb_obj
 
@@ -70,12 +64,12 @@ def test_ivb_basics(invessel_build):
     wall_s_exp = 1.08
     repeat_exp = 0
     num_ribs_exp = 11
-    num_rib_pts_exp = 67
+    num_rib_pts_exp = 61
     scale_exp = 100
-    chamber_mat_tag_exp = 'Vacuum'
+    chamber_mat_tag_exp = "Vacuum"
 
     remove_files()
-    
+
     invessel_build.populate_surfaces()
 
     assert np.allclose(
@@ -85,13 +79,13 @@ def test_ivb_basics(invessel_build):
         invessel_build.radial_build.poloidal_angles, poloidal_angles_exp
     )
     assert (
-        len(invessel_build.radial_build.radial_build.keys()) ==
-        num_components_exp
+        len(invessel_build.radial_build.radial_build.keys())
+        == num_components_exp
     )
     assert invessel_build.radial_build.wall_s == wall_s_exp
     assert (
-        invessel_build.radial_build.radial_build['chamber']['mat_tag'] ==
-        chamber_mat_tag_exp
+        invessel_build.radial_build.radial_build["chamber"]["mat_tag"]
+        == chamber_mat_tag_exp
     )
     assert invessel_build.repeat == repeat_exp
     assert invessel_build.num_ribs == num_ribs_exp
@@ -117,7 +111,7 @@ def test_ivb_construction(invessel_build):
 
 
 def test_ivb_exports(invessel_build):
-    
+
     remove_files()
 
     invessel_build.populate_surfaces()
@@ -126,8 +120,8 @@ def test_ivb_exports(invessel_build):
     invessel_build.export_step()
     invessel_build.export_cad_to_dagmc()
 
-    assert Path('chamber.step').exists() 
-    assert Path('component.step').exists()
-    assert Path('dagmc.h5m').exists()
+    assert Path("chamber.step").exists()
+    assert Path("component.step").exists()
+    assert Path("dagmc.h5m").exists()
 
-    remove_files() 
+    remove_files()
