@@ -98,7 +98,7 @@ class InVesselBuild(object):
         
         self.repeat = 0
         self.num_ribs = 61
-        self.num_rib_pts = 67
+        self.num_rib_pts = 61
         self.scale = m2cm
 
         for name in kwargs.keys() & (
