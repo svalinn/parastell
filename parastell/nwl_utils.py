@@ -5,6 +5,7 @@ import openmc
 import pystell.read_vmec as read_vmec
 import matplotlib.pyplot as plt
 import concurrent.futures
+from multiprocessing import cpu_count
 import math
 
 
@@ -309,6 +310,9 @@ def nwl_plot(
 
     if num_crossings is not None:
         coords = coords[0:num_crossings]
+
+    if num_threads is None:
+        num_threads = cpu_count()
 
     vmec = read_vmec.VMECData(plas_eq)
 
