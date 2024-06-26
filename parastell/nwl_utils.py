@@ -5,7 +5,7 @@ import openmc
 import pystell.read_vmec as read_vmec
 import matplotlib.pyplot as plt
 import concurrent.futures
-import os
+import math
 
 
 def extract_ss(ss_file):
@@ -162,9 +162,7 @@ def flux_coords(plas_eq, wall_s, coords, num_threads):
     """
 
     phi_coords = np.arctan2(coords[:, 1], coords[:, 0])
-
-    chunk_size = len(phi_coords) // num_threads
-
+    chunk_size = math.ceil(len(phi_coords) / num_threads)
     chunks = []
     for i in range(num_threads):
         chunk = list(
@@ -178,11 +176,11 @@ def flux_coords(plas_eq, wall_s, coords, num_threads):
     with concurrent.futures.ProcessPoolExecutor(
         max_workers=num_threads
     ) as executor:
-        theta_coords = np.array(
-            list(executor.map(find_coords, chunks))
-        ).flatten()
-
-    return phi_coords.tolist(), theta_coords.tolist()
+        theta_coords = list(executor.map(find_coords, chunks))
+        theta_coords = [
+            theta_coord for chunk in theta_coords for theta_coord in chunk
+        ]
+    return phi_coords.tolist(), theta_coords
 
 
 def extract_coords(source_file):
@@ -275,8 +273,8 @@ def nwl_plot(
     num_theta=101,
     num_levels=10,
     num_crossings=None,
-    step_size=None,
-    num_threads=2,
+    chunk_size=None,
+    num_threads=None,
 ):
     """Computes and plots NWL. Assumes toroidal extent is less than 360 degrees
 
@@ -291,7 +289,12 @@ def nwl_plot(
         num_theta (int): number of poloidal angle bins (defaults to 101).
         num_levels (int): number of contour regions (defaults to 10).
         num_crossings (int): number of crossings to use from the surface source.
-            If none, then all crossings will be used
+            If None, then all crossings will be used
+        chunk_size (int): number of crossings to calculate at once, to help
+            with potential memory limits. If None all crossings will be done
+            at once
+        num_threads (int): number of threads to use for NWL calculations, if
+            None, all threads will be use.
 
     Returns:
         nwl_mat (numpy array): array used to create the NWL plot
@@ -314,18 +317,22 @@ def nwl_plot(
 
     # split up the work to avoid memory issues
     iterations = 1
-    if step_size is not None:
-        iterations = len(coords) // step_size
+
+    if chunk_size is not None:
+        iterations = math.ceil(len(coords) / chunk_size)
 
     for i in range(iterations):
         phi_coord_subset, theta_coord_subset = flux_coords(
             plas_eq,
             wall_s,
-            coords[i * step_size : (i + 1) * step_size],
+            coords[i * chunk_size : (i + 1) * chunk_size],
             num_threads,
         )
         phi_coords += phi_coord_subset
         theta_coords += theta_coord_subset
+
+    print(len(phi_coords))
+    print(len(theta_coords))
 
     # Define minimum and maximum bin edges for each dimension
     phi_min = 0 - tor_ext / num_phi / 2
