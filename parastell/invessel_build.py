@@ -77,7 +77,7 @@ class InVesselBuild(object):
             interpolated between those specified in 'toroidal_angles' if this
             value is greater than the number of entries in 'toroidal_angles'.
         num_rib_pts (int): total number of points defining each rib spline
-            (defaults to 61). Points are set at poloidal angles interpolated
+            (defaults to 67). Points are set at poloidal angles interpolated
             between those specified in 'poloidal_angles' if this value is
             greater than the number of entries in 'poloidal_angles'.
         scale (float): a scaling factor between the units of VMEC and [cm]
@@ -98,7 +98,7 @@ class InVesselBuild(object):
         
         self.repeat = 0
         self.num_ribs = 61
-        self.num_rib_pts = 61
+        self.num_rib_pts = 67
         self.scale = m2cm
 
         for name in kwargs.keys() & (

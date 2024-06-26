@@ -64,7 +64,7 @@ def test_ivb_basics(invessel_build):
     wall_s_exp = 1.08
     repeat_exp = 0
     num_ribs_exp = 11
-    num_rib_pts_exp = 61
+    num_rib_pts_exp = 67
     scale_exp = 100
     chamber_mat_tag_exp = "Vacuum"
 
