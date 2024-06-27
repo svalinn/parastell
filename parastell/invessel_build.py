@@ -410,7 +410,7 @@ class Surface(object):
     def get_loci(self):
         """Returns the set of point-loci defining the ribs in the surface.
         """
-        return np.array([rib.rib_loci() for rib in self.Ribs])
+        return np.array([rib.rib_loci for rib in self.Ribs])
 
 
 class Rib(object):
