@@ -324,6 +324,8 @@ def nwl_plot(
 
     if chunk_size is not None:
         iterations = math.ceil(len(coords) / chunk_size)
+    else:
+        chunk_size = len(coords)
 
     for i in range(iterations):
         phi_coord_subset, theta_coord_subset = flux_coords(
@@ -334,9 +336,6 @@ def nwl_plot(
         )
         phi_coords += phi_coord_subset
         theta_coords += theta_coord_subset
-
-    print(len(phi_coords))
-    print(len(theta_coords))
 
     # Define minimum and maximum bin edges for each dimension
     phi_min = 0 - tor_ext / num_phi / 2
