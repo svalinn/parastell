@@ -98,6 +98,7 @@ def test_ivb_basics(invessel_build):
 def test_ivb_construction(invessel_build):
 
     num_components_exp = 2
+    len_loci_pt_exp = 3
 
     remove_files()
 
@@ -105,7 +106,11 @@ def test_ivb_construction(invessel_build):
     invessel_build.calculate_loci()
     invessel_build.generate_components()
 
+    rib_loci = invessel_build.Surfaces["component"].get_loci()[0]
+
     assert len(invessel_build.Components) == num_components_exp
+    assert len(rib_loci[0]) == len_loci_pt_exp
+    assert isinstance(rib_loci[0][0], float)
 
     remove_files()
 
