@@ -2,7 +2,7 @@ import h5py
 import numpy as np
 from scipy.optimize import direct
 import openmc
-import src.pystell.read_vmec as read_vmec
+import pystell.read_vmec as read_vmec
 import matplotlib.pyplot as plt
 
 
