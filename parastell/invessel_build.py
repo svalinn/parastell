@@ -7,7 +7,7 @@ from scipy.interpolate import RegularGridInterpolator
 import cubit
 import cadquery as cq
 import cad_to_dagmc
-import src.pystell.read_vmec as read_vmec
+import pystell.read_vmec as read_vmec
 
 from . import log
 from .utils import (

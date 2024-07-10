@@ -45,13 +45,11 @@ While it is possible to use ParaStell with older versions of Cubit, additional s
 If you do not have a Coreform Cubit license, you may be able to get one through [Cubit Learn](https://coreform.com/products/coreform-cubit/free-meshing-software/) at no cost.
 
 ### Install PyStell-UW
-Download and extract the PyStell-UW repository:
+To install the PyStell-UW package, run:
 
 ```bash
-git clone https://github.com/aaroncbader/pystell_uw.git
+python -m pip install git+https://github.com/aaroncbader/pystell_uw.git
 ```
-
-or download the and extract the ZIP file from [PyStell-UW](https://github.com/aaroncbader/pystell_uw). Once extracted, add the repository directory to your `PYTHONPATH`.
 
 ## Install ParaStell
 Download and extract the ParaStell repository:

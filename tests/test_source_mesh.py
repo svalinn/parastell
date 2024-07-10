@@ -2,7 +2,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-import src.pystell.read_vmec as read_vmec
+import pystell.read_vmec as read_vmec
 
 import parastell.source_mesh as sm
 

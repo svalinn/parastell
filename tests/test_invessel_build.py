@@ -7,7 +7,7 @@ import pytest
 # dependencies correctly
 import parastell.invessel_build as ivb
 
-import src.pystell.read_vmec as read_vmec
+import pystell.read_vmec as read_vmec
 
 
 def remove_files():

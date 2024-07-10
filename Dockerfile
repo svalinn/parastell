@@ -48,8 +48,8 @@ RUN echo "conda activate parastell_env" >> /opt/etc/bashrc
 
 WORKDIR /opt
 
-# Install PyStell-UW
-RUN git clone https://github.com/aaroncbader/pystell_uw.git
-ENV PYTHONPATH=$PYTHONPATH:/opt/pystell_uw
+# Install PyStell-UW into conda environment
+RUN conda activate parastell_env
+RUN python -m pip install git+https://github.com/aaroncbader/pystell_uw.git
 
 WORKDIR /
