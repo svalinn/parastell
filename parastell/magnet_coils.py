@@ -216,30 +216,20 @@ class MagnetSet(object):
                 sample_counter += 1
             else:
                 coords.append([x, y, z])
-                filaments.append(coords)
+                filaments.append(np.array(coords))
                 sample_counter = 0
-                coords = []
+                coords.clear()
 
-        self.filaments = np.array(filaments)
+        self.filaments = filaments
 
     def _set_average_radial_distance(self):
         """Computes average radial distance of filament points.
         (Internal function not intended to be called externally)
-
-        Arguments:
-            filaments (np array of list of list of float): list of filament
-                coordinates. Each filament is a list of coordinates.
-
-        Returns:
-            average_radial_distance (float): average radial distance of
-                magnets (cm).
         """
-        average_radial_distance = np.square(
-            self.filaments[:, :, 0]) + np.square(self.filaments[:, :, 1])
-        average_radial_distance = np.sqrt(average_radial_distance)
-        average_radial_distance = np.average(average_radial_distance)
-
-        self.average_radial_distance = average_radial_distance
+        radial_distance = []
+        for f in self.filaments:
+            radial_distance.extend(list(np.linalg.norm(f[:, :2], axis=1)))
+        self.average_radial_distance = np.average(radial_distance)
 
     def _set_filtered_filaments(self):
         """Cleans filament data such that only filaments within the toroidal
