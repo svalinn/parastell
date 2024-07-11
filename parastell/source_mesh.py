@@ -23,6 +23,8 @@ def default_reaction_rate(n_i, T_i):
         rr (float) : reaction rate in reactions/cm3/s. Equates to neutron source
             density.
     """
+    if T_i == 0 or n_i == 0:
+        return 0
 
     rr = (
         3.68e-18
@@ -33,6 +35,7 @@ def default_reaction_rate(n_i, T_i):
     )
 
     return rr / m3tocm3
+
 
 def default_plasma_conditions(s):
     """Calculates ion density and temperature as a function of the
@@ -47,14 +50,10 @@ def default_plasma_conditions(s):
         T_i (float) : ion temperature in KeV
     """
 
-    if s == 1:
-        n_i = 0
-        T_i = 0
-    else:
-        # Temperature
-        T_i = 11.5 * (1 - s)
-        # Ion density
-        n_i = 4.8e20 * (1 - s**5)
+    # Temperature
+    T_i = 11.5 * (1 - s)
+    # Ion density
+    n_i = 4.8e20 * (1 - s**5)
 
     return n_i, T_i
 
@@ -121,10 +120,16 @@ class SourceMesh(object):
         self.toroidal_extent = toroidal_extent
 
         self.scale = m2cm
+        self.plasma_conditions = default_plasma_conditions
+        self.reaction_rate = default_reaction_rate
 
-        for name in kwargs.keys() & ('scale', 'plasma_conditions', 'reaction_rate'):
-            self.__setattr__(name,kwargs[name])
-        
+        for name in kwargs.keys() & (
+            "scale",
+            "plasma_conditions",
+            "reaction_rate",
+        ):
+            self.__setattr__(name, kwargs[name])
+
         self.strengths = []
 
         self._create_mbc()
@@ -132,7 +137,7 @@ class SourceMesh(object):
     @property
     def toroidal_extent(self):
         return self._toroidal_extent
-    
+
     @toroidal_extent.setter
     def toroidal_extent(self, angle):
         self._toroidal_extent = np.deg2rad(angle)
@@ -146,7 +151,7 @@ class SourceMesh(object):
     @property
     def logger(self):
         return self._logger
-    
+
     @logger.setter
     def logger(self, logger_object):
         self._logger = log.check_init(logger_object)
@@ -180,7 +185,7 @@ class SourceMesh(object):
         is closed and consistent.
         """
         self._logger.info('Computing source mesh point cloud...')
-        
+
         phi_list = np.linspace(0, self._toroidal_extent, num=self.num_phi)
         # don't include magnetic axis in list of s values
         s_list = np.linspace(0.0, 1.0, num=self.num_s)[1:]
@@ -238,7 +243,12 @@ class SourceMesh(object):
         tet_coords = [self.coords[id] for id in tet_ids]
 
         # Initialize list of source strengths for each tetrahedron vertex
-        vertex_strengths = [default_reaction_rate(default_plasma_conditions((self.coords_s[id]))) for id in tet_ids]
+        vertex_strengths = [
+            self.reaction_rate(
+                *self.plasma_conditions(self.coords_s[id])
+            )
+            for id in tet_ids
+        ]
 
         # Define barycentric coordinates for integration points
         bary_coords = np.array([
@@ -419,7 +429,7 @@ class SourceMesh(object):
                 (optional, defaults to empty string).
         """
         self._logger.info('Exporting source mesh H5M file...')
-        
+
         export_path = Path(export_dir) / Path(filename).with_suffix('.h5m')
         self.mbc.write_file(str(export_path))
 
