@@ -1,4 +1,4 @@
-FROM continuumio/miniconda3 as parastell-deps
+FROM continuumio/miniconda3 AS parastell-deps
 
 ENV TZ=America/Chicago
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
@@ -49,7 +49,6 @@ RUN echo "conda activate parastell_env" >> /opt/etc/bashrc
 WORKDIR /opt
 
 # Install PyStell-UW into conda environment
-RUN conda activate parastell_env
-RUN python -m pip install git+https://github.com/aaroncbader/pystell_uw.git
+RUN . /opt/etc/bashrc && python -m pip install git+https://github.com/aaroncbader/pystell_uw.git
 
 WORKDIR /
