@@ -100,7 +100,7 @@ class SourceMesh(object):
             the reaction_rate() function. Defaults to 
             default_plasma_conditions()
         reaction_rate (function): function that takes the values returned by
-            plasma_conditions() and returns a reaction rate in 
+            plasma_conditions() and returns a reaction rate in reactions/cm3/s
     """
 
     def __init__(

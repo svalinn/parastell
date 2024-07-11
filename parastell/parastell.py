@@ -274,6 +274,13 @@ class Stellarator(object):
         Optional attributes:
             scale (float): a scaling factor between the units of VMEC and [cm]
                 (defaults to m2cm = 100).
+            plasma_conditions (function): function that takes the plasma
+                parameter s, and returns temperature and ion density with
+                suitable units for the reaction_rate() function. Defaults to 
+                default_plasma_conditions()
+            reaction_rate (function): function that takes the values returned by
+                plasma_conditions() and returns a reaction rate in 
+                reactions/cm3/s
         """
         self.source_mesh = sm.SourceMesh(
             self._vmec_obj,
