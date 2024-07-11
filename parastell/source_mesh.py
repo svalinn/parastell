@@ -6,36 +6,57 @@ from pymoab import core, types
 import pystell.read_vmec as read_vmec
 
 from . import log as log
-from .utils import read_yaml_config, filter_kwargs, m2cm
+from .utils import read_yaml_config, filter_kwargs, m2cm, m3tocm3
 
 export_allowed_kwargs = ['filename']
 
 
-def rxn_rate(s):
-    """Calculates fusion reaction rate in plasma.
+def default_reaction_rate(n_i, T_i):
+    """Default reaction rate formula for DT fusion
+    assumes an equal mixture of D and T in a hot plasma.
+
+    Arguments:
+        n_i (float) : ion density (ions per m3)
+        T_i (float) : ion temperature (KeV)
+
+    Returns:
+        rr (float) : reaction rate in reactions/cm3/s. Equates to neutron source
+            density.
+    """
+
+    rr = (
+        3.68e-18
+        * (n_i**2)
+        / 4
+        * T_i ** (-2 / 3)
+        * np.exp(-19.94 * T_i ** (-1 / 3))
+    )
+
+    return rr / m3tocm3
+
+def default_plasma_conditions(s):
+    """Calculates ion density and temperature as a function of the
+    plasma paramter s using assumptions of the ARIES design.
 
     Arguments:
         s (float): closed magnetic flux surface index in range of 0 (magnetic
             axis) to 1 (plasma edge).
 
     Returns:
-        rr (float): fusion reaction rate (1/cm^3/s). Equates to neutron source
-            density.
+        n_i (float) : ion density in ions/m3
+        T_i (float) : ion temperature in KeV
     """
-    # Define m^3 to cm^3 constant
-    m3tocm3 = 1e6
 
     if s == 1:
-        rr = 0
+        n_i = 0
+        T_i = 0
     else:
         # Temperature
-        T = 11.5 * (1 - s)
+        T_i = 11.5 * (1 - s)
         # Ion density
-        n = 4.8e20 * (1 - s**5)
-        # Reaction rate in 1/m^3/s
-        rr = 3.68e-18 * (n**2) / 4 * T**(-2/3) * np.exp(-19.94 * T**(-1/3))
+        n_i = 4.8e20 * (1 - s**5)
 
-    return rr/m3tocm3
+    return n_i, T_i
 
 
 class SourceMesh(object):
@@ -75,6 +96,12 @@ class SourceMesh(object):
     Optional attributes:
         scale (float): a scaling factor between the units of VMEC and [cm]
             (defaults to m2cm = 100).
+        plasma_conditions (function): function that takes the plasma parameter
+            s, and returns temperature and ion density with suitable units for
+            the reaction_rate() function. Defaults to 
+            default_plasma_conditions()
+        reaction_rate (function): function that takes the values returned by
+            plasma_conditions() and returns a reaction rate in 
     """
 
     def __init__(
@@ -95,7 +122,7 @@ class SourceMesh(object):
 
         self.scale = m2cm
 
-        for name in kwargs.keys() & ('scale',):
+        for name in kwargs.keys() & ('scale', 'plasma_conditions', 'reaction_rate'):
             self.__setattr__(name,kwargs[name])
         
         self.strengths = []
@@ -211,7 +238,7 @@ class SourceMesh(object):
         tet_coords = [self.coords[id] for id in tet_ids]
 
         # Initialize list of source strengths for each tetrahedron vertex
-        vertex_strengths = [rxn_rate(self.coords_s[id]) for id in tet_ids]
+        vertex_strengths = [default_reaction_rate(default_plasma_conditions((self.coords_s[id]))) for id in tet_ids]
 
         # Define barycentric coordinates for integration points
         bary_coords = np.array([

@@ -4,7 +4,7 @@ import math
 import numpy as np
 
 m2cm = 100
-
+m3tocm3 = 1e6
 
 def normalize(vec_list):
     """Normalizes a set of vectors.
