@@ -18,3 +18,4 @@ dependencies:
       - netcdf4
       - pyyaml
       - pytest
+      - git+https://github.com/aaroncbader/pystell_uw.git
