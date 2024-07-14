@@ -46,9 +46,4 @@ COPY ./environment.yml /environment.yml
 RUN conda env create -f environment.yml
 RUN echo "conda activate parastell_env" >> /opt/etc/bashrc
 
-WORKDIR /opt
-
-# Install PyStell-UW into conda environment
-RUN . /opt/etc/bashrc && python -m pip install git+https://github.com/aaroncbader/pystell_uw.git
-
 WORKDIR /
