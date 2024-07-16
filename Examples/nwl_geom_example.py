@@ -56,9 +56,11 @@ for tet in strengths:
     file.write(f'{tet}\n')
 
 # Export DAGMC neutronics H5M file
-stellarator.export_dagmc(
+stellarator.build_cubit_model(
     skip_imprint=True,
-    legacy_faceting=True,
+    legacy_faceting=True
+)
+stellarator.export_dagmc(
     filename='nwl_geom',
     export_dir=export_dir
 )
