@@ -177,9 +177,11 @@ def flux_coords(plas_eq, wall_s, coords, num_threads):
     with concurrent.futures.ProcessPoolExecutor(
         max_workers=num_threads
     ) as executor:
-        theta_coords = list(executor.map(find_coords, chunks))
+        theta_coord_chunks = list(executor.map(find_coords, chunks))
         theta_coords = [
-            theta_coord for chunk in theta_coords for theta_coord in chunk
+            theta_coord
+            for theta_coord_chunk in theta_coord_chunks
+            for theta_coord in theta_coord_chunk
         ]
     return phi_coords.tolist(), theta_coords
 
@@ -275,7 +277,7 @@ def nwl_plot(
     num_levels=10,
     num_crossings=None,
     chunk_size=None,
-    num_threads=None,
+    num_threads=1,
 ):
     """Computes and plots NWL. Assumes toroidal extent is less than 360 degrees
 
@@ -294,8 +296,8 @@ def nwl_plot(
         chunk_size (int): number of crossings to calculate at once, to help
             with potential memory limits. If None all crossings will be done
             at once
-        num_threads (int): number of threads to use for NWL calculations, if
-            None, all threads will be use.
+        num_threads (int): number of threads to use for NWL calculations,
+            defaults to 1.
 
     Returns:
         nwl_mat (numpy array): array used to create the NWL plot
@@ -311,23 +313,17 @@ def nwl_plot(
     if num_crossings is not None:
         coords = coords[0:num_crossings]
 
-    if num_threads is None:
-        num_threads = cpu_count()
-
     vmec = read_vmec.VMECData(plas_eq)
 
     phi_coords = []
     theta_coords = []
 
-    # split up the work to avoid memory issues
-    iterations = 1
-
-    if chunk_size is not None:
-        iterations = math.ceil(len(coords) / chunk_size)
-    else:
+    if chunk_size is None:
         chunk_size = len(coords)
 
-    for i in range(iterations):
+    chunks = math.ceil(len(coords) / chunk_size)
+
+    for i in range(chunks):
         phi_coord_subset, theta_coord_subset = flux_coords(
             plas_eq,
             wall_s,
