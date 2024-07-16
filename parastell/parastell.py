@@ -4,7 +4,7 @@ from pathlib import Path
 
 import cubit
 import numpy as np
-import src.pystell.read_vmec as read_vmec
+import pystell.read_vmec as read_vmec
 
 from . import log
 

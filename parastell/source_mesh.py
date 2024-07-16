@@ -3,7 +3,7 @@ from pathlib import Path
 
 import numpy as np
 from pymoab import core, types
-import src.pystell.read_vmec as read_vmec
+import pystell.read_vmec as read_vmec
 
 from . import log as log
 from .utils import read_yaml_config, filter_kwargs, m2cm
