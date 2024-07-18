@@ -12,8 +12,10 @@ export_allowed_kwargs = ['filename']
 
 
 def default_reaction_rate(n_i, T_i):
-    """Default reaction rate formula for DT fusion
-    assumes an equal mixture of D and T in a hot plasma.
+    """Default reaction rate formula for DT fusion assumes an equal mixture of 
+    D and T in a hot plasma. From A. Bader et al 2021 Nucl. Fusion 61 116060 
+    DOI 10.1088/1741-4326/ac2991
+
 
     Arguments:
         n_i (float) : ion density (ions per m3)
@@ -39,7 +41,8 @@ def default_reaction_rate(n_i, T_i):
 
 def default_plasma_conditions(s):
     """Calculates ion density and temperature as a function of the
-    plasma paramter s using assumptions of the ARIES design.
+    plasma paramter s using profiles found in A. Bader et al 2021 Nucl. Fusion 
+    61 116060 DOI 10.1088/1741-4326/ac2991
 
     Arguments:
         s (float): closed magnetic flux surface index in range of 0 (magnetic
