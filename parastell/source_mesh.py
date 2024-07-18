@@ -6,36 +6,59 @@ from pymoab import core, types
 import pystell.read_vmec as read_vmec
 
 from . import log as log
-from .utils import read_yaml_config, filter_kwargs, m2cm
+from .utils import read_yaml_config, filter_kwargs, m2cm, m3tocm3
 
 export_allowed_kwargs = ['filename']
 
 
-def rxn_rate(s):
-    """Calculates fusion reaction rate in plasma.
+def default_reaction_rate(n_i, T_i):
+    """Default reaction rate formula for DT fusion assumes an equal mixture of 
+    D and T in a hot plasma. From A. Bader et al 2021 Nucl. Fusion 61 116060 
+    DOI 10.1088/1741-4326/ac2991
+
+
+    Arguments:
+        n_i (float) : ion density (ions per m3)
+        T_i (float) : ion temperature (KeV)
+
+    Returns:
+        rr (float) : reaction rate in reactions/cm3/s. Equates to neutron source
+            density.
+    """
+    if T_i == 0 or n_i == 0:
+        return 0
+
+    rr = (
+        3.68e-18
+        * (n_i**2)
+        / 4
+        * T_i ** (-2 / 3)
+        * np.exp(-19.94 * T_i ** (-1 / 3))
+    )
+
+    return rr / m3tocm3
+
+
+def default_plasma_conditions(s):
+    """Calculates ion density and temperature as a function of the
+    plasma paramter s using profiles found in A. Bader et al 2021 Nucl. Fusion 
+    61 116060 DOI 10.1088/1741-4326/ac2991
 
     Arguments:
         s (float): closed magnetic flux surface index in range of 0 (magnetic
             axis) to 1 (plasma edge).
 
     Returns:
-        rr (float): fusion reaction rate (1/cm^3/s). Equates to neutron source
-            density.
+        n_i (float) : ion density in ions/m3
+        T_i (float) : ion temperature in KeV
     """
-    # Define m^3 to cm^3 constant
-    m3tocm3 = 1e6
 
-    if s == 1:
-        rr = 0
-    else:
-        # Temperature
-        T = 11.5 * (1 - s)
-        # Ion density
-        n = 4.8e20 * (1 - s**5)
-        # Reaction rate in 1/m^3/s
-        rr = 3.68e-18 * (n**2) / 4 * T**(-2/3) * np.exp(-19.94 * T**(-1/3))
+    # Temperature
+    T_i = 11.5 * (1 - s)
+    # Ion density
+    n_i = 4.8e20 * (1 - s**5)
 
-    return rr/m3tocm3
+    return n_i, T_i
 
 
 class SourceMesh(object):
@@ -75,6 +98,12 @@ class SourceMesh(object):
     Optional attributes:
         scale (float): a scaling factor between the units of VMEC and [cm]
             (defaults to m2cm = 100).
+        plasma_conditions (function): function that takes the plasma parameter
+            s, and returns temperature and ion density with suitable units for
+            the reaction_rate() function. Defaults to 
+            default_plasma_conditions()
+        reaction_rate (function): function that takes the values returned by
+            plasma_conditions() and returns a reaction rate in reactions/cm3/s
     """
 
     def __init__(
@@ -94,10 +123,16 @@ class SourceMesh(object):
         self.toroidal_extent = toroidal_extent
 
         self.scale = m2cm
+        self.plasma_conditions = default_plasma_conditions
+        self.reaction_rate = default_reaction_rate
 
-        for name in kwargs.keys() & ('scale',):
-            self.__setattr__(name,kwargs[name])
-        
+        for name in kwargs.keys() & (
+            "scale",
+            "plasma_conditions",
+            "reaction_rate",
+        ):
+            self.__setattr__(name, kwargs[name])
+
         self.strengths = []
 
         self._create_mbc()
@@ -105,7 +140,7 @@ class SourceMesh(object):
     @property
     def toroidal_extent(self):
         return self._toroidal_extent
-    
+
     @toroidal_extent.setter
     def toroidal_extent(self, angle):
         self._toroidal_extent = np.deg2rad(angle)
@@ -119,7 +154,7 @@ class SourceMesh(object):
     @property
     def logger(self):
         return self._logger
-    
+
     @logger.setter
     def logger(self, logger_object):
         self._logger = log.check_init(logger_object)
@@ -153,7 +188,7 @@ class SourceMesh(object):
         is closed and consistent.
         """
         self._logger.info('Computing source mesh point cloud...')
-        
+
         phi_list = np.linspace(0, self._toroidal_extent, num=self.num_phi)
         # don't include magnetic axis in list of s values
         s_list = np.linspace(0.0, 1.0, num=self.num_s)[1:]
@@ -211,7 +246,12 @@ class SourceMesh(object):
         tet_coords = [self.coords[id] for id in tet_ids]
 
         # Initialize list of source strengths for each tetrahedron vertex
-        vertex_strengths = [rxn_rate(self.coords_s[id]) for id in tet_ids]
+        vertex_strengths = [
+            self.reaction_rate(
+                *self.plasma_conditions(self.coords_s[id])
+            )
+            for id in tet_ids
+        ]
 
         # Define barycentric coordinates for integration points
         bary_coords = np.array([
@@ -392,7 +432,7 @@ class SourceMesh(object):
                 (optional, defaults to empty string).
         """
         self._logger.info('Exporting source mesh H5M file...')
-        
+
         export_path = Path(export_dir) / Path(filename).with_suffix('.h5m')
         self.mbc.write_file(str(export_path))
 
