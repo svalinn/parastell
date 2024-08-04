@@ -19,8 +19,4 @@ jobs:
       
       - name: Run Black check
         run: >
-          black --check --verbose --line-length 79 
-          ./Examples 
-          ./executables 
-          ./parastell 
-          ./tests
+          black --check --verbose --line-length 79 .
