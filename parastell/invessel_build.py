@@ -11,10 +11,14 @@ import pystell.read_vmec as read_vmec
 
 from . import log
 from .utils import (
-    normalize, expand_ang_list, read_yaml_config, filter_kwargs, m2cm
+    normalize,
+    expand_ang_list,
+    read_yaml_config,
+    filter_kwargs,
+    m2cm,
 )
 
-export_allowed_kwargs = ['export_cad_to_dagmc', 'dagmc_filename']
+export_allowed_kwargs = ["export_cad_to_dagmc", "dagmc_filename"]
 
 
 def orient_spline_surfaces(volume_id):
@@ -28,12 +32,12 @@ def orient_spline_surfaces(volume_id):
         inner_surface_id (int): Cubit ID of in-vessel component inner surface.
         outer_surface_id (int): Cubit ID of in-vessel component outer surface.
     """
-    
-    surfaces = cubit.get_relatives('volume', volume_id, 'surface')
+
+    surfaces = cubit.get_relatives("volume", volume_id, "surface")
 
     spline_surfaces = []
     for surface in surfaces:
-        if cubit.get_surface_type(surface) == 'spline surface':
+        if cubit.get_surface_type(surface) == "spline surface":
             spline_surfaces.append(surface)
 
     if len(spline_surfaces) == 1:
@@ -42,8 +46,8 @@ def orient_spline_surfaces(volume_id):
     else:
         # The outer surface bounding box will have the larger maximum XY value
         if (
-            cubit.get_bounding_box('surface', spline_surfaces[1])[4] >
-            cubit.get_bounding_box('surface', spline_surfaces[0])[4]
+            cubit.get_bounding_box("surface", spline_surfaces[1])[4]
+            > cubit.get_bounding_box("surface", spline_surfaces[0])[4]
         ):
             outer_surface_id = spline_surfaces[1]
             inner_surface_id = spline_surfaces[0]
@@ -68,7 +72,7 @@ class InVesselBuild(object):
             defined.
         logger (object): logger object (optional, defaults to None). If no
             logger is supplied, a default logger will be instantiated.
-    
+
     Optional attributes:
         repeat (int): number of times to repeat build segment for full model
             (defaults to 0).
@@ -84,27 +88,24 @@ class InVesselBuild(object):
             (defaults to m2cm = 100).
     """
 
-    def __init__(
-        self,
-        vmec_obj,
-        radial_build,
-        logger=None,
-        **kwargs
-    ):
+    def __init__(self, vmec_obj, radial_build, logger=None, **kwargs):
 
         self.logger = logger
         self.vmec_obj = vmec_obj
         self.radial_build = radial_build
-        
+
         self.repeat = 0
         self.num_ribs = 61
         self.num_rib_pts = 67
         self.scale = m2cm
 
         for name in kwargs.keys() & (
-            'repeat', 'num_ribs', 'num_rib_pts', 'scale'
+            "repeat",
+            "num_ribs",
+            "num_rib_pts",
+            "scale",
         ):
-            self.__setattr__(name,kwargs[name])
+            self.__setattr__(name, kwargs[name])
 
         self.Surfaces = {}
         self.Components = {}
@@ -112,7 +113,7 @@ class InVesselBuild(object):
     @property
     def vmec_obj(self):
         return self._vmec_obj
-    
+
     @vmec_obj.setter
     def vmec_obj(self, vmec_object):
         self._vmec_obj = vmec_object
@@ -120,27 +121,27 @@ class InVesselBuild(object):
     @property
     def logger(self):
         return self._logger
-    
+
     @logger.setter
     def logger(self, logger_object):
         self._logger = log.check_init(logger_object)
-        
+
     @property
     def repeat(self):
         return self._repeat
-    
+
     @repeat.setter
     def repeat(self, num):
         self._repeat = num
         if (self._repeat + 1) * self.radial_build.toroidal_angles[-1] > 360.0:
             e = AssertionError(
-                'Total toroidal extent requested with repeated geometry '
+                "Total toroidal extent requested with repeated geometry "
                 'exceeds 360 degrees. Please examine the "repeat" parameter '
                 'and the "toroidal_angles" parameter of "radial_build".'
             )
             self._logger.error(e.args[0])
             raise e
-    
+
     def _interpolate_offset_matrix(self, offset_mat):
         """Interpolates total offset for expanded angle lists using cubic spline
         interpolation.
@@ -154,19 +155,21 @@ class InVesselBuild(object):
         interpolator = RegularGridInterpolator(
             (
                 self.radial_build.toroidal_angles,
-                self.radial_build.poloidal_angles
+                self.radial_build.poloidal_angles,
             ),
             offset_mat,
-            method='pchip'
+            method="pchip",
         )
 
-        interpolated_offset_mat = np.array([
+        interpolated_offset_mat = np.array(
             [
-                interpolator([np.rad2deg(phi), np.rad2deg(theta)])[0]
-                for theta in self._poloidal_angles_exp
+                [
+                    interpolator([np.rad2deg(phi), np.rad2deg(theta)])[0]
+                    for theta in self._poloidal_angles_exp
+                ]
+                for phi in self._toroidal_angles_exp
             ]
-            for phi in self._toroidal_angles_exp
-        ])
+        )
 
         return interpolated_offset_mat
 
@@ -175,47 +178,50 @@ class InVesselBuild(object):
         each component specified in the radial build.
         """
         self._logger.info(
-            'Populating surface objects for in-vessel components...'
+            "Populating surface objects for in-vessel components..."
         )
 
         self._toroidal_angles_exp = expand_ang_list(
-            self.radial_build.toroidal_angles,
-            self.num_ribs
+            self.radial_build.toroidal_angles, self.num_ribs
         )
         self._poloidal_angles_exp = expand_ang_list(
-            self.radial_build.poloidal_angles,
-            self.num_rib_pts
+            self.radial_build.poloidal_angles, self.num_rib_pts
         )
-        
-        offset_mat = np.zeros((
-            len(self.radial_build.toroidal_angles),
-            len(self.radial_build.poloidal_angles)
-        ))
+
+        offset_mat = np.zeros(
+            (
+                len(self.radial_build.toroidal_angles),
+                len(self.radial_build.poloidal_angles),
+            )
+        )
 
         for name, layer_data in self.radial_build.radial_build.items():
-            if name == 'plasma':
+            if name == "plasma":
                 s = 1.0
             else:
                 s = self.radial_build.wall_s
 
-            offset_mat += np.array(layer_data['thickness_matrix'])
+            offset_mat += np.array(layer_data["thickness_matrix"])
             interpolated_offset_mat = self._interpolate_offset_matrix(
                 offset_mat
             )
 
             self.Surfaces[name] = Surface(
-                    self._vmec_obj, s, self._poloidal_angles_exp,
-                    self._toroidal_angles_exp,
-                    interpolated_offset_mat, self.scale
-                )
-            
+                self._vmec_obj,
+                s,
+                self._poloidal_angles_exp,
+                self._toroidal_angles_exp,
+                interpolated_offset_mat,
+                self.scale,
+            )
+
         [surface.populate_ribs() for surface in self.Surfaces.values()]
 
     def calculate_loci(self):
         """Calls calculate_loci method in Surface class for each component
         specified in the radial build.
         """
-        self._logger.info('Computing point cloud for in-vessel components...')
+        self._logger.info("Computing point cloud for in-vessel components...")
 
         [surface.calculate_loci() for surface in self.Surfaces.values()]
 
@@ -225,7 +231,7 @@ class InVesselBuild(object):
         solid for a given component.
         """
         self._logger.info(
-            'Constructing CadQuery objects for in-vessel components...'
+            "Constructing CadQuery objects for in-vessel components..."
         )
 
         interior_surface = None
@@ -233,7 +239,7 @@ class InVesselBuild(object):
         segment_angles = np.linspace(
             self.radial_build.toroidal_angles[-1],
             self._repeat * self.radial_build.toroidal_angles[-1],
-            num=self._repeat
+            num=self._repeat,
         )
 
         for name, surface in self.Surfaces.items():
@@ -257,9 +263,9 @@ class InVesselBuild(object):
         """Returns the set of point-loci defining the outer surfaces of the
         components specified in the radial build.
         """
-        return np.array([
-            surface.get_loci() for surface in self.Surfaces.values()
-        ])
+        return np.array(
+            [surface.get_loci() for surface in self.Surfaces.values()]
+        )
 
     def merge_layer_surfaces(self):
         """Merges ParaStell in-vessel component surfaces in Coreform Cubit
@@ -273,8 +279,8 @@ class InVesselBuild(object):
 
         for data in self.radial_build.radial_build.values():
 
-            inner_surface_id, outer_surface_id = (
-                orient_spline_surfaces(data['vol_id'])
+            inner_surface_id, outer_surface_id = orient_spline_surfaces(
+                data["vol_id"]
             )
 
             # Conditionally skip merging (first iteration only)
@@ -282,32 +288,28 @@ class InVesselBuild(object):
                 prev_outer_surface_id = outer_surface_id
             else:
                 cubit.cmd(
-                    f'merge surface {inner_surface_id} {prev_outer_surface_id}'
+                    f"merge surface {inner_surface_id} {prev_outer_surface_id}"
                 )
                 prev_outer_surface_id = outer_surface_id
 
-
-    def export_step(self, export_dir=''):
+    def export_step(self, export_dir=""):
         """Export CAD solids as STEP files via CadQuery.
 
         Arguments:
             export_dir (str): directory to which to export the STEP output files
                 (optional, defaults to empty string).
         """
-        self._logger.info('Exporting STEP files for in-vessel components...')
+        self._logger.info("Exporting STEP files for in-vessel components...")
 
         self.export_dir = export_dir
 
         for name, component in self.Components.items():
-            export_path = (
-                Path(self.export_dir) / Path(name).with_suffix('.step')
+            export_path = Path(self.export_dir) / Path(name).with_suffix(
+                ".step"
             )
-            cq.exporters.export(
-                component,
-                str(export_path)
-            )
+            cq.exporters.export(component, str(export_path))
 
-    def export_cad_to_dagmc(self, dagmc_filename='dagmc', export_dir=''):
+    def export_cad_to_dagmc(self, dagmc_filename="dagmc", export_dir=""):
         """Exports DAGMC neutronics H5M file of ParaStell in-vessel components
         via CAD-to-DAGMC.
 
@@ -318,7 +320,7 @@ class InVesselBuild(object):
                 (optional, defaults to empty string).
         """
         self._logger.info(
-            'Exporting DAGMC neutronics model of in-vessel components...'
+            "Exporting DAGMC neutronics model of in-vessel components..."
         )
 
         model = cad_to_dagmc.CadToDagmc()
@@ -326,16 +328,16 @@ class InVesselBuild(object):
         for name, component in self.Components.items():
             model.add_cadquery_object(
                 component,
-                material_tags=[self.radial_build.radial_build[name]['mat_tag']]
+                material_tags=[
+                    self.radial_build.radial_build[name]["mat_tag"]
+                ],
             )
 
-        export_path = (
-            Path(export_dir) / Path(dagmc_filename).with_suffix('.h5m')
+        export_path = Path(export_dir) / Path(dagmc_filename).with_suffix(
+            ".h5m"
         )
 
-        model.export_dagmc_h5m_file(
-            filename=str(export_path)
-        )
+        model.export_dagmc_h5m_file(filename=str(export_path))
 
 
 class Surface(object):
@@ -361,16 +363,8 @@ class Surface(object):
         scale (float): a scaling factor between the units of VMEC and [cm].
     """
 
-    def __init__(
-            self,
-            vmec_obj,
-            s,
-            theta_list,
-            phi_list,
-            offset_mat,
-            scale
-    ):
-        
+    def __init__(self, vmec_obj, s, theta_list, phi_list, offset_mat, scale):
+
         self.vmec_obj = vmec_obj
         self.s = s
         self.theta_list = theta_list
@@ -386,20 +380,22 @@ class Surface(object):
         """
         self.Ribs = [
             Rib(
-                self.vmec_obj, self.s, self.theta_list, phi,
-                self.offset_mat[i, :], self.scale
+                self.vmec_obj,
+                self.s,
+                self.theta_list,
+                phi,
+                self.offset_mat[i, :],
+                self.scale,
             )
             for i, phi in enumerate(self.phi_list)
         ]
 
     def calculate_loci(self):
-        """Calls calculate_loci method in Rib class for each rib in the surface.
-        """
+        """Calls calculate_loci method in Rib class for each rib in the surface."""
         [rib.calculate_loci() for rib in self.Ribs]
 
     def generate_surface(self):
-        """Constructs a surface by lofting across a set of rib splines.
-        """
+        """Constructs a surface by lofting across a set of rib splines."""
         if not self.surface:
             self.surface = cq.Solid.makeLoft(
                 [rib.generate_rib() for rib in self.Ribs]
@@ -408,8 +404,7 @@ class Surface(object):
         return self.surface
 
     def get_loci(self):
-        """Returns the set of point-loci defining the ribs in the surface.
-        """
+        """Returns the set of point-loci defining the ribs in the surface."""
         return np.array([rib.rib_loci for rib in self.Ribs])
 
 
@@ -436,16 +431,8 @@ class Rib(object):
         scale (float): a scaling factor between the units of VMEC and [cm].
     """
 
-    def __init__(
-            self,
-            vmec_obj,
-            s,
-            theta_list,
-            phi,
-            offset_list,
-            scale
-    ):
-        
+    def __init__(self, vmec_obj, s, theta_list, phi, offset_list, scale):
+
         self.vmec_obj = vmec_obj
         self.s = s
         self.theta_list = theta_list
@@ -494,14 +481,11 @@ class Rib(object):
         return normalize(norm)
 
     def calculate_loci(self):
-        """Generates Cartesian point-loci for stellarator rib.
-        """
+        """Generates Cartesian point-loci for stellarator rib."""
         self.rib_loci = self._vmec2xyz()
 
         if not np.all(self.offset_list == 0):
-            self.rib_loci += (
-                self.offset_list[:, np.newaxis] * self._normals()
-            )
+            self.rib_loci += self.offset_list[:, np.newaxis] * self._normals()
 
     def generate_rib(self):
         """Constructs component rib by constructing a spline connecting all
@@ -512,7 +496,7 @@ class Rib(object):
         rib_spline = cq.Wire.assembleEdges([spline]).close()
 
         return rib_spline
-    
+
 
 class RadialBuild(object):
     """Parametrically defines ParaStell in-vessel component geometries.
@@ -567,9 +551,9 @@ class RadialBuild(object):
         radial_build,
         split_chamber=False,
         logger=None,
-        **kwargs
+        **kwargs,
     ):
-        
+
         self.logger = logger
         self.toroidal_angles = toroidal_angles
         self.poloidal_angles = poloidal_angles
@@ -578,60 +562,56 @@ class RadialBuild(object):
         self.split_chamber = split_chamber
 
         for name in kwargs.keys() & (
-            'plasma_mat_tag', 'sol_mat_tag', 'chamber_mat_tag'
+            "plasma_mat_tag",
+            "sol_mat_tag",
+            "chamber_mat_tag",
         ):
-            self.__setattr__(name,kwargs[name])
+            self.__setattr__(name, kwargs[name])
 
-        self._logger.info(
-            'Constructing radial build...'
-        )
+        self._logger.info("Constructing radial build...")
 
     @property
     def toroidal_angles(self):
         return self._toroidal_angles
-    
+
     @toroidal_angles.setter
     def toroidal_angles(self, angle_list):
-        if hasattr(self, 'toroidal_angles'):
+        if hasattr(self, "toroidal_angles"):
             e = AttributeError(
                 '"toroidal_angles" cannot be set after class initialization. '
-                'Please create new class instance to alter this attribute.'
+                "Please create new class instance to alter this attribute."
             )
             self._logger.error(e.args[0])
             raise e
-        
+
         self._toroidal_angles = angle_list
         if self._toroidal_angles[0] != 0.0:
-            e = ValueError(
-                'The first entry in toroidal_angles must be 0.0.'
-            )
+            e = ValueError("The first entry in toroidal_angles must be 0.0.")
             self._logger.error(e.args[0])
             raise e
         if self._toroidal_angles[-1] > 360.0:
-            e = ValueError(
-                'Toroidal extent cannot exceed 360.0 degrees.'
-            )
+            e = ValueError("Toroidal extent cannot exceed 360.0 degrees.")
             self._logger.error(e.args[0])
             raise e
 
     @property
     def poloidal_angles(self):
         return self._poloidal_angles
-    
+
     @poloidal_angles.setter
     def poloidal_angles(self, angle_list):
-        if hasattr(self, 'poloidal_angles'):
+        if hasattr(self, "poloidal_angles"):
             e = AttributeError(
                 '"poloidal_angles" cannot be set after class initialization. '
-                'Please create new class instance to alter this attribute.'
+                "Please create new class instance to alter this attribute."
             )
             self._logger.error(e.args[0])
             raise e
-        
+
         self._poloidal_angles = angle_list
         if self._poloidal_angles[-1] - self._poloidal_angles[0] > 360.0:
             e = AssertionError(
-                'Poloidal extent must span exactly 360.0 degrees.'
+                "Poloidal extent must span exactly 360.0 degrees."
             )
             self._logger.error(e.args[0])
             raise e
@@ -639,147 +619,146 @@ class RadialBuild(object):
     @property
     def wall_s(self):
         return self._wall_s
-    
+
     @wall_s.setter
     def wall_s(self, s):
-        if hasattr(self, 'wall_s'):
+        if hasattr(self, "wall_s"):
             e = AttributeError(
                 '"wall_s" cannot be set after class initialization. Please '
-                'create new class instance to alter this attribute.'
+                "create new class instance to alter this attribute."
             )
             self._logger.error(e.args[0])
             raise e
 
-        
         self._wall_s = s
         if self._wall_s < 1.0:
-            e = ValueError(
-                'wall_s must be greater than or equal to 1.0.'
-            )
+            e = ValueError("wall_s must be greater than or equal to 1.0.")
             self._logger.error(e.args[0])
             raise e
-    
+
     @property
     def radial_build(self):
         return self._radial_build
-    
+
     @radial_build.setter
     def radial_build(self, build_dict):
         self._radial_build = build_dict
-        
+
         for name, component in self._radial_build.items():
-            component['thickness_matrix'] = \
-                np.array(component['thickness_matrix'])
-            if (
-                component['thickness_matrix'].shape !=
-                (len(self._toroidal_angles), len(self._poloidal_angles))
+            component["thickness_matrix"] = np.array(
+                component["thickness_matrix"]
+            )
+            if component["thickness_matrix"].shape != (
+                len(self._toroidal_angles),
+                len(self._poloidal_angles),
             ):
                 e = AssertionError(
-                    f'The dimensions of {name}\'s thickness matrix '
+                    f"The dimensions of {name}'s thickness matrix "
                     f'{component["thickness_matrix"].shape} must match the '
-                    'dimensions defined by the toroidal and poloidal angle '
-                    'lists '
-                    f'{len(self._toroidal_angles),len(self._poloidal_angles)}, '
-                    'which define the rows and columns of the matrix, '
-                    'respectively.'
-                )
-                self._logger.error(e.args[0])
-                raise e
-            
-            if np.any(component['thickness_matrix'] < 0):
-                e = ValueError(
-                    'Component thicknesses must be greater than or equal to 0. '
-                    'Check thickness inputs for negative values.'
+                    "dimensions defined by the toroidal and poloidal angle "
+                    "lists "
+                    f"{len(self._toroidal_angles),len(self._poloidal_angles)}, "
+                    "which define the rows and columns of the matrix, "
+                    "respectively."
                 )
                 self._logger.error(e.args[0])
                 raise e
 
-            if 'mat_tag' not in component:
+            if np.any(component["thickness_matrix"] < 0):
+                e = ValueError(
+                    "Component thicknesses must be greater than or equal to 0. "
+                    "Check thickness inputs for negative values."
+                )
+                self._logger.error(e.args[0])
+                raise e
+
+            if "mat_tag" not in component:
                 self._set_mat_tag(name, name)
 
     @property
     def split_chamber(self):
         return self._split_chamber
-    
+
     @split_chamber.setter
     def split_chamber(self, value):
-        if hasattr(self, 'split_chamber'):
+        if hasattr(self, "split_chamber"):
             e = AttributeError(
                 '"split_chamber" cannot be set after class initialization. '
-                'Please create new class instance to alter this attribute.'
-                )
+                "Please create new class instance to alter this attribute."
+            )
             self._logger.error(e.args[0])
             raise e
-        
-        self._split_chamber = value
-        
-        if self._split_chamber:
-            if self._wall_s > 1.0 and 'sol' not in self._radial_build:
-                self.radial_build = {
-                    'sol': {
-                        'thickness_matrix': np.zeros((
-                            len(self._toroidal_angles),
-                            len(self._poloidal_angles)
-                        ))
-                    },
-                    **self.radial_build
-                }
-                if not hasattr(self, 'sol_mat_tag'):
-                    self.sol_mat_tag = 'Vacuum'
 
-            inner_volume_name = 'plasma'
-            inner_volume_tag = 'plasma_mat_tag'
+        self._split_chamber = value
+
+        if self._split_chamber:
+            if self._wall_s > 1.0 and "sol" not in self._radial_build:
+                self.radial_build = {
+                    "sol": {
+                        "thickness_matrix": np.zeros(
+                            (
+                                len(self._toroidal_angles),
+                                len(self._poloidal_angles),
+                            )
+                        )
+                    },
+                    **self.radial_build,
+                }
+                if not hasattr(self, "sol_mat_tag"):
+                    self.sol_mat_tag = "Vacuum"
+
+            inner_volume_name = "plasma"
+            inner_volume_tag = "plasma_mat_tag"
         else:
-            inner_volume_name = 'chamber'
-            inner_volume_tag = 'chamber_mat_tag'
-            
+            inner_volume_name = "chamber"
+            inner_volume_tag = "chamber_mat_tag"
+
         self.radial_build = {
             inner_volume_name: {
-                'thickness_matrix': np.zeros((
-                    len(self._toroidal_angles),
-                    len(self._poloidal_angles)
-                ))
+                "thickness_matrix": np.zeros(
+                    (len(self._toroidal_angles), len(self._poloidal_angles))
+                )
             },
-            **self.radial_build
+            **self.radial_build,
         }
         if not hasattr(self, inner_volume_tag):
-            self.__setattr__(inner_volume_tag, 'Vacuum')
+            self.__setattr__(inner_volume_tag, "Vacuum")
 
     @property
     def logger(self):
         return self._logger
-    
+
     @logger.setter
     def logger(self, logger_object):
         self._logger = log.check_init(logger_object)
-    
+
     @property
     def plasma_mat_tag(self):
         return self._plasma_mat_tag
-    
+
     @plasma_mat_tag.setter
     def plasma_mat_tag(self, mat_tag):
         self._plasma_mat_tag = mat_tag
-        self._set_mat_tag('plasma', self._plasma_mat_tag)
+        self._set_mat_tag("plasma", self._plasma_mat_tag)
 
     @property
     def sol_mat_tag(self):
         return self._sol_mat_tag
-    
+
     @sol_mat_tag.setter
     def sol_mat_tag(self, mat_tag):
         self._sol_mat_tag = mat_tag
-        self._set_mat_tag('sol', self._sol_mat_tag)
+        self._set_mat_tag("sol", self._sol_mat_tag)
 
     @property
     def chamber_mat_tag(self):
         return self._chamber_mat_tag
-    
+
     @chamber_mat_tag.setter
     def chamber_mat_tag(self, mat_tag):
         self._chamber_mat_tag = mat_tag
-        self._set_mat_tag('chamber', self._chamber_mat_tag)
-    
+        self._set_mat_tag("chamber", self._chamber_mat_tag)
+
     def _set_mat_tag(self, name, mat_tag):
         """Sets DAGMC material tag for a given component.
         (Internal function not intended to be called externally)
@@ -788,43 +767,43 @@ class RadialBuild(object):
             name (str): name of component.
             mat_tag (str): DAGMC material tag.
         """
-        self.radial_build[name]['mat_tag'] = mat_tag
+        self.radial_build[name]["mat_tag"] = mat_tag
 
 
 def parse_args():
-    """Parser for running as a script.
-    """
-    parser = argparse.ArgumentParser(prog='invessel_build')
+    """Parser for running as a script."""
+    parser = argparse.ArgumentParser(prog="invessel_build")
 
     parser.add_argument(
-        'filename',
-        help='YAML file defining ParaStell in-vessel component configuration'
+        "filename",
+        help="YAML file defining ParaStell in-vessel component configuration",
     )
     parser.add_argument(
-        '-e', '--export_dir',
-        default='',
+        "-e",
+        "--export_dir",
+        default="",
         help=(
-            'Directory to which output files are exported (default: working '
-            'directory)'
+            "Directory to which output files are exported (default: working "
+            "directory)"
         ),
-        metavar=''
+        metavar="",
     )
     parser.add_argument(
-        '-l', '--logger',
+        "-l",
+        "--logger",
         default=False,
         help=(
-            'Flag to indicate whether to instantiate a logger object (default: '
-            'False)'
+            "Flag to indicate whether to instantiate a logger object (default: "
+            "False)"
         ),
-        metavar=''
+        metavar="",
     )
 
     return parser.parse_args()
 
 
 def generate_invessel_build():
-    """Main method when run as a command line script.
-    """
+    """Main method when run as a command line script."""
     args = parse_args()
 
     all_data = read_yaml_config(args.filename)
@@ -834,25 +813,21 @@ def generate_invessel_build():
     else:
         logger = log.NullLogger()
 
-    vmec_file = all_data['vmec_file']
+    vmec_file = all_data["vmec_file"]
     vmec_obj = read_vmec.VMECData(vmec_file)
 
-    invessel_build_dict = all_data['invessel_build']
+    invessel_build_dict = all_data["invessel_build"]
 
     radial_build = RadialBuild(
-        invessel_build_dict['toroidal_angles'],
-        invessel_build_dict['poloidal_angles'],
-        invessel_build_dict['wall_s'],
-        invessel_build_dict['radial_build'],
-        logger=logger
-        **invessel_build_dict
+        invessel_build_dict["toroidal_angles"],
+        invessel_build_dict["poloidal_angles"],
+        invessel_build_dict["wall_s"],
+        invessel_build_dict["radial_build"],
+        logger=logger**invessel_build_dict,
     )
 
     invessel_build = InVesselBuild(
-        vmec_obj,
-        radial_build,
-        logger=logger,
-        **invessel_build_dict
+        vmec_obj, radial_build, logger=logger, **invessel_build_dict
     )
 
     invessel_build.populate_surfaces()
@@ -861,11 +836,11 @@ def generate_invessel_build():
 
     invessel_build.export_step(export_dir=args.export_dir)
 
-    if invessel_build_dict['export_cad_to_dagmc']:
-        
+    if invessel_build_dict["export_cad_to_dagmc"]:
+
         invessel_build.export_cad_to_dagmc(
             export_dir=args.export_dir,
-            **(filter_kwargs(invessel_build_dict, ['dagmc_filename']))
+            **(filter_kwargs(invessel_build_dict, ["dagmc_filename"])),
         )
 
 

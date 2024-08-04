@@ -6,6 +6,7 @@ import numpy as np
 m2cm = 100
 m3tocm3 = m2cm * m2cm * m2cm
 
+
 def normalize(vec_list):
     """Normalizes a set of vectors.
 
@@ -44,14 +45,13 @@ def expand_ang_list(ang_list, num_ang):
     final_ang = ang_list[-1]
     ang_extent = final_ang - init_ang
 
-    ang_diff_avg = ang_extent/(num_ang - 1)
+    ang_diff_avg = ang_extent / (num_ang - 1)
 
     for ang, next_ang in zip(ang_list[:-1], ang_list[1:]):
-        n_ang = math.ceil((next_ang - ang)/ang_diff_avg)
+        n_ang = math.ceil((next_ang - ang) / ang_diff_avg)
 
         ang_list_exp = np.append(
-            ang_list_exp,
-            np.linspace(ang, next_ang, num=n_ang + 1)[:-1]
+            ang_list_exp, np.linspace(ang, next_ang, num=n_ang + 1)[:-1]
         )
 
     ang_list_exp = np.append(ang_list_exp, ang_list[-1])
@@ -60,8 +60,7 @@ def expand_ang_list(ang_list, num_ang):
 
 
 def read_yaml_config(filename):
-    """Read YAML file describing ParaStell configuration and extract all data.
-    """
+    """Read YAML file describing ParaStell configuration and extract all data."""
     with open(filename) as yaml_file:
         all_data = yaml.safe_load(yaml_file)
 
@@ -95,10 +94,10 @@ def filter_kwargs(
 
     if all_kwargs and extra_keys:
         e = ValueError(
-            f'{extra_keys} not supported keyword argument(s) of '
+            f"{extra_keys} not supported keyword argument(s) of "
             f'"{fn_name}"'
         )
         logger.error(e.args[0])
         raise e
-            
+
     return {name: dict[name] for name in allowed_keys}

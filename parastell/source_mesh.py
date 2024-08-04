@@ -8,12 +8,12 @@ import pystell.read_vmec as read_vmec
 from . import log as log
 from .utils import read_yaml_config, filter_kwargs, m2cm, m3tocm3
 
-export_allowed_kwargs = ['filename']
+export_allowed_kwargs = ["filename"]
 
 
 def default_reaction_rate(n_i, T_i):
-    """Default reaction rate formula for DT fusion assumes an equal mixture of 
-    D and T in a hot plasma. From A. Bader et al 2021 Nucl. Fusion 61 116060 
+    """Default reaction rate formula for DT fusion assumes an equal mixture of
+    D and T in a hot plasma. From A. Bader et al 2021 Nucl. Fusion 61 116060
     DOI 10.1088/1741-4326/ac2991
 
 
@@ -41,7 +41,7 @@ def default_reaction_rate(n_i, T_i):
 
 def default_plasma_conditions(s):
     """Calculates ion density and temperature as a function of the
-    plasma paramter s using profiles found in A. Bader et al 2021 Nucl. Fusion 
+    plasma paramter s using profiles found in A. Bader et al 2021 Nucl. Fusion
     61 116060 DOI 10.1088/1741-4326/ac2991
 
     Arguments:
@@ -64,7 +64,7 @@ def default_plasma_conditions(s):
 class SourceMesh(object):
     """Generates a source mesh that describes the relative source intensity of
     neutrons in a magnetically confined plasma described by a VMEC plasma
-    equilibrium.  
+    equilibrium.
 
     The mesh will be defined on a regular grid in the plasma coordinates of s,
     theta, phi.  Mesh vertices will be defined on circular grid at each toroidal
@@ -100,19 +100,14 @@ class SourceMesh(object):
             (defaults to m2cm = 100).
         plasma_conditions (function): function that takes the plasma parameter
             s, and returns temperature and ion density with suitable units for
-            the reaction_rate() function. Defaults to 
+            the reaction_rate() function. Defaults to
             default_plasma_conditions()
         reaction_rate (function): function that takes the values returned by
             plasma_conditions() and returns a reaction rate in reactions/cm3/s
     """
 
     def __init__(
-        self,
-        vmec_obj,
-        mesh_size,
-        toroidal_extent,
-        logger=None,
-        **kwargs
+        self, vmec_obj, mesh_size, toroidal_extent, logger=None, **kwargs
     ):
 
         self.logger = logger
@@ -145,9 +140,7 @@ class SourceMesh(object):
     def toroidal_extent(self, angle):
         self._toroidal_extent = np.deg2rad(angle)
         if self._toroidal_extent > 360.0:
-            e = ValueError(
-                'Toroidal extent cannot exceed 360.0 degrees.'
-            )
+            e = ValueError("Toroidal extent cannot exceed 360.0 degrees.")
             self._logger.error(e.args[0])
             raise e
 
@@ -174,8 +167,7 @@ class SourceMesh(object):
         storage_type = types.MB_TAG_DENSE
         tag_name = "SourceStrength"
         self.tag_handle = self.mbc.tag_get_handle(
-            tag_name, tag_size, tag_type, storage_type,
-            create_if_missing=True
+            tag_name, tag_size, tag_type, storage_type, create_if_missing=True
         )
 
     def create_vertices(self):
@@ -187,16 +179,16 @@ class SourceMesh(object):
         mesh at the 0 == 2 * pi wrap so that everything
         is closed and consistent.
         """
-        self._logger.info('Computing source mesh point cloud...')
+        self._logger.info("Computing source mesh point cloud...")
 
         phi_list = np.linspace(0, self._toroidal_extent, num=self.num_phi)
         # don't include magnetic axis in list of s values
         s_list = np.linspace(0.0, 1.0, num=self.num_s)[1:]
         # don't include repeated entry at 0 == 2*pi
-        theta_list = np.linspace(0, 2*np.pi, num=self.num_theta)[:-1]
+        theta_list = np.linspace(0, 2 * np.pi, num=self.num_theta)[:-1]
 
         # don't include repeated entry at 0 == 2*pi
-        if self._toroidal_extent == 2*np.pi:
+        if self._toroidal_extent == 2 * np.pi:
             phi_list = phi_list[:-1]
 
         self.verts_per_ring = theta_list.shape[0]
@@ -212,8 +204,9 @@ class SourceMesh(object):
 
         for phi in phi_list:
             # vertex coordinates on magnetic axis
-            self.coords[vert_idx, :] = np.array(
-                self.vmec_obj.vmec2xyz(0, 0, phi)) * self.scale
+            self.coords[vert_idx, :] = (
+                np.array(self.vmec_obj.vmec2xyz(0, 0, phi)) * self.scale
+            )
             self.coords_s[vert_idx] = 0
 
             vert_idx += 1
@@ -221,9 +214,10 @@ class SourceMesh(object):
             # vertex coordinate away from magnetic axis
             for s in s_list:
                 for theta in theta_list:
-                    self.coords[vert_idx, :] = np.array(
-                        self.vmec_obj.vmec2xyz(s, theta, phi)
-                    ) * self.scale
+                    self.coords[vert_idx, :] = (
+                        np.array(self.vmec_obj.vmec2xyz(s, theta, phi))
+                        * self.scale
+                    )
                     self.coords_s[vert_idx] = s
 
                     vert_idx += 1
@@ -247,20 +241,20 @@ class SourceMesh(object):
 
         # Initialize list of source strengths for each tetrahedron vertex
         vertex_strengths = [
-            self.reaction_rate(
-                *self.plasma_conditions(self.coords_s[id])
-            )
+            self.reaction_rate(*self.plasma_conditions(self.coords_s[id]))
             for id in tet_ids
         ]
 
         # Define barycentric coordinates for integration points
-        bary_coords = np.array([
-            [0.25, 0.25, 0.25, 0.25],
-            [0.5, 1/6, 1/6, 1/6],
-            [1/6, 0.5, 1/6, 1/6],
-            [1/6, 1/6, 0.5, 1/6],
-            [1/6, 1/6, 1/6, 0.5]
-        ])
+        bary_coords = np.array(
+            [
+                [0.25, 0.25, 0.25, 0.25],
+                [0.5, 1 / 6, 1 / 6, 1 / 6],
+                [1 / 6, 0.5, 1 / 6, 1 / 6],
+                [1 / 6, 1 / 6, 0.5, 1 / 6],
+                [1 / 6, 1 / 6, 1 / 6, 0.5],
+            ]
+        )
 
         # Define weights for integration points
         int_w = np.array([-0.8, 0.45, 0.45, 0.45, 0.45])
@@ -271,7 +265,7 @@ class SourceMesh(object):
         # Compute edge vectors between tetrahedron vertices
         edge_vectors = np.subtract(tet_coords[:3], tet_coords[3]).T
 
-        tet_vol = np.abs(np.linalg.det(edge_vectors))/6
+        tet_vol = np.abs(np.linalg.det(edge_vectors)) / 6
 
         ss = tet_vol * np.dot(int_w, ss_int_pts)
 
@@ -302,7 +296,7 @@ class SourceMesh(object):
         (Internal function not intended to be called externally)
 
         Arguments:
-            vert_idx (list of int): list of vertex 
+            vert_idx (list of int): list of vertex
                 [flux surface index, poloidal angle index, toroidal angle index]
 
         Returns:
@@ -314,7 +308,7 @@ class SourceMesh(object):
         ma_offset = phi_idx * self.verts_per_plane
 
         # Wrap around if final plane and it is 2*pi
-        if self._toroidal_extent == 2*np.pi and phi_idx == self.num_phi - 1:
+        if self._toroidal_extent == 2 * np.pi and phi_idx == self.num_phi - 1:
             ma_offset = 0
 
         # Compute index offset from closed flux surface
@@ -339,23 +333,27 @@ class SourceMesh(object):
         """
 
         # relative offsets of vertices in a 3-D index space
-        hex_vertex_stencil = np.array([
-            [0, 0, 0],
-            [1, 0, 0],
-            [1, 1, 0],
-            [0, 1, 0],
-            [0, 0, 1],
-            [1, 0, 1],
-            [1, 1, 1],
-            [0, 1, 1]
-        ])
+        hex_vertex_stencil = np.array(
+            [
+                [0, 0, 0],
+                [1, 0, 0],
+                [1, 1, 0],
+                [0, 1, 0],
+                [0, 0, 1],
+                [1, 0, 1],
+                [1, 1, 1],
+                [0, 1, 1],
+            ]
+        )
 
         # Ids of hex vertices applying offset stencil to current point
-        hex_idx_data = np.array(
-            [s_idx, theta_idx, phi_idx]) + hex_vertex_stencil
+        hex_idx_data = (
+            np.array([s_idx, theta_idx, phi_idx]) + hex_vertex_stencil
+        )
 
-        idx_list = [self._get_vertex_id(vertex_idx)
-                    for vertex_idx in hex_idx_data]
+        idx_list = [
+            self._get_vertex_id(vertex_idx) for vertex_idx in hex_idx_data
+        ]
 
         # Define MOAB canonical ordering of hexahedron vertex indices
         hex_canon_ids = [
@@ -363,7 +361,7 @@ class SourceMesh(object):
             [idx_list[7], idx_list[4], idx_list[6], idx_list[3]],
             [idx_list[2], idx_list[1], idx_list[3], idx_list[6]],
             [idx_list[5], idx_list[6], idx_list[4], idx_list[1]],
-            [idx_list[3], idx_list[1], idx_list[4], idx_list[6]]
+            [idx_list[3], idx_list[1], idx_list[4], idx_list[6]],
         ]
 
         for vertex_ids in hex_canon_ids:
@@ -378,35 +376,37 @@ class SourceMesh(object):
         """
 
         # relative offsets of wedge vertices in a 3-D index space
-        wedge_vertex_stencil = np.array([
-            [0, 0,              0],
-            [0, theta_idx,      0],
-            [0, theta_idx + 1,  0],
-            [0, 0,              1],
-            [0, theta_idx,      1],
-            [0, theta_idx + 1,  1]
-        ])
+        wedge_vertex_stencil = np.array(
+            [
+                [0, 0, 0],
+                [0, theta_idx, 0],
+                [0, theta_idx + 1, 0],
+                [0, 0, 1],
+                [0, theta_idx, 1],
+                [0, theta_idx + 1, 1],
+            ]
+        )
 
         # Ids of wedge vertices applying offset stencil to current point
         wedge_idx_data = np.array([0, 0, phi_idx]) + wedge_vertex_stencil
 
-        idx_list = [self._get_vertex_id(vertex_idx)
-                    for vertex_idx in wedge_idx_data]
+        idx_list = [
+            self._get_vertex_id(vertex_idx) for vertex_idx in wedge_idx_data
+        ]
 
         # Define MOAB canonical ordering of wedge vertex indices
         wedge_canon_ids = [
             [idx_list[1], idx_list[2], idx_list[4], idx_list[0]],
             [idx_list[5], idx_list[4], idx_list[2], idx_list[3]],
-            [idx_list[0], idx_list[2], idx_list[4], idx_list[3]]
+            [idx_list[0], idx_list[2], idx_list[4], idx_list[3]],
         ]
 
         for vertex_ids in wedge_canon_ids:
             self._create_tet(vertex_ids)
 
     def create_mesh(self):
-        """Creates volumetric source mesh in real space.
-        """
-        self._logger.info('Constructing source mesh...')
+        """Creates volumetric source mesh in real space."""
+        self._logger.info("Constructing source mesh...")
 
         self.mesh_set = self.mbc.create_meshset()
         self.mbc.add_entity(self.mesh_set, self.verts)
@@ -421,7 +421,7 @@ class SourceMesh(object):
                 for theta_idx in range(1, self.num_theta):
                     self._create_tets_from_hex(s_idx, theta_idx, phi_idx)
 
-    def export_mesh(self, filename='source_mesh', export_dir=''):
+    def export_mesh(self, filename="source_mesh", export_dir=""):
         """Use PyMOAB interface to write source mesh with source strengths
         tagged.
 
@@ -431,46 +431,46 @@ class SourceMesh(object):
             export_dir (str): directory to which to export the H5M output file
                 (optional, defaults to empty string).
         """
-        self._logger.info('Exporting source mesh H5M file...')
+        self._logger.info("Exporting source mesh H5M file...")
 
-        export_path = Path(export_dir) / Path(filename).with_suffix('.h5m')
+        export_path = Path(export_dir) / Path(filename).with_suffix(".h5m")
         self.mbc.write_file(str(export_path))
 
 
 def parse_args():
-    """Parser for running as a script
-    """
-    parser = argparse.ArgumentParser(prog='source_mesh')
+    """Parser for running as a script"""
+    parser = argparse.ArgumentParser(prog="source_mesh")
 
     parser.add_argument(
-        'filename',
-        help='YAML file defining ParaStell source mesh configuration'
+        "filename",
+        help="YAML file defining ParaStell source mesh configuration",
     )
     parser.add_argument(
-        '-e', '--export_dir',
-        default='',
+        "-e",
+        "--export_dir",
+        default="",
         help=(
-            'Directory to which output files are exported (default: working '
-            'directory)'
+            "Directory to which output files are exported (default: working "
+            "directory)"
         ),
-        metavar=''
+        metavar="",
     )
     parser.add_argument(
-        '-l', '--logger',
+        "-l",
+        "--logger",
         default=False,
         help=(
-            'Flag to indicate whether to instantiate a logger object (default: '
-            'False)'
+            "Flag to indicate whether to instantiate a logger object (default: "
+            "False)"
         ),
-        metavar=''
+        metavar="",
     )
 
     return parser.parse_args()
 
 
 def generate_source_mesh():
-    """Main method when run as a command line script.
-    """
+    """Main method when run as a command line script."""
     args = parse_args()
 
     all_data = read_yaml_config(args.filename)
@@ -480,17 +480,16 @@ def generate_source_mesh():
     else:
         logger = log.NullLogger()
 
-    vmec_file = all_data['vmec_file']
+    vmec_file = all_data["vmec_file"]
     vmec_obj = read_vmec.VMECData(vmec_file)
 
-    source_mesh_dict = all_data['source_mesh']
+    source_mesh_dict = all_data["source_mesh"]
 
     source_mesh = SourceMesh(
         vmec_obj,
-        source_mesh_dict['mesh_size'],
-        source_mesh_dict['toroidal_extent'],
-        logger=logger
-        **source_mesh_dict
+        source_mesh_dict["mesh_size"],
+        source_mesh_dict["toroidal_extent"],
+        logger=logger**source_mesh_dict,
     )
 
     source_mesh.create_vertices()
@@ -498,7 +497,7 @@ def generate_source_mesh():
 
     source_mesh.export_mesh(
         export_dir=args.export_dir,
-        **(filter_kwargs(source_mesh_dict, ['filename']))
+        **(filter_kwargs(source_mesh_dict, ["filename"]))
     )
 
 

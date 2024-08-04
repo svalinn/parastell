@@ -9,23 +9,26 @@ initialized = False
 
 
 def init_cubit():
-    """Initializes Coreform Cubit with the DAGMC plugin.
-    """
+    """Initializes Coreform Cubit with the DAGMC plugin."""
     global initialized
-    
+
     if not initialized:
-        cubit_plugin_dir = (
-            Path(os.path.dirname(inspect.getfile(cubit))) / Path('plugins')
+        cubit_plugin_dir = Path(
+            os.path.dirname(inspect.getfile(cubit))
+        ) / Path("plugins")
+        cubit.init(
+            [
+                "cubit",
+                "-nojournal",
+                "-nographics",
+                "-information",
+                "off",
+                "-warning",
+                "off",
+                "-commandplugindir",
+                str(cubit_plugin_dir),
+            ]
         )
-        cubit.init([
-            'cubit',
-            '-nojournal',
-            '-nographics',
-            '-information', 'off',
-            '-warning', 'off',
-            '-commandplugindir',
-            str(cubit_plugin_dir)
-        ])
         initialized = True
 
 
@@ -41,14 +44,14 @@ def import_step_cubit(filename, import_dir):
     """
     init_cubit()
 
-    import_path = Path(import_dir) / Path(filename).with_suffix('.step')
+    import_path = Path(import_dir) / Path(filename).with_suffix(".step")
     cubit.cmd(f'import step "{import_path}" heal')
     vol_id = cubit.get_last_id("volume")
 
     return vol_id
 
 
-def export_step_cubit(filename, export_dir=''):
+def export_step_cubit(filename, export_dir=""):
     """Export CAD solid as a STEP file via Coreform Cubit.
 
     Arguments:
@@ -58,12 +61,13 @@ def export_step_cubit(filename, export_dir=''):
     """
     init_cubit()
 
-    export_path = Path(export_dir) / Path(filename).with_suffix('.step')
+    export_path = Path(export_dir) / Path(filename).with_suffix(".step")
     cubit.cmd(f'export step "{export_path}" overwrite')
 
-def export_cub5(filename, export_dir=''):
+
+def export_cub5(filename, export_dir=""):
     """Export cub5 representation of model (native Cubit format).
-    
+
     Arguments:
         filename (str): name of cub5 output file, excluding '.cub5' extension.
         export_dir (str): directory to which to export the cub5 output file
@@ -71,10 +75,11 @@ def export_cub5(filename, export_dir=''):
     """
     init_cubit()
 
-    export_path = Path(export_dir) / Path(filename).with_suffix('.cub5')
+    export_path = Path(export_dir) / Path(filename).with_suffix(".cub5")
     cubit.cmd(f'save cub5 "{export_path}" overwrite')
 
-def export_mesh_cubit(filename, export_dir=''):
+
+def export_mesh_cubit(filename, export_dir=""):
     """Exports Cubit mesh to H5M file format, first exporting to Exodus format
     via Coreform Cubit and converting to H5M via MOAB.
 
@@ -84,18 +89,21 @@ def export_mesh_cubit(filename, export_dir=''):
             (defaults to empty string).
     """
     init_cubit()
-    
-    exo_path = Path(export_dir) / Path(filename).with_suffix('.exo')
-    h5m_path = Path(export_dir) / Path(filename).with_suffix('.h5m')
+
+    exo_path = Path(export_dir) / Path(filename).with_suffix(".exo")
+    h5m_path = Path(export_dir) / Path(filename).with_suffix(".h5m")
 
     cubit.cmd(f'export mesh "{exo_path}" overwrite')
-    subprocess.run(f'mbconvert {exo_path} {h5m_path}', shell=True)
+    subprocess.run(f"mbconvert {exo_path} {h5m_path}", shell=True)
     Path.unlink(exo_path)
 
 
 def export_dagmc_cubit_legacy(
-    faceting_tolerance=None, length_tolerance=None, normal_tolerance=None,
-    filename='dagmc', export_dir=''
+    faceting_tolerance=None,
+    length_tolerance=None,
+    normal_tolerance=None,
+    filename="dagmc",
+    export_dir="",
 ):
     """Exports DAGMC neutronics H5M file of ParaStell components via legacy
     plug-in faceting method for Coreform Cubit.
@@ -113,25 +121,25 @@ def export_dagmc_cubit_legacy(
             (defaults to empty string).
     """
     init_cubit()
-    
-    tol_str = ''
+
+    tol_str = ""
 
     if faceting_tolerance is not None:
-        tol_str += f'faceting_tolerance {faceting_tolerance}'
+        tol_str += f"faceting_tolerance {faceting_tolerance}"
     if length_tolerance is not None:
-        tol_str += f'length_tolerance {length_tolerance}'
+        tol_str += f"length_tolerance {length_tolerance}"
     if normal_tolerance is not None:
-        tol_str += f'normal_tolerance {normal_tolerance}'
+        tol_str += f"normal_tolerance {normal_tolerance}"
 
-    export_path = Path(export_dir) / Path(filename).with_suffix('.h5m')
-    cubit.cmd(
-        f'export dagmc "{export_path}" {tol_str} make_watertight'
-    )
+    export_path = Path(export_dir) / Path(filename).with_suffix(".h5m")
+    cubit.cmd(f'export dagmc "{export_path}" {tol_str} make_watertight')
 
 
 def export_dagmc_cubit_native(
-    anisotropic_ratio=100.0, deviation_angle=5.0, filename='dagmc',
-    export_dir=''
+    anisotropic_ratio=100.0,
+    deviation_angle=5.0,
+    filename="dagmc",
+    export_dir="",
 ):
     """Exports DAGMC neutronics H5M file of ParaStell components via native
     faceting method for Coreform Cubit.
@@ -148,13 +156,13 @@ def export_dagmc_cubit_native(
             (defaults to empty string).
     """
     init_cubit()
-    
+
     cubit.cmd(
-        f'set trimesher coarse on ratio {anisotropic_ratio} '
-        f'angle {deviation_angle}'
+        f"set trimesher coarse on ratio {anisotropic_ratio} "
+        f"angle {deviation_angle}"
     )
     cubit.cmd("surface all scheme trimesh")
     cubit.cmd("mesh surface all")
 
-    export_path = Path(export_dir) / Path(filename).with_suffix('.h5m')
+    export_path = Path(export_dir) / Path(filename).with_suffix(".h5m")
     cubit.cmd(f'export cf_dagmc "{export_path}" overwrite')

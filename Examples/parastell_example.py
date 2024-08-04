@@ -4,9 +4,9 @@ import parastell.parastell as ps
 
 
 # Define directory to export all output files to
-export_dir = ''
+export_dir = ""
 # Define plasma equilibrium VMEC file
-vmec_file = 'wout_vmec.nc'
+vmec_file = "wout_vmec.nc"
 
 # Instantiate ParaStell build
 stellarator = ps.Stellarator(vmec_file)
@@ -20,86 +20,64 @@ wall_s = 1.08
 uniform_unit_thickness = np.ones((len(toroidal_angles), len(poloidal_angles)))
 
 radial_build_dict = {
-    'first_wall': {
-        'thickness_matrix': uniform_unit_thickness * 5
+    "first_wall": {"thickness_matrix": uniform_unit_thickness * 5},
+    "breeder": {
+        "thickness_matrix": (
+            [
+                [75.0, 75.0, 75.0, 25.0, 25.0, 25.0, 75.0, 75.0, 75.0],
+                [75.0, 75.0, 75.0, 25.0, 25.0, 75.0, 75.0, 75.0, 75.0],
+                [75.0, 75.0, 25.0, 25.0, 75.0, 75.0, 75.0, 75.0, 75.0],
+                [65.0, 25.0, 25.0, 65.0, 75.0, 75.0, 75.0, 75.0, 65.0],
+                [45.0, 45.0, 75.0, 75.0, 75.0, 75.0, 75.0, 45.0, 45.0],
+                [65.0, 75.0, 75.0, 75.0, 75.0, 65.0, 25.0, 25.0, 65.0],
+                [75.0, 75.0, 75.0, 75.0, 75.0, 25.0, 25.0, 75.0, 75.0],
+                [75.0, 75.0, 75.0, 75.0, 25.0, 25.0, 75.0, 75.0, 75.0],
+                [75.0, 75.0, 75.0, 25.0, 25.0, 25.0, 75.0, 75.0, 75.0],
+            ]
+        )
     },
-    'breeder': {
-        'thickness_matrix': ([
-            [75.0, 75.0, 75.0, 25.0, 25.0, 25.0, 75.0, 75.0, 75.0],
-            [75.0, 75.0, 75.0, 25.0, 25.0, 75.0, 75.0, 75.0, 75.0],
-            [75.0, 75.0, 25.0, 25.0, 75.0, 75.0, 75.0, 75.0, 75.0],
-            [65.0, 25.0, 25.0, 65.0, 75.0, 75.0, 75.0, 75.0, 65.0],
-            [45.0, 45.0, 75.0, 75.0, 75.0, 75.0, 75.0, 45.0, 45.0],
-            [65.0, 75.0, 75.0, 75.0, 75.0, 65.0, 25.0, 25.0, 65.0],
-            [75.0, 75.0, 75.0, 75.0, 75.0, 25.0, 25.0, 75.0, 75.0],
-            [75.0, 75.0, 75.0, 75.0, 25.0, 25.0, 75.0, 75.0, 75.0],
-            [75.0, 75.0, 75.0, 25.0, 25.0, 25.0, 75.0, 75.0, 75.0]
-        ])
+    "back_wall": {"thickness_matrix": uniform_unit_thickness * 5},
+    "shield": {"thickness_matrix": uniform_unit_thickness * 50},
+    "vacuum_vessel": {
+        "thickness_matrix": uniform_unit_thickness * 10,
+        "h5m_tag": "vac_vessel",
     },
-    'back_wall': {
-        'thickness_matrix': uniform_unit_thickness * 5
-    },
-    'shield': {
-        'thickness_matrix': uniform_unit_thickness * 50
-    },
-    'vacuum_vessel': {
-        'thickness_matrix': uniform_unit_thickness * 10,
-        'h5m_tag': 'vac_vessel'
-    }
 }
 # Construct in-vessel components
 stellarator.construct_invessel_build(
-    toroidal_angles,
-    poloidal_angles,
-    wall_s,
-    radial_build_dict
+    toroidal_angles, poloidal_angles, wall_s, radial_build_dict
 )
 # Export in-vessel component files
 stellarator.export_invessel_build(
-    export_cad_to_dagmc=False,
-    export_dir=export_dir
+    export_cad_to_dagmc=False, export_dir=export_dir
 )
 
 # Define build parameters for magnet coils
-coils_file = 'coils.example'
-cross_section = ['circle', 20]
+coils_file = "coils.example"
+cross_section = ["circle", 20]
 toroidal_extent = 90.0
 # Construct magnets
 stellarator.construct_magnets(
-    coils_file,
-    cross_section,
-    toroidal_extent,
-    sample_mod=6
+    coils_file, cross_section, toroidal_extent, sample_mod=6
 )
 # Export magnet files
 stellarator.export_magnets(
-    step_filename='magnets',
+    step_filename="magnets",
     export_mesh=True,
-    mesh_filename='magnet_mesh',
-    export_dir=export_dir
+    mesh_filename="magnet_mesh",
+    export_dir=export_dir,
 )
 
 # Define source mesh parameters
 mesh_size = (11, 81, 61)
 toroidal_extent = 90.0
 # Construct source
-stellarator.construct_source_mesh(
-    mesh_size,
-    toroidal_extent
-)
+stellarator.construct_source_mesh(mesh_size, toroidal_extent)
 # Export source file
-stellarator.export_source_mesh(
-    filename='source_mesh',
-    export_dir=export_dir
-)
+stellarator.export_source_mesh(filename="source_mesh", export_dir=export_dir)
 
 # Build Cubit model of Parastell Components
-stellarator.build_cubit_model(
-    skip_imprint=False,
-    legacy_faceting=True)
+stellarator.build_cubit_model(skip_imprint=False, legacy_faceting=True)
 
 # Export DAGMC neutronics H5M file
-stellarator.export_dagmc(
-    filename='dagmc',
-    export_dir=export_dir
-)
+stellarator.export_dagmc(filename="dagmc", export_dir=export_dir)
