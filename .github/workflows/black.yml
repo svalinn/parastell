@@ -1,0 +1,10 @@
+name: black
+on: [push, pull_request, workflow_dispatch]
+jobs:
+  black:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: psf/black@stable
+        with:
+          options: "--check --verbose --line-length 79"

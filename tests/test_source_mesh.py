@@ -9,27 +9,23 @@ import parastell.source_mesh as sm
 
 def remove_files():
 
-    if Path('source_mesh.h5m').exists():
-        Path.unlink('source_mesh.h5m')
-    if Path('stellarator.log').exists():
-        Path.unlink('stellarator.log')
+    if Path("source_mesh.h5m").exists():
+        Path.unlink("source_mesh.h5m")
+    if Path("stellarator.log").exists():
+        Path.unlink("stellarator.log")
 
 
 @pytest.fixture
 def source_mesh():
 
-    vmec_file = Path('files_for_tests') / 'wout_vmec.nc'
+    vmec_file = Path("files_for_tests") / "wout_vmec.nc"
 
     vmec_obj = read_vmec.VMECData(vmec_file)
 
     mesh_size = (4, 8, 4)
     toroidal_extent = 90.0
 
-    source_mesh_obj = sm.SourceMesh(
-        vmec_obj,
-        mesh_size,
-        toroidal_extent
-    )
+    source_mesh_obj = sm.SourceMesh(vmec_obj, mesh_size, toroidal_extent)
 
     return source_mesh_obj
 
@@ -62,7 +58,7 @@ def test_vertices(source_mesh):
     num_verts_exp = num_phi * ((num_s - 1) * (num_theta - 1) + 1)
 
     remove_files()
-    
+
     source_mesh.create_vertices()
 
     assert source_mesh.coords.shape == (num_verts_exp, 3)
@@ -80,7 +76,6 @@ def test_export(source_mesh):
     source_mesh.create_mesh()
     source_mesh.export_mesh()
 
-    assert Path('source_mesh.h5m').exists()
+    assert Path("source_mesh.h5m").exists()
 
     remove_files()
-    
