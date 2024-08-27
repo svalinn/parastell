@@ -246,7 +246,9 @@ class Stellarator(object):
             export_dir (str): directory to which to export output files
                 (optional, defaults to empty string).
         """
-        self.magnet_set.export_step(step_filename=step_filename, export_dir=export_dir)
+        self.magnet_set.export_step(
+            step_filename=step_filename, export_dir=export_dir
+        )
 
         if export_mesh:
             self.magnet_set.mesh_magnets()
@@ -309,7 +311,9 @@ class Stellarator(object):
             name,
             data,
         ) in self.invessel_build.radial_build.radial_build.items():
-            vol_id = cubit_io.import_step_cubit(name, self.invessel_build.export_dir)
+            vol_id = cubit_io.import_step_cubit(
+                name, self.invessel_build.export_dir
+            )
             data["vol_id"] = vol_id
 
     def _import_magnets_step(self):
@@ -328,12 +332,18 @@ class Stellarator(object):
         (Internal function not intended to be called externally)
         """
         if self.magnet_set:
-            vol_id_str = " ".join(str(i) for i in list(self.magnet_set.volume_ids))
-            cubit.cmd(f'group "mat:{self.magnet_set.mat_tag}" add volume {vol_id_str}')
+            vol_id_str = " ".join(
+                str(i) for i in list(self.magnet_set.volume_ids)
+            )
+            cubit.cmd(
+                f'group "mat:{self.magnet_set.mat_tag}" add volume {vol_id_str}'
+            )
 
         if self.invessel_build:
             for data in self.invessel_build.radial_build.radial_build.values():
-                cubit.cmd(f'group "mat:{data["mat_tag"]}" add volume {data["vol_id"]}')
+                cubit.cmd(
+                    f'group "mat:{data["mat_tag"]}" add volume {data["vol_id"]}'
+                )
 
     def _tag_materials_native(self):
         """Applies material tags to corresponding CAD volumes for native DAGMC
@@ -367,7 +377,9 @@ class Stellarator(object):
         """
         self.legacy_faceting = legacy_faceting
 
-        self._logger.info("Building DAGMC neutronics model via Coreform Cubit...")
+        self._logger.info(
+            "Building DAGMC neutronics model via Coreform Cubit..."
+        )
 
         if cubit_io.initialized:
             cubit.cmd("new")
@@ -472,7 +484,8 @@ def parse_args():
         "--logger",
         action="store_true",
         help=(
-            "flag to indicate the instantiation of a logger object (default: " "False)"
+            "flag to indicate the instantiation of a logger object (default: "
+            "False)"
         ),
     )
 
@@ -490,7 +503,9 @@ def parse_args():
         "-m",
         "--magnets",
         action="store_true",
-        help=("flag to indicate the creation of magnet geometry (default: False)"),
+        help=(
+            "flag to indicate the creation of magnet geometry (default: False)"
+        ),
     )
 
     parser.add_argument(
@@ -516,7 +531,9 @@ def parse_args():
     return parser.parse_args()
 
 
-def check_inputs(invessel_build, magnet_coils, source_mesh, dagmc_export, logger):
+def check_inputs(
+    invessel_build, magnet_coils, source_mesh, dagmc_export, logger
+):
     """Checks inputs for consistency across ParaStell classes.
 
     Arguments:

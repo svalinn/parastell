@@ -54,7 +54,9 @@ def test_parastell(stellarator):
     component_name_exp = "component"
     radial_build_dict = {
         component_name_exp: {
-            "thickness_matrix": np.ones((len(toroidal_angles), len(poloidal_angles)))
+            "thickness_matrix": np.ones(
+                (len(toroidal_angles), len(poloidal_angles))
+            )
             * 10
         }
     }

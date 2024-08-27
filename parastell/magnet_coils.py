@@ -69,7 +69,13 @@ class MagnetSet(object):
     """
 
     def __init__(
-        self, coils_file, width, thickness, toroidal_extent, logger=None, **kwargs
+        self,
+        coils_file,
+        width,
+        thickness,
+        toroidal_extent,
+        logger=None,
+        **kwargs,
     ):
 
         self.logger = logger
@@ -237,7 +243,9 @@ class MagnetSet(object):
         lower_bound = 2 * np.pi - tol
         upper_bound = self._toroidal_extent + tol
 
-        for coords, tangents in zip(self.filament_coords, self.filament_tangents):
+        for coords, tangents in zip(
+            self.filament_coords, self.filament_tangents
+        ):
             # Compute filament center of mass
             com = np.average(coords, axis=0)
             # Compute toroidal angle of each point in filament
@@ -308,7 +316,9 @@ class MagnetSet(object):
         self._filter_filaments()
 
         self.magnet_coils = [
-            MagnetCoil(coords, tangents, center_of_mass, self._width, self._thickness)
+            MagnetCoil(
+                coords, tangents, center_of_mass, self._width, self._thickness
+            )
             for coords, tangents, center_of_mass in zip(
                 self.filament_coords, self.filament_tangents, self.filament_com
             )
@@ -332,18 +342,22 @@ class MagnetSet(object):
         self.export_dir = export_dir
         self.step_filename = step_filename
 
-        export_path = Path(self.export_dir) / Path(self.step_filename).with_suffix(
-            ".step"
-        )
+        export_path = Path(self.export_dir) / Path(
+            self.step_filename
+        ).with_suffix(".step")
 
-        coil_set = cq.Compound.makeCompound([coil.solid for coil in self.magnet_coils])
+        coil_set = cq.Compound.makeCompound(
+            [coil.solid for coil in self.magnet_coils]
+        )
         cq.exporters.export(coil_set, str(export_path))
 
     def mesh_magnets(self):
         """Creates tetrahedral mesh of magnet volumes via Coreform Cubit."""
         self._logger.info("Generating tetrahedral mesh of magnet coils...")
 
-        last_vol_id = cubit_io.import_step_cubit(self.step_filename, self.export_dir)
+        last_vol_id = cubit_io.import_step_cubit(
+            self.step_filename, self.export_dir
+        )
 
         self.volume_ids = range(1, last_vol_id + 1)
 
@@ -363,7 +377,9 @@ class MagnetSet(object):
         """
         self._logger.info("Exporting mesh H5M file for magnet coils...")
 
-        cubit_io.export_mesh_cubit(filename=mesh_filename, export_dir=export_dir)
+        cubit_io.export_mesh_cubit(
+            filename=mesh_filename, export_dir=export_dir
+        )
 
 
 class MagnetCoil(object):
@@ -395,12 +411,16 @@ class MagnetCoil(object):
         Returns:
             coil (object): cq.Solid object representing a single magnet coil.
         """
-        tangent_vectors = [cq.Vector(tuple(tangent)) for tangent in self.tangents]
+        tangent_vectors = [
+            cq.Vector(tuple(tangent)) for tangent in self.tangents
+        ]
 
         # Define coil filament path normals such that they face the filament
         # center of mass
         normal_dirs = np.array([i - self.center_of_mass for i in self.coords])
-        normal_dirs = normal_dirs / np.linalg.norm(normal_dirs, axis=1)[:, np.newaxis]
+        normal_dirs = (
+            normal_dirs / np.linalg.norm(normal_dirs, axis=1)[:, np.newaxis]
+        )
 
         # Project normal directions onto desired coil cross-section (CS) plane
         # at each filament position to define true filament path normals
@@ -419,26 +439,44 @@ class MagnetCoil(object):
         coil_edge_coords = []
 
         coil_edge1_coords = (
-            self.coords - (self.width / 2) * binormals - (self.thickness / 2) * normals
+            self.coords
+            - (self.width / 2) * binormals
+            - (self.thickness / 2) * normals
         )
-        coil_edge_coords.append([cq.Vector(tuple(pos)) for pos in coil_edge1_coords])
+        coil_edge_coords.append(
+            [cq.Vector(tuple(pos)) for pos in coil_edge1_coords]
+        )
 
         coil_edge2_coords = (
-            self.coords - (self.width / 2) * binormals + (self.thickness / 2) * normals
+            self.coords
+            - (self.width / 2) * binormals
+            + (self.thickness / 2) * normals
         )
-        coil_edge_coords.append([cq.Vector(tuple(pos)) for pos in coil_edge2_coords])
+        coil_edge_coords.append(
+            [cq.Vector(tuple(pos)) for pos in coil_edge2_coords]
+        )
 
         coil_edge3_coords = (
-            self.coords + (self.width / 2) * binormals + (self.thickness / 2) * normals
+            self.coords
+            + (self.width / 2) * binormals
+            + (self.thickness / 2) * normals
         )
-        coil_edge_coords.append([cq.Vector(tuple(pos)) for pos in coil_edge3_coords])
+        coil_edge_coords.append(
+            [cq.Vector(tuple(pos)) for pos in coil_edge3_coords]
+        )
 
         coil_edge4_coords = (
-            self.coords + (self.width / 2) * binormals - (self.thickness / 2) * normals
+            self.coords
+            + (self.width / 2) * binormals
+            - (self.thickness / 2) * normals
         )
-        coil_edge_coords.append([cq.Vector(tuple(pos)) for pos in coil_edge4_coords])
+        coil_edge_coords.append(
+            [cq.Vector(tuple(pos)) for pos in coil_edge4_coords]
+        )
         # Append first edge once again
-        coil_edge_coords.append([cq.Vector(tuple(pos)) for pos in coil_edge1_coords])
+        coil_edge_coords.append(
+            [cq.Vector(tuple(pos)) for pos in coil_edge1_coords]
+        )
 
         coil_edges = [
             cq.Edge.makeSpline(coord_vectors, tangents=tangent_vectors).close()
