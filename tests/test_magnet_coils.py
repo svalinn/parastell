@@ -1,107 +1,80 @@
 from pathlib import Path
 
 import pytest
+import numpy as np
 
 import parastell.magnet_coils as magnet_coils
 
 
 def remove_files():
 
-    if Path("magnets.step").exists():
-        Path.unlink("magnets.step")
+    if Path("magnet_set.step").exists():
+        Path.unlink("magnet_set.step")
     if Path("magnet_mesh.exo").exists():
         Path.unlink("magnet_mesh.exo")
     if Path("magnet_mesh.h5m").exists():
         Path.unlink("magnet_mesh.h5m")
     if Path("stellarator.log").exists():
         Path.unlink("stellarator.log")
-    if Path("step_export.log").exists():
-        Path.unlink("step_export.log")
+    if Path("step_import.log").exists():
+        Path.unlink("step_import.log")
 
 
 @pytest.fixture
-def rect_coil_set():
+def coil_set():
 
     coils_file = Path("files_for_tests") / "coils.example"
-    rect_cross_section = ["rectangle", 20, 60]
+    width = 40.0
+    thickness = 50.0
     toroidal_extent = 90.0
-    sample_mod = 6
+    sample_mod = 10
 
-    rect_coil_obj = magnet_coils.MagnetSet(
-        coils_file, rect_cross_section, toroidal_extent, sample_mod=sample_mod
+    coil_set_obj = magnet_coils.MagnetSet(
+        coils_file, width, thickness, toroidal_extent, sample_mod=sample_mod
     )
 
-    return rect_coil_obj
+    return coil_set_obj
 
 
-@pytest.fixture
-def circ_coil_set():
+def test_magnet_construction(coil_set):
 
-    coils_file = Path("files_for_tests") / "coils.example"
-    circ_cross_section = ["circle", 25]
-    toroidal_extent = 90.0
-    sample_mod = 6
-
-    circ_coil_obj = magnet_coils.MagnetSet(
-        coils_file, circ_cross_section, toroidal_extent, sample_mod=sample_mod
-    )
-
-    return circ_coil_obj
-
-
-def test_rectangular_magnets(rect_coil_set):
-
-    shape_exp = "rectangle"
-    shape_str_exp = "rectangle width 60 height 20"
-    mag_len_exp = 60
+    width_exp = 40.0
+    thickness_exp = 50.0
+    toroidal_extent_exp = np.deg2rad(90.0)
+    max_cs_len_exp = 50.0
+    average_radial_distance_exp = 1075.9559376755847
+    max_radial_distance_exp = 1641.2890540431476
+    len_filaments_exp = 1
+    len_coords_exp = 14
 
     remove_files()
 
-    assert rect_coil_set.shape == shape_exp
-    assert rect_coil_set.shape_str == shape_str_exp
-    assert rect_coil_set.mag_len == mag_len_exp
+    coil_set.build_magnet_coils()
 
-    remove_files()
+    assert len(coil_set.filament_coords) == len_filaments_exp
+    assert coil_set.width == width_exp
+    assert coil_set.thickness == thickness_exp
+    assert coil_set.toroidal_extent == toroidal_extent_exp
+    assert coil_set.max_cs_len == max_cs_len_exp
+    assert coil_set.average_radial_distance == average_radial_distance_exp
+    assert coil_set.max_radial_distance == max_radial_distance_exp
 
-
-def test_circular_magnets(circ_coil_set):
-
-    len_filaments_exp = 2
-    average_radial_distance_exp = 1068.3010006669892
-    len_filtered_filaments_exp = 1
-    shape_exp = "circle"
-    shape_str_exp = "circle radius 25"
-    mag_len_exp = 25
-    len_test_coil_filament_exp = 23
-
-    remove_files()
-
-    circ_coil_set.build_magnet_coils()
-
-    assert len(circ_coil_set.filaments) == len_filaments_exp
-    assert circ_coil_set.average_radial_distance == average_radial_distance_exp
-    assert len(circ_coil_set.filtered_filaments) == len_filtered_filaments_exp
-    assert circ_coil_set.shape == shape_exp
-    assert circ_coil_set.shape_str == shape_str_exp
-    assert circ_coil_set.mag_len == mag_len_exp
-
-    test_coil = circ_coil_set.magnet_coils[0]
-    test_coil_filament = test_coil.filament
-    assert len(test_coil_filament) == len_test_coil_filament_exp
+    test_coil = coil_set.magnet_coils[0]
+    assert len(test_coil.coords) == len_coords_exp
 
     remove_files()
 
 
-def test_magnet_exports(circ_coil_set):
+def test_magnet_exports(coil_set):
 
     remove_files()
 
-    circ_coil_set.build_magnet_coils()
-    circ_coil_set.export_step()
-    assert Path("magnets.step").exists()
+    coil_set.build_magnet_coils()
+    coil_set.export_step()
+    assert Path("magnet_set.step").exists()
 
-    circ_coil_set.mesh_magnets()
-    circ_coil_set.export_mesh()
+    coil_set.mesh_magnets()
+    coil_set.export_mesh()
     assert Path("magnet_mesh.h5m").exists()
 
     remove_files()

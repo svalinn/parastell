@@ -68,10 +68,11 @@ invessel_build:
 
 magnet_coils:
   coils_file: coils.example
-  cross_section: [circle, 20.0]
+  width: 40.0
+  thickness: 50.0
   toroidal_extent: 90.0
   sample_mod: 6
-  step_filename: magnet_coils
+  step_filename: magnet_set
   export_mesh: True
   mesh_filename: magnet_mesh
 
