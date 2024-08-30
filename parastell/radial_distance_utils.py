@@ -9,7 +9,6 @@ import pystell.read_vmec as read_vmec
 import cubit
 
 
-# function to get reordered filaments
 def calc_z_radius(point):
     """
     Calculate the distance from the z axis.
@@ -83,7 +82,7 @@ def reorder_filaments(filaments):
         filaments (list of list of list of float): List of filaments, which are
             lists of points defining each filament.
     Returns:
-        filaments (list of list of list of float): Reorderd list of filaments,
+        filaments (list of list of list of float): Reordered list of filaments,
             suitable for building the magnet surface.
     """
     for filament_index, filament in enumerate(filaments):
