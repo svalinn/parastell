@@ -530,7 +530,11 @@ class RadialBuild(object):
             }.
         split_chamber (bool): if wall_s > 1.0, separate interior vacuum
             chamber into plasma and scrape-off layer components (optional,
-            defaults to False).
+            defaults to False). If an item with a 'sol' key is present in the
+            radial_build dictionary, settting this to False will not combine
+            the resultant 'chamber' with 'sol'. To include a custom scrape-off
+            layer definition for 'chamber', add an item with a 'chamber' key
+            and desired 'thickness_matrix' value to the radial_build dictionary.
         logger (object): logger object (optional, defaults to None). If no
             logger is supplied, a default logger will be instantiated.
 
