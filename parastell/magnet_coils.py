@@ -137,7 +137,7 @@ class MagnetSet(object):
                 y = float(columns[1]) * self.scale
                 z = float(columns[2]) * self.scale
                 coords.append([x, y, z])
-            
+
             else:
                 coords.append(coords[0])
                 filament_coords.append(np.array(coords))
@@ -217,10 +217,10 @@ class MagnetSet(object):
         (Internal function not intended to be called externally)
         """
         side_length = 1.25 * self.max_radial_distance
-        
+
         toroidal_region = cq.Workplane("XZ")
-        toroidal_region = toroidal_region.transformed(offset=(
-            side_length / 2, 0)
+        toroidal_region = toroidal_region.transformed(
+            offset=(side_length / 2, 0)
         )
         toroidal_region = toroidal_region.rect(side_length, side_length)
         toroidal_region = toroidal_region.revolve(
@@ -246,8 +246,11 @@ class MagnetSet(object):
 
         self.magnet_coils = [
             MagnetCoil(
-                coords, center_of_mass, self._width, self._thickness,
-                self.sample_mod
+                coords,
+                center_of_mass,
+                self._width,
+                self._thickness,
+                self.sample_mod,
             )
             for coords, center_of_mass in zip(
                 self.filament_coords, self.filament_com
@@ -344,14 +347,14 @@ class MagnetCoil(object):
         # Compute tangents
         tangents = np.subtract(
             np.append(data[1:], [data[1]], axis=0),
-            np.append([data[-2]], data[0:-1], axis=0)
+            np.append([data[-2]], data[0:-1], axis=0),
         )
-        tangents = tangents/np.linalg.norm(tangents, axis=1)[:, np.newaxis]
-        
+        tangents = tangents / np.linalg.norm(tangents, axis=1)[:, np.newaxis]
+
         # Sample filament coordinates and tangents by modifier
-        self._coords = data[0:-1:self.sample_mod]
+        self._coords = data[0 : -1 : self.sample_mod]
         self._coords = np.append(self._coords, [self._coords[0]], axis=0)
-        self.tangents = tangents[0:-1:self.sample_mod]
+        self.tangents = tangents[0 : -1 : self.sample_mod]
         self.tangents = np.append(self.tangents, [self.tangents[0]], axis=0)
 
     def create_magnet(self):
@@ -397,7 +400,7 @@ class MagnetCoil(object):
 
             coil_edge_coords.append(
                 [cq.Vector(tuple(pos)) for pos in coil_edge]
-            )            
+            )
 
         # Append first edge once again
         coil_edge_coords.append(coil_edge_coords[0])
