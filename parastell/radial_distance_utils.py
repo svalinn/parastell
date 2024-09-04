@@ -115,6 +115,7 @@ def get_reordered_filaments(magnet_set):
 
 
 def build_magnet_surface(reordered_filaments):
+    loops = []
     for fil1, fil2 in zip(reordered_filaments[0:-1], reordered_filaments[1:]):
         for index, _ in enumerate(fil1):
             x1 = fil1[index, 0]
@@ -126,8 +127,9 @@ def build_magnet_surface(reordered_filaments):
             cubit.cmd(
                 f"create curve location {x1} {y1} {z1} location {x2} {y2} {z2}"
             )
+            loops.append(cubit.get_last_id("curve"))
 
-    loops = np.array(cubit.get_entities("curve"))
+    loops = np.array(loops)
     loops = np.reshape(
         loops, (len(reordered_filaments) - 1, len(reordered_filaments[0]))
     )
