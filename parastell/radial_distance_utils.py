@@ -27,19 +27,20 @@ def get_start_index(filament):
         filament (list of list of float): List of points defining the filament
 
     Returns:
-        max_z_index (int): index at which the filament crosses the xy plane
+        crossing_index (int): index at which the filament crosses the xy plane
+            on the OB side of the filament.
     """
-    max_z_index = None
-    max_z_radius = 0
+    crossing_index = None
+    max_crossing_radius = 0
     for index, (point, next_point) in enumerate(
         zip(filament[0:-1], filament[1:])
     ):
         if point[2] / next_point[2] < 0:
-            z_radius = calc_z_radius(point)
-            if max_z_radius < z_radius:
-                max_z_index = index
-                max_z_radius = z_radius
-    return max_z_index
+            crossing_radius = calc_z_radius(point)
+            if max_crossing_radius < crossing_radius:
+                crossing_index = index
+                max_crossing_radius = crossing_radius
+    return crossing_index
 
 
 def sort_filaments_toroidally(filaments):
@@ -118,15 +119,9 @@ def build_magnet_surface(reordered_filaments):
     loops = []
     for fil1, fil2 in zip(reordered_filaments[0:-1], reordered_filaments[1:]):
         for index, _ in enumerate(fil1):
-            x1 = fil1[index, 0]
-            x2 = fil2[index, 0]
-            y1 = fil1[index, 1]
-            y2 = fil2[index, 1]
-            z1 = fil1[index, 2]
-            z2 = fil2[index, 2]
-            cubit.cmd(
-                f"create curve location {x1} {y1} {z1} location {x2} {y2} {z2}"
-            )
+            loc1 = " ".join(str(val) for val in fil1[index, :])
+            loc2 = " ".join(str(val) for val in fil2[index, :])
+            cubit.cmd(f"create curve location {loc1} location {loc2}")
             loops.append(cubit.get_last_id("curve"))
 
     loops = np.array(loops)
