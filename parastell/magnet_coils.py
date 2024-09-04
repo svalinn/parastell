@@ -28,16 +28,10 @@ def compute_tangent(prev_line, next_line):
         tangent (array of float): tangent vector at filament point.
     """
     prev_columns = prev_line.strip().split()
-    prev_x = float(prev_columns[0])
-    prev_y = float(prev_columns[1])
-    prev_z = float(prev_columns[2])
-    prev_pt = np.array([prev_x, prev_y, prev_z])
+    prev_pt = np.array([float(coord) for coord in prev_columns[0:3]])
 
     next_columns = next_line.strip().split()
-    next_x = float(next_columns[0])
-    next_y = float(next_columns[1])
-    next_z = float(next_columns[2])
-    next_pt = np.array([next_x, next_y, next_z])
+    next_pt = np.array([float(coord) for coord in next_columns[0:3]])
 
     tangent = next_pt - prev_pt
     tangent = normalize(tangent)
@@ -145,9 +139,7 @@ class MagnetSet(object):
         self._logger = log.check_init(logger_object)
 
     def _extract_filament_data(self):
-        """Extracts filament coordinate data from input data file, sampling
-        filament point-loci according to the input sampling modifier and
-        computing tangents at each sampled point.
+        """Extracts filament coordinate numerical data from input data file.
         (Internal function not intended to be called externally)
         """
         with open(self.coils_file, "r") as file:
@@ -155,13 +147,8 @@ class MagnetSet(object):
 
         coords = []
         filament_coords = []
-        tangents = []
-        filament_tangents = []
 
-        # Ensure that sampling always starts on the first line of each filament
-        sample_counter = 0
-
-        for i, line in enumerate(data):
+        for line in data:
             columns = line.strip().split()
 
             if columns[0] == "end":
@@ -172,43 +159,17 @@ class MagnetSet(object):
 
             # s = 0 signals end of filament
             if s != 0:
-                if sample_counter % self.sample_mod == 0:
-                    x = float(columns[0]) * self.scale
-                    y = float(columns[1]) * self.scale
-                    z = float(columns[2]) * self.scale
-                    coords.append([x, y, z])
-
-                    # Compute tangent
-                    if sample_counter == 0:
-                        # To compute tangent at initial point, store
-                        # corresponding "next" point
-                        next_line_init = data[i + 1]
-                    else:
-                        prev_line = data[i - 1]
-                        next_line = data[i + 1]
-                        tangent = compute_tangent(prev_line, next_line)
-                        tangents.append(tangent)
-
-                sample_counter += 1
+                x = float(columns[0]) * self.scale
+                y = float(columns[1]) * self.scale
+                z = float(columns[2]) * self.scale
+                coords.append([x, y, z])
+            
             else:
                 coords.append(coords[0])
                 filament_coords.append(np.array(coords))
                 coords.clear()
 
-                # To compute tangent at initial point, store point "previous"
-                # to final point (initial and final points are the same since
-                # filaments are closed loops)
-                prev_line_init = data[i - 1]
-                tangent = compute_tangent(prev_line_init, next_line_init)
-                tangents.insert(0, tangent)
-                tangents.append(tangent)
-                filament_tangents.append(np.array(tangents))
-                tangents.clear()
-
-                sample_counter = 0
-
         self.filament_coords = filament_coords
-        self.filament_tangents = filament_tangents
 
     def _compute_radial_distance_data(self):
         """Computes average and maximum radial distance of filament points.
@@ -228,9 +189,9 @@ class MagnetSet(object):
         angle.
         (Internal function not intended to be called externally)
         """
-        # Initialize data for filaments within toroidal extent of model
+        # Initialize coordinate data for filaments within toroidal extent of
+        # model
         filtered_coords = []
-        filtered_tangents = []
         # Initialize list of filament centers of mass
         com_list = []
 
@@ -243,9 +204,7 @@ class MagnetSet(object):
         lower_bound = 2 * np.pi - tol
         upper_bound = self._toroidal_extent + tol
 
-        for coords, tangents in zip(
-            self.filament_coords, self.filament_tangents
-        ):
+        for coords in self.filament_coords:
             # Compute filament center of mass
             com = np.average(coords, axis=0)
             # Compute toroidal angle of each point in filament
@@ -261,24 +220,20 @@ class MagnetSet(object):
                 max_tor_ang >= lower_bound or max_tor_ang <= upper_bound
             ):
                 filtered_coords.append(coords)
-                filtered_tangents.append(tangents)
                 com_list.append(com)
 
         filtered_coords = np.array(filtered_coords)
-        filtered_tangents = np.array(filtered_tangents)
         com_list = np.array(com_list)
 
         # Compute toroidal angles of filament centers of mass
         com_toroidal_angles = np.arctan2(com_list[:, 1], com_list[:, 0])
         com_toroidal_angles = (com_toroidal_angles + 2 * np.pi) % (2 * np.pi)
 
-        # Sort filaments by toroidal angle and overwrite respective arrays
+        # Sort filaments by toroidal angle and overwrite coordinate data
         self.filament_coords = np.array(
             [x for _, x in sorted(zip(com_toroidal_angles, filtered_coords))]
         )
-        self.filament_tangents = np.array(
-            [x for _, x in sorted(zip(com_toroidal_angles, filtered_tangents))]
-        )
+        # Store filtered centers of mass since they have already been computed
         self.filament_com = np.array(
             [x for _, x in sorted(zip(com_toroidal_angles, com_list))]
         )
@@ -287,17 +242,17 @@ class MagnetSet(object):
         """Cuts the magnets at the planes defining the toriodal extent.
         (Internal function not intended to be called externally)
         """
+        side_length = 1.25 * self.max_radial_distance
+        
         toroidal_region = cq.Workplane("XZ")
-        toroidal_region = toroidal_region.transformed(
-            offset=(1.25 * self.max_radial_distance / 2, 0)
+        toroidal_region = toroidal_region.transformed(offset=(
+            side_length / 2, 0)
         )
-        toroidal_region = toroidal_region.rect(
-            1.25 * self.max_radial_distance, 1.25 * self.max_radial_distance
-        )
+        toroidal_region = toroidal_region.rect(side_length, side_length)
         toroidal_region = toroidal_region.revolve(
             np.rad2deg(self._toroidal_extent),
-            (-1.25 * self.max_radial_distance / 2, 0),
-            (-1.25 * self.max_radial_distance / 2, 1),
+            (-side_length / 2, 0),
+            (-side_length / 2, 1),
         )
         toroidal_region = toroidal_region.val()
 
@@ -317,10 +272,11 @@ class MagnetSet(object):
 
         self.magnet_coils = [
             MagnetCoil(
-                coords, tangents, center_of_mass, self._width, self._thickness
+                coords, center_of_mass, self._width, self._thickness,
+                self.sample_mod
             )
-            for coords, tangents, center_of_mass in zip(
-                self.filament_coords, self.filament_tangents, self.filament_com
+            for coords, center_of_mass in zip(
+                self.filament_coords, self.filament_com
             )
         ]
 
@@ -397,13 +353,31 @@ class MagnetCoil(object):
             [cm].
     """
 
-    def __init__(self, coords, tangents, center_of_mass, width, thickness):
+    def __init__(self, coords, center_of_mass, width, thickness, sample_mod):
 
+        self.sample_mod = sample_mod
         self.coords = coords
-        self.tangents = tangents
         self.center_of_mass = center_of_mass
         self.width = width
         self.thickness = thickness
+
+    @property
+    def coords(self):
+        return self._coords
+
+    @coords.setter
+    def coords(self, data):
+        # Compute tangents
+        tangents = np.subtract(
+            np.append(data[1:], [data[1]], axis=0),
+            np.append([data[-2]], data[0:-1], axis=0)
+        )
+        
+        # Sample filament coordinates and tangents by modifier
+        self._coords = data[0:-1:self.sample_mod]
+        self._coords = np.append(self._coords, [self._coords[0]], axis=0)
+        self.tangents = tangents[0:-1:self.sample_mod]
+        self.tangents = np.append(self.tangents, [self.tangents[0]], axis=0)
 
     def create_magnet(self):
         """Creates a single magnet coil CAD solid in CadQuery.
@@ -417,7 +391,7 @@ class MagnetCoil(object):
 
         # Define coil filament path normals such that they face the filament
         # center of mass
-        normal_dirs = np.array([i - self.center_of_mass for i in self.coords])
+        normal_dirs = self._coords - self.center_of_mass
         normal_dirs = (
             normal_dirs / np.linalg.norm(normal_dirs, axis=1)[:, np.newaxis]
         )
@@ -436,47 +410,22 @@ class MagnetCoil(object):
         binormals = np.cross(self.tangents, normals)
 
         # Compute coordinates of edges of rectangular coils
+        edge_offsets = np.array([[-1, -1], [-1, 1], [1, 1], [1, -1]])
+
         coil_edge_coords = []
+        for edge_offset in edge_offsets:
+            coil_edge = (
+                self._coords
+                + edge_offset[0] * binormals * (self.width / 2)
+                + edge_offset[1] * normals * (self.thickness / 2)
+            )
 
-        coil_edge1_coords = (
-            self.coords
-            - (self.width / 2) * binormals
-            - (self.thickness / 2) * normals
-        )
-        coil_edge_coords.append(
-            [cq.Vector(tuple(pos)) for pos in coil_edge1_coords]
-        )
+            coil_edge_coords.append(
+                [cq.Vector(tuple(pos)) for pos in coil_edge]
+            )            
 
-        coil_edge2_coords = (
-            self.coords
-            - (self.width / 2) * binormals
-            + (self.thickness / 2) * normals
-        )
-        coil_edge_coords.append(
-            [cq.Vector(tuple(pos)) for pos in coil_edge2_coords]
-        )
-
-        coil_edge3_coords = (
-            self.coords
-            + (self.width / 2) * binormals
-            + (self.thickness / 2) * normals
-        )
-        coil_edge_coords.append(
-            [cq.Vector(tuple(pos)) for pos in coil_edge3_coords]
-        )
-
-        coil_edge4_coords = (
-            self.coords
-            + (self.width / 2) * binormals
-            - (self.thickness / 2) * normals
-        )
-        coil_edge_coords.append(
-            [cq.Vector(tuple(pos)) for pos in coil_edge4_coords]
-        )
         # Append first edge once again
-        coil_edge_coords.append(
-            [cq.Vector(tuple(pos)) for pos in coil_edge1_coords]
-        )
+        coil_edge_coords.append(coil_edge_coords[0])
 
         coil_edges = [
             cq.Edge.makeSpline(coord_vectors, tangents=tangent_vectors).close()

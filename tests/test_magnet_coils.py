@@ -42,8 +42,8 @@ def test_magnet_construction(coil_set):
     thickness_exp = 50.0
     toroidal_extent_exp = np.deg2rad(90.0)
     max_cs_len_exp = 50.0
-    average_radial_distance_exp = 1075.9559376755847
-    max_radial_distance_exp = 1641.2890540431476
+    average_radial_distance_exp = 1028.5044183872055
+    max_radial_distance_exp = 1646.3258131460148
     len_filaments_exp = 1
     len_coords_exp = 14
 
