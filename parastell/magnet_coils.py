@@ -13,32 +13,6 @@ from .utils import normalize, read_yaml_config, filter_kwargs, m2cm
 export_allowed_kwargs = ["step_filename", "export_mesh", "mesh_filename"]
 
 
-def compute_tangent(prev_line, next_line):
-    """Computes tangent at "current" filament point using central difference
-    approximation and previous and next lines in coil filament input data text
-    file.
-
-    Arguments:
-        prev_line (str): line in input data file representing coordinates of
-            filament point previous to the current point.
-        next_line (str): line in input data file representing coordinates of
-            filament point next to the current point.
-
-    Returns:
-        tangent (array of float): tangent vector at filament point.
-    """
-    prev_columns = prev_line.strip().split()
-    prev_pt = np.array([float(coord) for coord in prev_columns[0:3]])
-
-    next_columns = next_line.strip().split()
-    next_pt = np.array([float(coord) for coord in next_columns[0:3]])
-
-    tangent = next_pt - prev_pt
-    tangent = normalize(tangent)
-
-    return tangent
-
-
 class MagnetSet(object):
     """An object representing a set of modular stellarator magnet coils.
 
@@ -372,6 +346,7 @@ class MagnetCoil(object):
             np.append(data[1:], [data[1]], axis=0),
             np.append([data[-2]], data[0:-1], axis=0)
         )
+        tangents = tangents/np.linalg.norm(tangents, axis=1)[:, np.newaxis]
         
         # Sample filament coordinates and tangents by modifier
         self._coords = data[0:-1:self.sample_mod]
