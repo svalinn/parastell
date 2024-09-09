@@ -383,11 +383,6 @@ class MagnetCoil(object):
 
         # Project outward directions onto desired coil cross-section (CS) plane
         # at each filament position to define filament path normals
-        parallel_parts = []
-        for dir, tangent in zip(outward_dirs, self.tangents):
-            parallel_parts.append(np.dot(dir, tangent))
-        parallel_parts = np.array(parallel_parts)
-
         parallel_parts = np.diagonal(
             np.matmul(outward_dirs, self.tangents.transpose())
         )
