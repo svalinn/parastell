@@ -379,6 +379,7 @@ class MagnetSet(object):
         for vol in self.volume_ids:
             cubit.cmd(f"volume {vol} scheme tetmesh")
             cubit.cmd(f"mesh volume {vol}")
+            # Test comment
 
     def export_mesh(self, mesh_filename="magnet_mesh", export_dir=""):
         """Creates tetrahedral mesh of magnet volumes and exports H5M format
