@@ -133,10 +133,9 @@ class MagnetSet(object):
 
             # s = 0 signals end of filament
             if s != 0:
-                x = float(columns[0]) * self.scale
-                y = float(columns[1]) * self.scale
-                z = float(columns[2]) * self.scale
-                coords.append([x, y, z])
+                coords.append(
+                    [float(ord) * self.scale for ord in columns[0:3]]
+                )
 
             else:
                 coords.append(coords[0])
@@ -149,13 +148,19 @@ class MagnetSet(object):
         """Computes average and maximum radial distance of filament points.
         (Internal function not intended to be called externally)
         """
-        radial_distance = []
+        radii_count = 0
+        self.average_radial_distance = 0
+        self.max_radial_distance = -1
 
         for f in self.filament_coords:
-            radial_distance.extend(list(np.linalg.norm(f[:, :2], axis=1)))
+            radii = np.linalg.norm(f[:, :2], axis=1)
+            radii_count += len(radii)
+            self.average_radial_distance += np.sum(radii)
+            self.max_radial_distance = max(
+                self.max_radial_distance, np.max(radii)
+            )
 
-        self.average_radial_distance = np.average(radial_distance)
-        self.max_radial_distance = np.max(radial_distance)
+        self.average_radial_distance /= radii_count
 
     def _filter_filaments(self):
         """Cleans filament data such that only filaments within the toroidal
@@ -369,19 +374,25 @@ class MagnetCoil(object):
 
         # Define coil filament path normals such that they face the filament
         # center of mass
-        normal_dirs = self._coords - self.center_of_mass
-        normal_dirs = (
-            normal_dirs / np.linalg.norm(normal_dirs, axis=1)[:, np.newaxis]
+        # Compute "outward" direction as difference between filament positions
+        # and filament center of mass
+        outward_dirs = self._coords - self.center_of_mass
+        outward_dirs = (
+            outward_dirs / np.linalg.norm(outward_dirs, axis=1)[:, np.newaxis]
         )
 
-        # Project normal directions onto desired coil cross-section (CS) plane
-        # at each filament position to define true filament path normals
+        # Project outward directions onto desired coil cross-section (CS) plane
+        # at each filament position to define filament path normals
         parallel_parts = []
-        for dir, tangent in zip(normal_dirs, self.tangents):
+        for dir, tangent in zip(outward_dirs, self.tangents):
             parallel_parts.append(np.dot(dir, tangent))
         parallel_parts = np.array(parallel_parts)
 
-        normals = normal_dirs - parallel_parts[:, np.newaxis] * self.tangents
+        parallel_parts = np.diagonal(
+            np.matmul(outward_dirs, self.tangents.transpose())
+        )
+
+        normals = outward_dirs - parallel_parts[:, np.newaxis] * self.tangents
         normals = normals / np.linalg.norm(normals, axis=1)[:, np.newaxis]
 
         # Compute binormals projected onto CS plane at each position
