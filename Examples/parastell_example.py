@@ -54,11 +54,12 @@ stellarator.export_invessel_build(
 
 # Define build parameters for magnet coils
 coils_file = "coils.example"
-cross_section = ["circle", 20]
+width = 40.0
+thickness = 50.0
 toroidal_extent = 90.0
 # Construct magnets
 stellarator.construct_magnets(
-    coils_file, cross_section, toroidal_extent, sample_mod=6
+    coils_file, width, thickness, toroidal_extent, sample_mod=6
 )
 # Export magnet files
 stellarator.export_magnets(

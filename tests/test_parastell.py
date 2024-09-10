@@ -12,8 +12,8 @@ def remove_files():
         Path.unlink("chamber.step")
     if Path("component.step").exists():
         Path.unlink("component.step")
-    if Path("magnets.step").exists():
-        Path.unlink("magnets.step")
+    if Path("magnet_set.step").exists():
+        Path.unlink("magnet_set.step")
     if Path("magnet_mesh.exo").exists():
         Path.unlink("magnet_mesh.exo")
     if Path("magnet_mesh.h5m").exists():
@@ -81,15 +81,16 @@ def test_parastell(stellarator):
     # Magnet Coils
 
     coils_file = Path("files_for_tests") / "coils.example"
-    cross_section = ["circle", 25]
+    width = 40.0
+    thickness = 50.0
     toroidal_extent = 90.0
     sample_mod = 6
 
     stellarator.construct_magnets(
-        coils_file, cross_section, toroidal_extent, sample_mod=sample_mod
+        coils_file, width, thickness, toroidal_extent, sample_mod=sample_mod
     )
 
-    step_filename_exp = "magnets"
+    step_filename_exp = "magnet_set"
     export_mesh = True
     mesh_filename_exp = "magnet_mesh"
 

@@ -1,7 +1,9 @@
 import argparse
+from pathlib import Path
 
 import numpy as np
 
+import cadquery as cq
 import cubit
 
 from . import log
@@ -16,12 +18,9 @@ class MagnetSet(object):
 
     Arguments:
         coils_file (str): path to coil filament data file.
-        cross_section (list): coil cross-section definiton. The cross-section
-            shape must be either a circle or rectangle. For a circular
-            cross-section, the list format is
-            ['circle' (str), radius [cm](float)]
-            For a rectangular cross-section, the list format is
-            ['rectangle' (str), width [cm](float), thickness [cm](float)]
+        width (float): width of coil cross-section in toroidal direction [cm].
+        thickness (float): thickness of coil cross-section in radial direction
+            [cm].
         toroidal_extent (float): toroidal extent to model [deg].
         logger (object): logger object (optional, defaults to None). If no
             logger is supplied, a default logger will be instantiated.
@@ -38,12 +37,19 @@ class MagnetSet(object):
     """
 
     def __init__(
-        self, coils_file, cross_section, toroidal_extent, logger=None, **kwargs
+        self,
+        coils_file,
+        width,
+        thickness,
+        toroidal_extent,
+        logger=None,
+        **kwargs,
     ):
 
         self.logger = logger
         self.coils_file = coils_file
-        self.cross_section = cross_section
+        self.width = width
+        self.thickness = thickness
         self.toroidal_extent = toroidal_extent
 
         self.start_line = 3
@@ -59,16 +65,32 @@ class MagnetSet(object):
         ):
             self.__setattr__(name, kwargs[name])
 
-        cubit_io.init_cubit()
+        # Define maximum length of coil cross-section
+        self.max_cs_len = max(self._width, self._thickness)
 
     @property
-    def cross_section(self):
-        return self._cross_section
+    def width(self):
+        return self._width
 
-    @cross_section.setter
-    def cross_section(self, shape):
-        self._cross_section = shape
-        self._extract_cross_section()
+    @width.setter
+    def width(self, value):
+        self._width = value
+        if self._width < 0.0:
+            e = ValueError("Coil cross-section width cannot be negative.")
+            self._logger.error(e.args[0])
+            raise e
+
+    @property
+    def thickness(self):
+        return self._thickness
+
+    @thickness.setter
+    def thickness(self, value):
+        self._thickness = value
+        if self._thickness < 0.0:
+            e = ValueError("Coil cross-section thickness cannot be negative.")
+            self._logger.error(e.args[0])
+            raise e
 
     @property
     def toroidal_extent(self):
@@ -90,107 +112,15 @@ class MagnetSet(object):
     def logger(self, logger_object):
         self._logger = log.check_init(logger_object)
 
-    def _extract_cross_section(self):
-        """Extract coil cross-section parameters.
-        (Internal function not intended to be called externally)
-
-        Arguments:
-            cross_section (list or tuple of str, float, float): coil
-                cross-section definition. Note that the cross-section shape
-                must be either a circle or rectangle.
-                For a circular cross-section, the list format is
-                ['circle' (str), radius (float, cm)]
-                For a rectangular cross-section, the list format is
-                ['rectangle' (str), width (float, cm), thickness (float, cm)]
-            logger (object): logger object.
-
-        Returns:
-            shape (str): cross-section shape.
-            shape_str (str): string to pass to Cubit for cross-section
-                generation. For a circular cross-section, the string format is
-                '{shape} radius {radius}'
-                For a rectangular cross-section, the string format is
-                '{shape} width {thickness} height {width}'
-            mag_len (float): characteristic length of magnets.
-        """
-        # Extract coil cross-section shape
-        shape = self._cross_section[0]
-
-        # Conditionally extract parameters for circular cross-section
-        if shape == "circle":
-            # Check that list format is correct
-            if len(self._cross_section) == 1:
-                e = ValueError(
-                    "Format of list defining circular cross-section must be\n"
-                    '["circle" (str), radius (float, cm)]'
-                )
-                self._logger.error(e.args[0])
-                raise e
-            elif len(self._cross_section) > 2:
-                w = Warning(
-                    "More than one length dimension has been defined for "
-                    "cross_section. Interpreting the first as the circle's"
-                    'radius; did you mean to use "rectangle"?'
-                )
-                self._logger.warning(w.args[0])
-
-            # Extract parameters
-            mag_len = self._cross_section[1]
-            # Define string to pass to Cubit for cross-section generation
-            shape_str = f"{shape} radius {mag_len}"
-        # Conditinally extract parameters for rectangular cross-section
-        elif shape == "rectangle":
-            # Check that list format is correct
-            if len(self._cross_section) != 3:
-                e = ValueError(
-                    "Format of list defining rectangular cross-section must \n"
-                    'be ["rectangle" (str), width (float, cm), thickness '
-                    "(float, cm)]"
-                )
-                self._logger.error(e.args[0])
-                raise e
-            # Extract parameters
-            width = self._cross_section[1]
-            thickness = self._cross_section[2]
-            # Detemine largest parameter
-            mag_len = max(width, thickness)
-            # Define string to pass to Cubit for cross-section generation
-            shape_str = f"{shape} width {thickness} height {width}"
-        # Otherwise, if input string is neither 'circle' nor 'rectangle',
-        #  raise an exception
-        else:
-            e = ValueError(
-                "Magnet cross-section must be either a circle or rectangle. "
-                "The first entry of the list defining the cross-section must be"
-                " the shape, with the following entries defining the shape"
-                "parameters.\n"
-                "\n"
-                "For a circular cross-section, the list format is\n"
-                '["circle" (str), radius (float, cm)]\n'
-                "\n"
-                "For a rectangular cross-section, the list format is\n"
-                '["rectangle" (str), width (float, cm),'
-                "thickness (float, cm)]"
-            )
-            self._logger.error(e.args[0])
-            raise e
-
-        self.shape = shape
-        self.shape_str = shape_str
-        self.mag_len = mag_len
-
-    def _extract_filaments(self):
-        """Extracts filament data from magnet coil data file.
+    def _extract_filament_data(self):
+        """Extracts filament coordinate numerical data from input data file.
         (Internal function not intended to be called externally)
         """
         with open(self.coils_file, "r") as file:
             data = file.readlines()[self.start_line :]
 
         coords = []
-        filaments = []
-
-        # Ensure that sampling always starts on the first line of each filament
-        sample_counter = 0
+        filament_coords = []
 
         for line in data:
             columns = line.strip().split()
@@ -198,139 +128,116 @@ class MagnetSet(object):
             if columns[0] == "end":
                 break
 
-            x = float(columns[0]) * self.scale
-            y = float(columns[1]) * self.scale
-            z = float(columns[2]) * self.scale
-
             # Coil current
             s = float(columns[3])
 
             # s = 0 signals end of filament
             if s != 0:
-                if sample_counter % self.sample_mod == 0:
-                    coords.append([x, y, z])
-                sample_counter += 1
+                coords.append(
+                    [float(ord) * self.scale for ord in columns[0:3]]
+                )
+
             else:
-                coords.append([x, y, z])
-                filaments.append(np.array(coords))
-                sample_counter = 0
+                coords.append(coords[0])
+                filament_coords.append(np.array(coords))
                 coords.clear()
 
-        self.filaments = filaments
+        self.filament_coords = filament_coords
 
-    def _set_average_radial_distance(self):
-        """Computes average radial distance of filament points.
+    def _compute_radial_distance_data(self):
+        """Computes average and maximum radial distance of filament points.
         (Internal function not intended to be called externally)
         """
-        radial_distance = []
-        for f in self.filaments:
-            radial_distance.extend(list(np.linalg.norm(f[:, :2], axis=1)))
-        self.average_radial_distance = np.average(radial_distance)
+        radii_count = 0
+        self.average_radial_distance = 0
+        self.max_radial_distance = -1
 
-    def _set_filtered_filaments(self):
+        for f in self.filament_coords:
+            radii = np.linalg.norm(f[:, :2], axis=1)
+            radii_count += len(radii)
+            self.average_radial_distance += np.sum(radii)
+            self.max_radial_distance = max(
+                self.max_radial_distance, np.max(radii)
+            )
+
+        self.average_radial_distance /= radii_count
+
+    def _filter_filaments(self):
         """Cleans filament data such that only filaments within the toroidal
         extent of the model are included and filaments are sorted by toroidal
         angle.
         (Internal function not intended to be called externally)
-
-        Arguments:
-            filaments (np array of list of list of float): list of filament
-                coordinates. Each filament is a list of coordinates.
-            r_avg (float): average radial distance of magnets (cm).
-            mag_len (float): characteristic length of magnets.
-
-        Returns:
-            filtered_filaments (list of list of list of float): sorted list
-            of filament coordinates.
         """
-        # Initialize data for filaments within toroidal extent of model
-        reduced_fils = []
-        # Initialize list of filament centers of mass for those within toroidal
-        # extent of model
+        # Initialize coordinate data for filaments within toroidal extent of
+        # model
+        filtered_coords = []
+        # Initialize list of filament centers of mass
         com_list = []
 
-        # Define tolerance of toroidal extent to account for width of coils
+        # Define tolerance of toroidal extent to account for dimensionality of
+        # coil cross-section
         # Multiply by factor of 2 to be conservative
-        tol = 2 * np.arctan2(self.mag_len, self.average_radial_distance)
+        tol = 2 * np.arctan2(self.max_cs_len, self.average_radial_distance)
 
         # Compute lower and upper bounds of toroidal extent within tolerance
-        min_rad = 2 * np.pi - tol
-        max_rad = self._toroidal_extent + tol
+        lower_bound = 2 * np.pi - tol
+        upper_bound = self._toroidal_extent + tol
 
-        for fil in self.filaments:
+        for coords in self.filament_coords:
             # Compute filament center of mass
-            com = np.average(fil, axis=0)
+            com = np.average(coords, axis=0)
             # Compute toroidal angle of each point in filament
-            phi_pts = np.arctan2(fil[:, 1], fil[:, 0])
+            toroidal_angles = np.arctan2(coords[:, 1], coords[:, 0])
             # Ensure angles are positive
-            phi_pts = (phi_pts + 2 * np.pi) % (2 * np.pi)
+            toroidal_angles = (toroidal_angles + 2 * np.pi) % (2 * np.pi)
             # Compute bounds of toroidal extent of filament
-            min_phi = np.min(phi_pts)
-            max_phi = np.max(phi_pts)
+            min_tor_ang = np.min(toroidal_angles)
+            max_tor_ang = np.max(toroidal_angles)
 
             # Determine if filament toroidal extent overlaps with that of model
-            if (min_phi >= min_rad or min_phi <= max_rad) or (
-                max_phi >= min_rad or max_phi <= max_rad
+            if (min_tor_ang >= lower_bound or min_tor_ang <= upper_bound) or (
+                max_tor_ang >= lower_bound or max_tor_ang <= upper_bound
             ):
-                reduced_fils.append(fil)
+                filtered_coords.append(coords)
                 com_list.append(com)
 
-        reduced_fils = np.array(reduced_fils)
+        filtered_coords = np.array(filtered_coords)
         com_list = np.array(com_list)
 
         # Compute toroidal angles of filament centers of mass
-        phi_arr = np.arctan2(com_list[:, 1], com_list[:, 0])
-        phi_arr = (phi_arr + 2 * np.pi) % (2 * np.pi)
+        com_toroidal_angles = np.arctan2(com_list[:, 1], com_list[:, 0])
+        com_toroidal_angles = (com_toroidal_angles + 2 * np.pi) % (2 * np.pi)
 
-        # Sort filaments by toroidal angle
-        self.filtered_filaments = [
-            x for _, x in sorted(zip(phi_arr, reduced_fils))
-        ]
+        # Sort filaments by toroidal angle and overwrite coordinate data
+        self.filament_coords = np.array(
+            [x for _, x in sorted(zip(com_toroidal_angles, filtered_coords))]
+        )
+        # Store filtered centers of mass since they have already been computed
+        self.filament_com = np.array(
+            [x for _, x in sorted(zip(com_toroidal_angles, com_list))]
+        )
 
-    def _cut_magnets(self, volume_ids):
-        """Cleanly cuts the magnets at the planes defining the toriodal extent.
+    def _cut_magnets(self):
+        """Cuts the magnets at the planes defining the toriodal extent.
         (Internal function not intended to be called externally)
-
-        Arguments:
-            volume_ids (list): volume ids corresponding to each magnet volume
-
-        Returns:
-            volume_ids (range): new volume ids corresponding to magnet volumes
-                following cutting operation
         """
-        # Define sweeping surface width
-        # Multiply by factor of 2 to be conservative
-        rec_width = 2 * self.average_radial_distance
+        side_length = 1.25 * self.max_radial_distance
 
-        cubit.cmd(f"create surface rectangle width {rec_width} yplane")
-        surf_id = cubit.get_last_id("surface")
-
-        # Shift surface to positive x axis
-        cubit.cmd(f"move Surface {surf_id} x {rec_width/2}")
-
-        # Revolve surface to create wedge spanning toroidal extent
-        cubit.cmd(
-            (
-                f"sweep surface {surf_id} zaxis angle "
-                f"{np.rad2deg(self._toroidal_extent)}"
-            )
+        toroidal_region = cq.Workplane("XZ")
+        toroidal_region = toroidal_region.transformed(
+            offset=(side_length / 2, 0)
         )
-        sweep_id = cubit.get_last_id("volume")
-
-        # Remove magnets and magnet portions not within toroidal extent
-        cubit.cmd(
-            "intersect volume "
-            + " ".join(str(i) for i in volume_ids)
-            + f" {sweep_id}"
+        toroidal_region = toroidal_region.rect(side_length, side_length)
+        toroidal_region = toroidal_region.revolve(
+            np.rad2deg(self._toroidal_extent),
+            (-side_length / 2, 0),
+            (-side_length / 2, 1),
         )
+        toroidal_region = toroidal_region.val()
 
-        # Renumber volume ids from 1 to N
-        cubit.cmd("compress all")
-
-        # Extract new volume ids
-        volume_ids = cubit.get_entities("volume")
-
-        return volume_ids
+        for coil in self.magnet_coils:
+            cut_coil = coil.solid.intersect(toroidal_region)
+            coil.solid = cut_coil
 
     def build_magnet_coils(self):
         """Builds each filament in self.filtered_filaments in cubit, then cuts
@@ -338,43 +245,59 @@ class MagnetSet(object):
         """
         self._logger.info("Constructing magnet coils...")
 
-        self._extract_filaments()
-        self._set_average_radial_distance()
-        self._set_filtered_filaments()
+        self._extract_filament_data()
+        self._compute_radial_distance_data()
+        self._filter_filaments()
 
         self.magnet_coils = [
-            MagnetCoil(filament, self.shape, self.shape_str)
-            for filament in self.filtered_filaments
+            MagnetCoil(
+                coords,
+                center_of_mass,
+                self._width,
+                self._thickness,
+                self.sample_mod,
+            )
+            for coords, center_of_mass in zip(
+                self.filament_coords, self.filament_com
+            )
         ]
 
-        volume_ids = []
+        [magnet_coil.create_magnet() for magnet_coil in self.magnet_coils]
 
-        for magnet_coil in self.magnet_coils:
-            volume_id = magnet_coil.create_magnet()
-            volume_ids.append(volume_id)
+        self._cut_magnets()
 
-        volume_ids = self._cut_magnets(volume_ids)
-
-        self.volume_ids = volume_ids
-
-    def export_step(self, step_filename="magnets", export_dir=""):
-        """Export CAD solids as a STEP file via Coreform Cubit.
+    def export_step(self, step_filename="magnet_set", export_dir=""):
+        """Export CAD solids as a STEP file via CadQuery.
 
         Arguments:
             step_filename (str): name of STEP output file, excluding '.step'
-                extension (optional, defaults to 'magnets').
+                extension (optional, defaults to 'magnet_set').
             export_dir (str): directory to which to export the STEP output file
                 (optional, defaults to empty string).
         """
         self._logger.info("Exporting STEP file for magnet coils...")
 
-        cubit_io.export_step_cubit(
-            filename=step_filename, export_dir=export_dir
+        self.export_dir = export_dir
+        self.step_filename = step_filename
+
+        export_path = Path(self.export_dir) / Path(
+            self.step_filename
+        ).with_suffix(".step")
+
+        coil_set = cq.Compound.makeCompound(
+            [coil.solid for coil in self.magnet_coils]
         )
+        cq.exporters.export(coil_set, str(export_path))
 
     def mesh_magnets(self):
         """Creates tetrahedral mesh of magnet volumes via Coreform Cubit."""
         self._logger.info("Generating tetrahedral mesh of magnet coils...")
+
+        last_vol_id = cubit_io.import_step_cubit(
+            self.step_filename, self.export_dir
+        )
+
+        self.volume_ids = range(1, last_vol_id + 1)
 
         for vol in self.volume_ids:
             cubit.cmd(f"volume {vol} scheme tetmesh")
@@ -401,164 +324,105 @@ class MagnetCoil(object):
     """An object representing a single modular stellarator magnet coil.
 
     Arguments:
-        filament (np.ndarray(double)): set of Cartesian coordinates defining
+        coords (2-D array of float): set of Cartesian coordinates defining
             magnet filament location.
-        shape (str): shape of coil cross-section.
-        shape_str (str): string defining cross-section shape for Coreform Cubit.
+        tangents (2-D array of float): set of tangent vectors at each filament
+            location.
+        center_of_mass (1-D array of float): Cartesian coordinates of filament
+            center of mass.
+        width (float): width of coil cross-section in toroidal direction [cm].
+        thickness (float): thickness of coil cross-section in radial direction
+            [cm].
     """
 
-    def __init__(self, filament, shape, shape_str):
+    def __init__(self, coords, center_of_mass, width, thickness, sample_mod):
 
-        self.filament = filament
-        self.shape = shape
-        self.shape_str = shape_str
+        self.sample_mod = sample_mod
+        self.coords = coords
+        self.center_of_mass = center_of_mass
+        self.width = width
+        self.thickness = thickness
 
-    def _orient_rectangle(
-        self, path_origin, surf_id, t_vec, norm, rot_axis, rot_ang_norm
-    ):
-        """Orients rectangular cross-section in the normal plane such that its
-        thickness direction faces the origin.
-        (Internal function not intended to be called externally)
+    @property
+    def coords(self):
+        return self._coords
 
-        Arguments:
-            path_origin (int): index of initial point in filament path.
-            surf_id (int): index of cross-section surface.
-            t_vec (list of float): cross-section thickness vector.
-            norm (list of float): cross-section normal vector.
-            rot_axis (list of float): axis about which to rotate the
-                cross-section.
-            rot_ang_norm (float): angle by which cross-section was rotated to
-                align its normal with the initial point tangent (deg).
-        """
-        # Determine orientation of thickness vector after cross-section was
-        # oriented along filament origin tangent
-
-        # Compute part of thickness vector parallel to rotation axis
-        t_vec_par = normalize(np.inner(t_vec, rot_axis) * rot_axis)
-        # Compute part of thickness vector orthogonal to rotation axis
-        t_vec_perp = normalize(t_vec - t_vec_par)
-
-        # Compute vector othogonal to both rotation axis and orthogonal
-        # part of thickness vector
-        orth = normalize(np.cross(rot_axis, t_vec_perp))
-
-        # Determine part of rotated vector parallel to original
-        rot_par = np.cos(rot_ang_norm)
-        # Determine part of rotated vector orthogonal to original
-        rot_perp = np.sin(rot_ang_norm)
-
-        # Compute orthogonal part of thickness vector after rotation
-        t_vec_perp_rot = rot_par * t_vec_perp + rot_perp * orth
-        # Compute thickness vector after rotation
-        t_vec_rot = normalize(t_vec_perp_rot + t_vec_par)
-
-        # Orient cross-section in its plane such that it faces the global origin
-
-        # Extract initial path point
-        pos = cubit.vertex(path_origin).coordinates()
-
-        # Project position vector onto cross-section
-        pos_proj = normalize(pos - np.inner(pos, norm) * norm)
-
-        # Compute angle by which to rotate cross-section such that it faces the
-        # origin
-        rot_ang_orig = np.arccos(np.inner(pos_proj, t_vec_rot))
-
-        # Re-orient rotated cross-section such that thickness vector faces
-        # origin
-        cubit.cmd(
-            f"rotate Surface {surf_id} angle {np.rad2deg(rot_ang_orig)} about "
-            "origin 0 0 0 direction " + " ".join(str(i) for i in norm)
+    @coords.setter
+    def coords(self, data):
+        # Compute tangents
+        tangents = np.subtract(
+            np.append(data[1:], [data[1]], axis=0),
+            np.append([data[-2]], data[0:-1], axis=0),
         )
+        tangents = tangents / np.linalg.norm(tangents, axis=1)[:, np.newaxis]
+
+        # Sample filament coordinates and tangents by modifier
+        self._coords = data[0 : -1 : self.sample_mod]
+        self._coords = np.append(self._coords, [self._coords[0]], axis=0)
+        self.tangents = tangents[0 : -1 : self.sample_mod]
+        self.tangents = np.append(self.tangents, [self.tangents[0]], axis=0)
 
     def create_magnet(self):
-        """Creates magnet coil volumes in cubit.
+        """Creates a single magnet coil CAD solid in CadQuery.
 
         Returns:
-            volume_id (int): magnet volume ids in cubit
+            coil (object): cq.Solid object representing a single magnet coil.
         """
-        # Cross-section inititally populated with thickness vector
-        # oriented along x axis
-        t_vec = np.array([1, 0, 0])
+        tangent_vectors = [
+            cq.Vector(tuple(tangent)) for tangent in self.tangents
+        ]
 
-        # Create cross-section for sweep
-        cubit.cmd(f"create surface " + self.shape_str + " zplane")
-
-        # Store cross-section index
-        cs_id = cubit.get_last_id("surface")
-        # Cross-section initially populated with normal oriented along z
-        # axis
-        cs_axis = np.array([0, 0, 1])
-
-        # Initialize path list
-        path = []
-
-        # Create vertices in filament path
-        for x, y, z in self.filament:
-            cubit.cmd(f"create vertex {x} {y} {z}")
-            path += [cubit.get_last_id("vertex")]
-
-        # Ensure final vertex in path is the same as the first
-        path += [path[0]]
-
-        cubit.cmd(
-            f"create curve spline location vertex "
-            + " ".join(str(i) for i in path)
-        )
-        curve_id = cubit.get_last_id("curve")
-
-        # Define new surface normal vector as that pointing between path
-        # points adjacent to initial point
-
-        # Extract path points adjacent to initial point
-        next_pt = np.array(cubit.vertex(path[1]).coordinates())
-        last_pt = np.array(cubit.vertex(path[-2]).coordinates())
-        # Compute direction in which to align surface normal
-        tang = normalize(np.subtract(next_pt, last_pt))
-
-        # Define axis and angle of rotation to orient cross-section along
-        # defined normal
-
-        # Define axis of rotation as orthogonal to both z axis and surface
-        # normal
-        rot_axis = normalize(np.cross(cs_axis, tang))
-        # Compute angle by which to rotate cross-section to orient along
-        # defined surface normal
-        rot_ang_norm = np.arccos(np.inner(cs_axis, tang))
-
-        # Copy cross-section for sweep
-        cubit.cmd(f"surface {cs_id} copy")
-        surf_id = cubit.get_last_id("surface")
-
-        # Orient cross-section along defined normal
-        cubit.cmd(
-            f"rotate Surface {surf_id} angle {np.rad2deg(rot_ang_norm)} about "
-            "origin 0 0 0 direction " + " ".join(str(i) for i in rot_axis)
+        # Define coil filament path normals such that they face the filament
+        # center of mass
+        # Compute "outward" direction as difference between filament positions
+        # and filament center of mass
+        outward_dirs = self._coords - self.center_of_mass
+        outward_dirs = (
+            outward_dirs / np.linalg.norm(outward_dirs, axis=1)[:, np.newaxis]
         )
 
-        # Conditionally orients rectangular cross-section
-        if self.shape == "rectangle":
-            self._orient_rectangle(
-                path[0], surf_id, t_vec, tang, rot_axis, rot_ang_norm
+        # Project outward directions onto desired coil cross-section (CS) plane
+        # at each filament position to define filament path normals
+        parallel_parts = np.diagonal(
+            np.matmul(outward_dirs, self.tangents.transpose())
+        )
+
+        normals = outward_dirs - parallel_parts[:, np.newaxis] * self.tangents
+        normals = normals / np.linalg.norm(normals, axis=1)[:, np.newaxis]
+
+        # Compute binormals projected onto CS plane at each position
+        binormals = np.cross(self.tangents, normals)
+
+        # Compute coordinates of edges of rectangular coils
+        edge_offsets = np.array([[-1, -1], [-1, 1], [1, 1], [1, -1]])
+
+        coil_edge_coords = []
+        for edge_offset in edge_offsets:
+            coil_edge = (
+                self._coords
+                + edge_offset[0] * binormals * (self.width / 2)
+                + edge_offset[1] * normals * (self.thickness / 2)
             )
 
-        # Move cross-section to initial path point
-        cubit.cmd(f"move Surface {surf_id} location vertex {path[0]}")
+            coil_edge_coords.append(
+                [cq.Vector(tuple(pos)) for pos in coil_edge]
+            )
 
-        # Sweep cross-section to create magnet coil
-        cubit.cmd(
-            f"sweep surface {surf_id} along curve {curve_id} " f"individual"
-        )
-        volume_id = cubit.get_last_id("volume")
+        # Append first edge once again
+        coil_edge_coords.append(coil_edge_coords[0])
 
-        # Delete extraneous curves and vertices
-        cubit.cmd(f"delete curve {curve_id}")
-        cubit.cmd("delete vertex all")
+        coil_edges = [
+            cq.Edge.makeSpline(coord_vectors, tangents=tangent_vectors).close()
+            for coord_vectors in coil_edge_coords
+        ]
 
-        # Delete original cross-section
-        cubit.cmd(f"delete surface {cs_id}")
+        face_list = [
+            cq.Face.makeRuledSurface(edge1, edge2)
+            for edge1, edge2 in zip(coil_edges[:-1], coil_edges[1:])
+        ]
 
-        return volume_id
+        shell = cq.Shell.makeShell(face_list)
+        self.solid = cq.Solid.makeSolid(shell)
 
 
 def parse_args():

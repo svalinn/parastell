@@ -193,18 +193,16 @@ class Stellarator(object):
             )
 
     def construct_magnets(
-        self, coils_file, cross_section, toroidal_extent, **kwargs
+        self, coils_file, width, thickness, toroidal_extent, **kwargs
     ):
         """Constructs MagnetSet class object.
 
         Arguments:
             coils_file (str): path to coil filament data file.
-            cross_section (list): coil cross-section definiton. The
-                cross-section shape must be either a circle or rectangle. For a
-                circular cross-section, the list format is
-                ['circle' (str), radius [cm](float)]
-                For a rectangular cross-section, the list format is
-                ['rectangle' (str), width [cm](float), thickness [cm](float)]
+            width (float): width of coil cross-section in toroidal direction
+                [cm].
+            thickness (float): thickness of coil cross-section in radial
+                direction [cm].
             toroidal_extent (float): toroidal extent to model [deg].
 
         Optional attributes:
@@ -219,7 +217,8 @@ class Stellarator(object):
         """
         self.magnet_set = mc.MagnetSet(
             coils_file,
-            cross_section,
+            width,
+            thickness,
             toroidal_extent,
             logger=self._logger,
             **kwargs,
@@ -229,7 +228,7 @@ class Stellarator(object):
 
     def export_magnets(
         self,
-        step_filename="magnets",
+        step_filename="magnet_set",
         export_mesh=False,
         mesh_filename="magnet_mesh",
         export_dir="",
@@ -238,7 +237,8 @@ class Stellarator(object):
 
         Arguments:
             step_filename (str): name of STEP export output file, excluding
-                '.step' extension (optional, optional, defaults to 'magnets').
+                '.step' extension (optional, optional, defaults to
+                'magnet_set').
             export_mesh (bool): flag to indicate tetrahedral mesh generation
                 for magnet volumes (optional, defaults to False).
             mesh_filename (str): name of tetrahedral mesh H5M file, excluding
@@ -316,6 +316,16 @@ class Stellarator(object):
             )
             data["vol_id"] = vol_id
 
+    def _import_magnets_step(self):
+        """Import STEP file for magnet set into Coreform Cubit.
+        (Internal function not intended to be called externally)
+        """
+        last_vol_id = cubit_io.import_step_cubit(
+            self.magnet_set.step_filename, self.magnet_set.export_dir
+        )
+
+        self.magnet_set.volume_ids = range(1, last_vol_id + 1)
+
     def _tag_materials_legacy(self):
         """Applies material tags to corresponding CAD volumes for legacy DAGMC
         neutronics model export.
@@ -370,6 +380,14 @@ class Stellarator(object):
         self._logger.info(
             "Building DAGMC neutronics model via Coreform Cubit..."
         )
+
+        if cubit_io.initialized:
+            cubit.cmd("new")
+        else:
+            cubit_io.init_cubit()
+
+        if self.magnet_set:
+            self._import_magnets_step()
 
         if self.invessel_build:
             self._import_ivb_step()
