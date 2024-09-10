@@ -42,16 +42,16 @@ def test_magnet_construction(coil_set):
     thickness_exp = 50.0
     toroidal_extent_exp = np.deg2rad(90.0)
     max_cs_len_exp = 50.0
-    average_radial_distance_exp = 1028.5044183872055
+    average_radial_distance_exp = 1023.7170384211436
     max_radial_distance_exp = 1646.3258131460148
-    len_filaments_exp = 1
-    len_coords_exp = 14
+    len_coils_exp = 1
+    len_coords_exp = 129
 
     remove_files()
 
     coil_set.build_magnet_coils()
 
-    assert len(coil_set.filament_coords) == len_filaments_exp
+    assert len(coil_set.magnet_coils) == len_coils_exp
     assert coil_set.width == width_exp
     assert coil_set.thickness == thickness_exp
     assert coil_set.toroidal_extent == toroidal_extent_exp

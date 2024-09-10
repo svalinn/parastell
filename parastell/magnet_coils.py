@@ -112,15 +112,16 @@ class MagnetSet(object):
     def logger(self, logger_object):
         self._logger = log.check_init(logger_object)
 
-    def _extract_filament_data(self):
-        """Extracts filament coordinate numerical data from input data file.
+    def _instantiate_coils(self):
+        """Extracts filament coordinate data from input data file and
+        instantiates MagnetCoil class objects.
         (Internal function not intended to be called externally)
         """
         with open(self.coils_file, "r") as file:
             data = file.readlines()[self.start_line :]
 
         coords = []
-        filament_coords = []
+        self.magnet_coils = []
 
         for line in data:
             columns = line.strip().split()
@@ -139,10 +140,16 @@ class MagnetSet(object):
 
             else:
                 coords.append(coords[0])
-                filament_coords.append(np.array(coords))
+                self.magnet_coils.append(
+                    MagnetCoil(
+                        np.array(coords),
+                        np.average(coords[:-1], axis=0),
+                        self._width,
+                        self._thickness,
+                        self.sample_mod,
+                    )
+                )
                 coords.clear()
-
-        self.filament_coords = filament_coords
 
     def _compute_radial_distance_data(self):
         """Computes average and maximum radial distance of filament points.
@@ -152,8 +159,8 @@ class MagnetSet(object):
         self.average_radial_distance = 0
         self.max_radial_distance = -1
 
-        for f in self.filament_coords:
-            radii = np.linalg.norm(f[:, :2], axis=1)
+        for coil in self.magnet_coils:
+            radii = np.linalg.norm(coil.coords[:-1, :2], axis=1)
             radii_count += len(radii)
             self.average_radial_distance += np.sum(radii)
             self.max_radial_distance = max(
@@ -162,18 +169,12 @@ class MagnetSet(object):
 
         self.average_radial_distance /= radii_count
 
-    def _filter_filaments(self):
-        """Cleans filament data such that only filaments within the toroidal
-        extent of the model are included and filaments are sorted by toroidal
-        angle.
+    def _filter_coils(self):
+        """Filters list of MagnetCoil objects such that only those within the
+        toroidal extent of the model are included and coils are sorted by
+        center-of-mass toroidal angle.
         (Internal function not intended to be called externally)
         """
-        # Initialize coordinate data for filaments within toroidal extent of
-        # model
-        filtered_coords = []
-        # Initialize list of filament centers of mass
-        com_list = []
-
         # Define tolerance of toroidal extent to account for dimensionality of
         # coil cross-section
         # Multiply by factor of 2 to be conservative
@@ -183,39 +184,30 @@ class MagnetSet(object):
         lower_bound = 2 * np.pi - tol
         upper_bound = self._toroidal_extent + tol
 
-        for coords in self.filament_coords:
-            # Compute filament center of mass
-            com = np.average(coords, axis=0)
-            # Compute toroidal angle of each point in filament
-            toroidal_angles = np.arctan2(coords[:, 1], coords[:, 0])
-            # Ensure angles are positive
-            toroidal_angles = (toroidal_angles + 2 * np.pi) % (2 * np.pi)
-            # Compute bounds of toroidal extent of filament
-            min_tor_ang = np.min(toroidal_angles)
-            max_tor_ang = np.max(toroidal_angles)
+        # Create filter determining whether each coil lies within model's
+        # toroidal extent
+        toroidal_extent_filter = [
+            coil.check_coil_toroidal_extent(lower_bound, upper_bound)
+            for coil in self.magnet_coils
+        ]
 
-            # Determine if filament toroidal extent overlaps with that of model
-            if (min_tor_ang >= lower_bound or min_tor_ang <= upper_bound) or (
-                max_tor_ang >= lower_bound or max_tor_ang <= upper_bound
-            ):
-                filtered_coords.append(coords)
-                com_list.append(com)
-
-        filtered_coords = np.array(filtered_coords)
-        com_list = np.array(com_list)
+        filtered_coils = [
+            coil
+            for flag, coil in zip(toroidal_extent_filter, self.magnet_coils)
+            if flag
+        ]
 
         # Compute toroidal angles of filament centers of mass
+        com_list = np.array([coil.center_of_mass for coil in filtered_coils])
         com_toroidal_angles = np.arctan2(com_list[:, 1], com_list[:, 0])
+        # Ensure angles are positive
         com_toroidal_angles = (com_toroidal_angles + 2 * np.pi) % (2 * np.pi)
 
-        # Sort filaments by toroidal angle and overwrite coordinate data
-        self.filament_coords = np.array(
-            [x for _, x in sorted(zip(com_toroidal_angles, filtered_coords))]
-        )
-        # Store filtered centers of mass since they have already been computed
-        self.filament_com = np.array(
-            [x for _, x in sorted(zip(com_toroidal_angles, com_list))]
-        )
+        # Sort coils by center-of-mass toroidal angle and overwrite stored list
+        self.magnet_coils = [
+            coil
+            for _, coil in sorted(zip(com_toroidal_angles, filtered_coils))
+        ]
 
     def _cut_magnets(self):
         """Cuts the magnets at the planes defining the toriodal extent.
@@ -245,22 +237,9 @@ class MagnetSet(object):
         """
         self._logger.info("Constructing magnet coils...")
 
-        self._extract_filament_data()
+        self._instantiate_coils()
         self._compute_radial_distance_data()
-        self._filter_filaments()
-
-        self.magnet_coils = [
-            MagnetCoil(
-                coords,
-                center_of_mass,
-                self._width,
-                self._thickness,
-                self.sample_mod,
-            )
-            for coords, center_of_mass in zip(
-                self.filament_coords, self.filament_com
-            )
-        ]
+        self._filter_coils()
 
         [magnet_coil.create_magnet() for magnet_coil in self.magnet_coils]
 
@@ -349,18 +328,46 @@ class MagnetCoil(object):
 
     @coords.setter
     def coords(self, data):
+        self._coords = data
+
         # Compute tangents
         tangents = np.subtract(
             np.append(data[1:], [data[1]], axis=0),
             np.append([data[-2]], data[0:-1], axis=0),
         )
-        tangents = tangents / np.linalg.norm(tangents, axis=1)[:, np.newaxis]
+        self.tangents = (
+            tangents / np.linalg.norm(tangents, axis=1)[:, np.newaxis]
+        )
 
-        # Sample filament coordinates and tangents by modifier
-        self._coords = data[0 : -1 : self.sample_mod]
-        self._coords = np.append(self._coords, [self._coords[0]], axis=0)
-        self.tangents = tangents[0 : -1 : self.sample_mod]
-        self.tangents = np.append(self.tangents, [self.tangents[0]], axis=0)
+    def check_coil_toroidal_extent(self, lower_bound, upper_bound):
+        """Determines if the coil lies within a given toroidal angular extent,
+        based on filament coordinates.
+
+        Arguments:
+            lower_bound (float): lower bound of toroidal extent [rad].
+            upper_bound (float): upper bound of toroidal extent [rad].
+
+        Returns:
+            in_toroidal_extent (bool): flag to indicate whether coil lies
+                within toroidal bounds.
+        """
+        # Compute toroidal angle of each point in filament
+        toroidal_angles = np.arctan2(self._coords[:, 1], self._coords[:, 0])
+        # Ensure angles are positive
+        toroidal_angles = (toroidal_angles + 2 * np.pi) % (2 * np.pi)
+        # Compute bounds of toroidal extent of filament
+        min_tor_ang = np.min(toroidal_angles)
+        max_tor_ang = np.max(toroidal_angles)
+
+        # Determine if filament toroidal extent overlaps with that of model
+        if (min_tor_ang >= lower_bound or min_tor_ang <= upper_bound) or (
+            max_tor_ang >= lower_bound or max_tor_ang <= upper_bound
+        ):
+            in_toroidal_extent = True
+        else:
+            in_toroidal_extent = False
+
+        return in_toroidal_extent
 
     def create_magnet(self):
         """Creates a single magnet coil CAD solid in CadQuery.
@@ -368,15 +375,19 @@ class MagnetCoil(object):
         Returns:
             coil (object): cq.Solid object representing a single magnet coil.
         """
-        tangent_vectors = [
-            cq.Vector(tuple(tangent)) for tangent in self.tangents
-        ]
+        # Sample filament coordinates and tangents by modifier
+        coords = self._coords[0 : -1 : self.sample_mod]
+        coords = np.append(coords, [self._coords[0]], axis=0)
+        tangents = self.tangents[0 : -1 : self.sample_mod]
+        tangents = np.append(tangents, [self.tangents[0]], axis=0)
+
+        tangent_vectors = [cq.Vector(tuple(tangent)) for tangent in tangents]
 
         # Define coil filament path normals such that they face the filament
         # center of mass
         # Compute "outward" direction as difference between filament positions
         # and filament center of mass
-        outward_dirs = self._coords - self.center_of_mass
+        outward_dirs = coords - self.center_of_mass
         outward_dirs = (
             outward_dirs / np.linalg.norm(outward_dirs, axis=1)[:, np.newaxis]
         )
@@ -384,14 +395,14 @@ class MagnetCoil(object):
         # Project outward directions onto desired coil cross-section (CS) plane
         # at each filament position to define filament path normals
         parallel_parts = np.diagonal(
-            np.matmul(outward_dirs, self.tangents.transpose())
+            np.matmul(outward_dirs, tangents.transpose())
         )
 
-        normals = outward_dirs - parallel_parts[:, np.newaxis] * self.tangents
+        normals = outward_dirs - parallel_parts[:, np.newaxis] * tangents
         normals = normals / np.linalg.norm(normals, axis=1)[:, np.newaxis]
 
         # Compute binormals projected onto CS plane at each position
-        binormals = np.cross(self.tangents, normals)
+        binormals = np.cross(tangents, normals)
 
         # Compute coordinates of edges of rectangular coils
         edge_offsets = np.array([[-1, -1], [-1, 1], [1, 1], [1, -1]])
@@ -399,7 +410,7 @@ class MagnetCoil(object):
         coil_edge_coords = []
         for edge_offset in edge_offsets:
             coil_edge = (
-                self._coords
+                coords
                 + edge_offset[0] * binormals * (self.width / 2)
                 + edge_offset[1] * normals * (self.thickness / 2)
             )
