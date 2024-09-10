@@ -8,7 +8,7 @@ import cubit
 
 from . import log
 from . import cubit_io as cubit_io
-from .utils import normalize, read_yaml_config, filter_kwargs, m2cm
+from .utils import read_yaml_config, filter_kwargs, m2cm
 
 export_allowed_kwargs = ["step_filename", "export_mesh", "mesh_filename"]
 
