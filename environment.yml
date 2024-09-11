@@ -3,16 +3,17 @@ channels:
   - conda-forge
 dependencies:
   - python=3.11.6
-  - pip=24.0
-  - numpy
+  - pip
+  - numpy=1.26.4
   - scipy
   - scikit-learn
   - cadquery
-  - moab==5.5.0[build=nompi_tempest_*]
+  - moab=5.5.1[build=nompi_tempest_*]
   - cad_to_dagmc
   - ca-certificates
   - certifi
   - openssl
+  - openmc=0.15.0[build=dagmc_nompi_*]
   - matplotlib
   - pip:
       - netcdf4
