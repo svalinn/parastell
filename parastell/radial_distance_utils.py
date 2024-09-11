@@ -90,9 +90,10 @@ def reorder_filaments(filaments):
             reordered_filament = np.flip(reordered_filament, axis=0)
 
         # ensure filament is a closed loop
-        reordered_filament = np.concatenate(
-            [reordered_filament, [reordered_filament[0]]]
-        )
+        if max_z_index != 0:
+            reordered_filament = np.concatenate(
+                [reordered_filament, [reordered_filament[0]]]
+            )
 
         filaments[filament_index] = reordered_filament
 
@@ -105,11 +106,13 @@ def get_reordered_filaments(magnet_set):
     """
     Convenience function to get the reordered filament data from a magnet
     """
-    magnet_set._extract_filaments()
-    magnet_set._set_average_radial_distance()
-    magnet_set._set_filtered_filaments()
+    magnet_set._instantiate_coils()
+    magnet_set._compute_radial_distance_data()
+    magnet_set._filter_coils()
 
-    filtered_filaments = magnet_set.filtered_filaments
+    filtered_filaments = np.array(
+        [coil.coords for coil in magnet_set.magnet_coils]
+    )
     filaments = reorder_filaments(filtered_filaments)
 
     return filaments
