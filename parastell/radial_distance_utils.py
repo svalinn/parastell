@@ -90,12 +90,12 @@ def reorder_filaments(filaments):
             reordered_filament = np.flip(reordered_filament, axis=0)
 
         # ensure filament is a closed loop
-        reordered_filament = np.concatenate(
-            [reordered_filament, [reordered_filament[0]]]
-        )
-
         if max_z_index != 0:
-            filaments[filament_index] = reordered_filament
+            reordered_filament = np.concatenate(
+                [reordered_filament, [reordered_filament[0]]]
+            )
+
+        filaments[filament_index] = reordered_filament
 
     filaments = sort_filaments_toroidally(filaments)
 
