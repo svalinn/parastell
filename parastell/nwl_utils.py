@@ -5,8 +5,10 @@ import openmc
 import pystell.read_vmec as read_vmec
 import matplotlib.pyplot as plt
 import concurrent.futures
-from multiprocessing import cpu_count
 import math
+import matplotlib
+
+matplotlib.use("agg")
 
 
 def extract_ss(ss_file):
