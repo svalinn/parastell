@@ -186,15 +186,10 @@ class MagnetSet(object):
 
         # Create filter determining whether each coil lies within model's
         # toroidal extent
-        toroidal_extent_filter = [
-            coil.check_coil_toroidal_extent(lower_bound, upper_bound)
-            for coil in self.magnet_coils
-        ]
-
         filtered_coils = [
             coil
-            for flag, coil in zip(toroidal_extent_filter, self.magnet_coils)
-            if flag
+            for coil in self.magnet_coils
+            if coil.check_coil_toroidal_extent(lower_bound, upper_bound)
         ]
 
         # Compute toroidal angles of filament centers of mass
