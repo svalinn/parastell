@@ -189,7 +189,7 @@ class MagnetSet(object):
         filtered_coils = [
             coil
             for coil in self.magnet_coils
-            if coil.check_coil_toroidal_extent(lower_bound, upper_bound)
+            if coil.in_toroidal_extent(lower_bound, upper_bound)
         ]
 
         # Compute toroidal angles of filament centers of mass
@@ -334,7 +334,7 @@ class MagnetCoil(object):
             tangents / np.linalg.norm(tangents, axis=1)[:, np.newaxis]
         )
 
-    def check_coil_toroidal_extent(self, lower_bound, upper_bound):
+    def in_toroidal_extent(self, lower_bound, upper_bound):
         """Determines if the coil lies within a given toroidal angular extent,
         based on filament coordinates.
 
