@@ -235,7 +235,7 @@ class MagnetSet(object):
         self._instantiate_coils()
         self._compute_radial_distance_data()
         self._filter_coils()
-    
+
     def build_magnet_coils(self):
         """Builds each filament in self.filtered_filaments in cubit, then cuts
         to the toroidal extent using self._cut_magnets().
