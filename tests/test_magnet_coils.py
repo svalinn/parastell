@@ -49,7 +49,7 @@ def test_magnet_construction(coil_set):
 
     remove_files()
 
-    coil_set.build_magnet_coils()
+    coil_set.populate_magnet_coils()
 
     assert len(coil_set.magnet_coils) == len_coils_exp
     assert coil_set.width == width_exp
@@ -69,6 +69,7 @@ def test_magnet_exports(coil_set):
 
     remove_files()
 
+    coil_set.populate_magnet_coils()
     coil_set.build_magnet_coils()
     coil_set.export_step()
     assert Path("magnet_set.step").exists()

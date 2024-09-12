@@ -226,15 +226,21 @@ class MagnetSet(object):
             cut_coil = coil.solid.intersect(toroidal_region)
             coil.solid = cut_coil
 
+    def populate_magnet_coils(self):
+        """Populates MagnetCoil class objects representing each of the magnetic
+        coils that lie within the specified toroidal extent.
+        """
+        self._logger.info("Populating magnet coils...")
+
+        self._instantiate_coils()
+        self._compute_radial_distance_data()
+        self._filter_coils()
+    
     def build_magnet_coils(self):
         """Builds each filament in self.filtered_filaments in cubit, then cuts
         to the toroidal extent using self._cut_magnets().
         """
         self._logger.info("Constructing magnet coils...")
-
-        self._instantiate_coils()
-        self._compute_radial_distance_data()
-        self._filter_coils()
 
         [magnet_coil.create_magnet() for magnet_coil in self.magnet_coils]
 

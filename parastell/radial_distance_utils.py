@@ -106,9 +106,7 @@ def get_reordered_filaments(magnet_set):
     """
     Convenience function to get the reordered filament data from a magnet
     """
-    magnet_set._instantiate_coils()
-    magnet_set._compute_radial_distance_data()
-    magnet_set._filter_coils()
+    magnet_set.populate_magnet_coils()
 
     filtered_filaments = np.array(
         [coil.coords for coil in magnet_set.magnet_coils]
