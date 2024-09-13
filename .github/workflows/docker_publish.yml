@@ -39,8 +39,8 @@ jobs:
       - name: Add extra tag if NOT on the main branch
         if: github.ref_name != 'main'
         run: |
-          echo "EXTRA_TAG=-$github.ref_name" >> $GITHUB_ENV
-          echo "EXTRA_TAG_CI=:$github.ref_name" >> $GITHUB_ENV
+          echo "EXTRA_TAG=-${{ github.ref_name }}" >> $GITHUB_ENV
+          echo "EXTRA_TAG_CI=:${{ github.ref_name }}" >> $GITHUB_ENV
 
       - id: output_tag
         run: echo "image_tag=$EXTRA_TAG_CI" >> $GITHUB_OUTPUT
