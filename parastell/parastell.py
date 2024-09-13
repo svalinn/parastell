@@ -224,6 +224,7 @@ class Stellarator(object):
             **kwargs,
         )
 
+        self.magnet_set.populate_magnet_coils()
         self.magnet_set.build_magnet_coils()
 
     def export_magnets(
