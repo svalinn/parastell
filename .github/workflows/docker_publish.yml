@@ -32,17 +32,17 @@ jobs:
         id: build-parastell
         uses: docker/build-push-action@v5
         with:
-          cache-from: type=registry,ref=ghcr.io/svalinn/parastell:ci-layer-cache
-          cache-to: type=registry,ref=ghcr.io/svalinn/parastell:ci-layer-cache,mode=max
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/parastell:ci-layer-cache
+          cache-to: type=registry,ref=ghcr.io/${{ github.repository_owner }}/parastell:ci-layer-cache,mode=max
           file: Dockerfile
           push: true
           target: parastell-deps
-          tags: ghcr.io/svalinn/parastell-ci
+          tags: ghcr.io/${{ github.repository_owner }}/parastell-ci
 
   test-dependency-img:
     needs: build-dependency-img
     runs-on: ubuntu-latest
-    container: ghcr.io/svalinn/parastell-ci
+    container: ghcr.io/${{ github.repository_owner }}/parastell-ci
 
     name: Test CI Image
     steps:
