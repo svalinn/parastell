@@ -9,11 +9,19 @@ on:
       - '.github/workflows/docker_publish.yml'
       - 'environment.yml'
 
+env:
+  EXTRA_TAG: ""
+  EXTRA_TAG_CI: ""
+
 jobs:
   build-dependency-img:
     runs-on: ubuntu-latest
 
     name: Install Dependencies
+
+    outputs: 
+      image_tag: ${{ steps.output_tag.outputs.image_tag }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -28,21 +36,30 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Add extra tag if NOT on the main branch
+        if: github.ref_name != 'main'
+        run: |
+          echo "EXTRA_TAG=-$github.ref_name" >> $GITHUB_ENV
+          echo "EXTRA_TAG_CI=:$github.ref_name" >> $GITHUB_ENV
+
+      - id: output_tag
+        run: echo "image_tag=$EXTRA_TAG_CI" >> $GITHUB_OUTPUT
+
       - name: Build and push ParaStell Docker image
         id: build-parastell
         uses: docker/build-push-action@v5
         with:
-          cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/parastell:ci-layer-cache
-          cache-to: type=registry,ref=ghcr.io/${{ github.repository_owner }}/parastell:ci-layer-cache,mode=max
+          cache-from: type=registry,ref=ghcr.io/svalinn/parastell:ci-layer-cache${{ env.EXTRA_TAG }}
+          cache-to: type=registry,ref=ghcr.io/svalinn/parastell:ci-layer-cache${{ env.EXTRA_TAG }},mode=max
           file: Dockerfile
           push: true
           target: parastell-deps
-          tags: ghcr.io/${{ github.repository_owner }}/parastell-ci
+          tags: ghcr.io/svalinn/parastell-ci${{ env.EXTRA_TAG_CI }}
 
   test-dependency-img:
     needs: build-dependency-img
     runs-on: ubuntu-latest
-    container: ghcr.io/${{ github.repository_owner }}/parastell-ci
+    container: ghcr.io/svalinn/parastell-ci${{ needs.build-dependency-img.outputs.image_tag }}
 
     name: Test CI Image
     steps:
