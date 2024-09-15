@@ -135,6 +135,17 @@ def export_dagmc_cubit_legacy(
     cubit.cmd(f'export dagmc "{export_path}" {tol_str} make_watertight')
 
 
+def tag_surface_legacy(surface_id, tag):
+    """Applies a boundary condition to a surface in cubit following UWUW
+    syntax.
+
+    Arguments:
+        surface_id (int): Surface to tag
+        tag (str): boundary type
+    """
+    cubit.cmd(f'group "boundary:{tag}" add surf {surface_id}')
+
+
 def export_dagmc_cubit_native(
     anisotropic_ratio=100.0,
     deviation_angle=5.0,

@@ -1,9 +1,6 @@
 from pathlib import Path
-
-import numpy as np
-
 import parastell.parastell as ps
-
+from parastell.cubit_io import tag_surface_legacy
 
 # Define directory to export all output files to
 export_dir = ""
@@ -50,4 +47,5 @@ for tet in strengths:
 
 # Export DAGMC neutronics H5M file
 stellarator.build_cubit_model(skip_imprint=True, legacy_faceting=True)
+tag_surface_legacy(1, "vacuum")
 stellarator.export_dagmc(filename="nwl_geom", export_dir=export_dir)
