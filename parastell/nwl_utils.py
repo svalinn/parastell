@@ -32,7 +32,9 @@ def extract_ss(ss_file):
 
 
 def nwl_transport(dagmc_geom, source_mesh, tor_ext, ss_file, num_parts):
-    """Performs neutron transport on first wall geometry via OpenMC.
+    """Performs neutron transport on first wall geometry via OpenMC. The
+    first wall must be tagged as a vacuum boundary during the creating of the
+    DAGMC geometry.
 
     Arguments:
         dagmc_geom (str): path to DAGMC geometry file.
@@ -51,7 +53,6 @@ def nwl_transport(dagmc_geom, source_mesh, tor_ext, ss_file, num_parts):
     dag_univ = openmc.DAGMCUniverse(dagmc_geom, auto_geom_ids=False)
 
     # Define problem boundaries
-    vac_surf = openmc.Sphere(r=10000, surface_id=9999, boundary_type="vacuum")
     per_init = openmc.YPlane(boundary_type="periodic", surface_id=9991)
     per_fin = openmc.Plane(
         a=np.sin(tor_ext),
@@ -63,7 +64,7 @@ def nwl_transport(dagmc_geom, source_mesh, tor_ext, ss_file, num_parts):
     )
 
     # Define first period of geometry
-    region = -vac_surf & +per_init & +per_fin
+    region = +per_init & +per_fin
     period = openmc.Cell(cell_id=9996, region=region, fill=dag_univ)
     geometry = openmc.Geometry([period])
     model.geometry = geometry
@@ -87,7 +88,7 @@ def nwl_transport(dagmc_geom, source_mesh, tor_ext, ss_file, num_parts):
     # Track surface crossings
     settings.surf_source_write = {
         "surface_ids": [1],
-        "max_particles": num_parts,
+        "max_particles": num_parts * 2,
     }
 
     model.settings = settings
