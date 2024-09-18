@@ -13,7 +13,7 @@ ParaStell depends on:
 - [Coreform Cubit](https://coreform.com/products/downloads/), version 2023.11
 - [CadQuery](https://cadquery.readthedocs.io/en/latest/installation.html)
 - [MOAB](https://bitbucket.org/fathomteam/moab/src/master/)
-- [PyStell-UW](https://github.com/aaroncbader/pystell_uw) developed by @aaroncbader 
+- [PyStell](https://github.com/aaroncbader/pystell_uw)
 - [CAD-to-DAGMC](https://github.com/fusion-energy/cad_to_dagmc)
 - [OpenMC](https://github.com/openmc-dev/openmc)
 
