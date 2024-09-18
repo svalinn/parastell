@@ -40,7 +40,7 @@ radial_build_dict = {
     "shield": {"thickness_matrix": uniform_unit_thickness * 50},
     "vacuum_vessel": {
         "thickness_matrix": uniform_unit_thickness * 10,
-        "h5m_tag": "vac_vessel",
+        "mat_tag": "vac_vessel",
     },
 }
 # Construct in-vessel components
