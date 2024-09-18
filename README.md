@@ -16,6 +16,15 @@ ParaStell depends on:
 - [PyStell-UW](https://github.com/aaroncbader/pystell_uw) developed by @aaroncbader 
 - [CAD-to-DAGMC](https://github.com/fusion-energy/cad_to_dagmc)
 
+## Install ParaStell
+Download and extract the ParaStell repository:
+
+```bash
+git clone git@github.com:svalinn/parastell.git
+```
+
+or download the ZIP file from the repository home page. Once extracted, add the repository directory to your `PYTHONPATH`.
+
 ### Install Python Dependencies
 
 This guide will use the conda package manager to install Python dependencies. Conda provides straight-forward installation of Python packages and switching between different collections of Python packages through the use of [environments](https://conda.io/projects/conda/en/latest/user-guide/concepts/environments.html).
@@ -45,15 +54,6 @@ Replace `$HOME` with the path to the Coreform Cubit directory on your system. Ad
 While it is possible to use ParaStell with older versions of Cubit, additional steps not in this guide may be required.
 
 If you do not have a Coreform Cubit license, you may be able to get one through [Cubit Learn](https://coreform.com/products/coreform-cubit/free-meshing-software/) at no cost.
-
-## Install ParaStell
-Download and extract the ParaStell repository:
-
-```bash
-git clone git@github.com:svalinn/parastell.git
-```
-
-or download the ZIP file from the repository home page. Once extracted, add the repository directory to your `PYTHONPATH`.
 
 ## Executing ParaStell Scripts with YAML Input
 While ParaStell can imported as a module to make use of its Python API, each ParaStell class has a corresponding command-line executable to alternatively call ParaStell functionality via command line. These executables use a YAML configuration file as a command-line argument to define input parameters.
