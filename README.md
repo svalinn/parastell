@@ -6,16 +6,16 @@ Parametric 3-D CAD modeling toolset for stellarator fusion devices. This open-so
 ## Dependencies
 ParaStell depends on:
 
-- [PyYAML](https://pyyaml.org/wiki/PyYAMLDocumentation)
+- [CadQuery](https://cadquery.readthedocs.io/en/latest/installation.html)
+- [PyStell](https://github.com/aaroncbader/pystell_uw)
+- [MOAB](https://bitbucket.org/fathomteam/moab/src/master/)
+- [Coreform Cubit](https://coreform.com/products/downloads/), version 2023.11
+- [CAD-to-DAGMC](https://github.com/fusion-energy/cad_to_dagmc)
+- [OpenMC](https://github.com/openmc-dev/openmc)
 - [NumPy](https://numpy.org/install/)
 - [SciPy](https://scipy.org/install/)
 - [scikit-learn](https://scikit-learn.org/stable/install.html)
-- [Coreform Cubit](https://coreform.com/products/downloads/), version 2023.11
-- [CadQuery](https://cadquery.readthedocs.io/en/latest/installation.html)
-- [MOAB](https://bitbucket.org/fathomteam/moab/src/master/)
-- [PyStell](https://github.com/aaroncbader/pystell_uw)
-- [CAD-to-DAGMC](https://github.com/fusion-energy/cad_to_dagmc)
-- [OpenMC](https://github.com/openmc-dev/openmc)
+- [PyYAML](https://pyyaml.org/wiki/PyYAMLDocumentation)
 
 ## Install ParaStell
 Download and extract the ParaStell repository:
