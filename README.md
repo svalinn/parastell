@@ -1,5 +1,5 @@
 # ParaStell
-Parametric 3-D CAD modeling toolset for stellarator fusion devices. This open-source Python package uses plasma equilibrium VMEC data and CadQuery to model in-vessel components of varying thickness in low-fidelity from a user-specified radial build. Furthermore, coil filament point-locus data and Coreform Cubit are used to model magnet coils of user-specified cross-section. Additional neutronics support includes the use of VMEC data and MOAB to generate tetrahedral neutron source definitions and Coreform Cubit to generate DAGMC geometries for use in Monte Carlo radiation transport software.
+Open-source Python package featuring a parametric 3-D CAD modeling toolset for stellarator fusion devices with additional neutronics support. ParaStell uses plasma equilibrium VMEC data and a user-defined radial build to model in-vessel components of varying thickness in low-fidelity. Furthermore, coil filament point-locus data and a user-defined cross-section are used to model magnet coils. Additional neutronics support includes the use of VMEC data and MOAB to generate tetrahedral neutron source definitions and Coreform Cubit to generate DAGMC geometries for use in Monte Carlo radiation transport software. In addition, Coreform Cubit may used to generate a tetrahedral mesh of the magnets for use in Monte Carlo mesh tallies. A neutron wall-loading utility is included that uses OpenMC to fire rays from a ParaStell neutron source mesh onto a ParaStell first wall CAD geometry.
 
 ![](ParaStell-Example.png)
 
@@ -80,3 +80,8 @@ parastell config.yaml
 ```
 
 See the executable's help message for more details.
+
+## Citing
+If referencing ParaStell in a document or presentation, please cite the following publication:
+
+- Connor A. Moreno, Aaron Bader, and Paul P.H. Wilson, "ParaStell: parametric modeling and neutronics support for stellarator fusion power plants," *Frontiers in Nuclear Engineering*, **3**:1384788 (2024). DOI: [10.3389/fnuen.2024.1384788](https://www.frontiersin.org/journals/nuclear-engineering/articles/10.3389/fnuen.2024.1384788/full)
