@@ -56,7 +56,7 @@ While it is possible to use ParaStell with older versions of Cubit, additional s
 If you do not have a Coreform Cubit license, you may be able to get one through [Cubit Learn](https://coreform.com/products/coreform-cubit/free-meshing-software/) at no cost.
 
 ## Executing ParaStell Scripts with YAML Input
-While ParaStell can imported as a module to make use of its Python API, each ParaStell class has a corresponding command-line executable to alternatively call ParaStell functionality via command line. These executables use a YAML configuration file as a command-line argument to define input parameters.
+While ParaStell can imported as a module to make use of its Python API, ParaStell also has an executable to alternatively call functionality via command line. This executable uses a YAML configuration file as a command-line argument to define input parameters.
 
 To make use of this feature, add the ParaStell `executables` directory to your `PATH` by adding a line similar to the following to your `.bashrc` file:
 
@@ -66,16 +66,16 @@ export PATH = $PATH:$HOME/parastell/executables/
 
 Replace `$HOME` with the path to the ParaStell repository directory on your system. Information about adding directories to your `PATH` can be found [here](https://phoenixnap.com/kb/linux-add-to-path).
 
-Next, give each file in the `executables` directory file execution permission:
+Next, give any files in the `executables` directory file execution permission:
 
 ```bash
 chmod -R u+x $HOME/parastell/executables/
 ```
 
-Now, each executable can be run from command line with a corresponding YAML file argument. For example, for the `Stellarator` class:
+Now, the executable can be run from command line with a corresponding YAML file argument. For example:
 
 ```bash
-stellarator config.yaml
+parastell config.yaml
 ```
 
-See each executable's help message for more details.
+See the executable's help message for more details.
