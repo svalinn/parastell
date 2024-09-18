@@ -15,6 +15,7 @@ ParaStell depends on:
 - [MOAB](https://bitbucket.org/fathomteam/moab/src/master/)
 - [PyStell-UW](https://github.com/aaroncbader/pystell_uw) developed by @aaroncbader 
 - [CAD-to-DAGMC](https://github.com/fusion-energy/cad_to_dagmc)
+- [OpenMC](https://github.com/openmc-dev/openmc)
 
 ## Install ParaStell
 Download and extract the ParaStell repository:
