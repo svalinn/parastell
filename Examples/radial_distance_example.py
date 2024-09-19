@@ -94,7 +94,7 @@ stellarator.construct_magnets(
 )
 # Export magnet files
 stellarator.export_magnets()
-"""
+
 # Define source mesh parameters
 mesh_size = (11, 81, 61)
 toroidal_extent = 90.0
@@ -108,4 +108,3 @@ stellarator.build_cubit_model(skip_imprint=False, legacy_faceting=True)
 
 # Export DAGMC neutronics H5M file
 stellarator.export_dagmc(filename="dagmc", export_dir=export_dir)
-"""
