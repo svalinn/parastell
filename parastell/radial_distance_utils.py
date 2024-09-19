@@ -1,6 +1,7 @@
 import numpy as np
 import cubit
 import pystell.read_vmec as read_vmec
+from scipy.ndimage import gaussian_filter
 
 from . import magnet_coils
 from . import invessel_build as ivb
@@ -217,15 +218,17 @@ def measure_surface_coils_separation(surface):
             points defining surface.Ribs and magnet surface, along
             Rib._normals.
     """
-    distance_matrix = [
+    distance_matrix = np.array(
         [
-            fire_ray(point, distance)
-            for point, distance in zip(rib.rib_loci, rib._normals())
+            [
+                fire_ray(point, distance)
+                for point, distance in zip(rib.rib_loci, rib._normals())
+            ]
+            for rib in surface.Ribs
         ]
-        for rib in surface.Ribs
-    ]
+    )
 
-    return np.array(distance_matrix)
+    return distance_matrix
 
 
 def measure_fw_coils_separation(
@@ -291,3 +294,67 @@ def measure_fw_coils_separation(
     radial_distance_matrix = measure_surface_coils_separation(surface)
 
     return radial_distance_matrix
+
+
+def smooth_matrix(matrix, steps, sigma):
+    """Smooths a matrix via Gaussian filtering, without allowing matrix
+    elements to increase in value.
+
+    Arguments:
+        matrix (2-D iterable of float): matrix to be smoothed.
+        steps (int): number of smoothing steps.
+        sigma (float): standard deviation for Gaussian kernel.
+
+    Returns:
+        smoothed_matrix (2-D iterable of float): smoothed matrix.
+    """
+    previous_iteration = matrix
+
+    for step in range(steps):
+        smoothed_matrix = np.minimum(
+            previous_iteration,
+            gaussian_filter(
+                previous_iteration,
+                sigma=sigma,
+                mode="wrap",
+            ),
+        )
+        previous_iteration = smoothed_matrix
+
+    return smoothed_matrix
+
+
+def enforce_helical_symmetry(matrix):
+    """Ensures that a matrix is helically symmetric according to stellarator
+    geometry by overwriting certain matrix elements. Assumes regular spacing
+    between angles defining matrix.
+
+    Arguments:
+        matrix (2-D iterable of float): matrix to be made helically symmetric.
+
+    Returns:
+        matrix (2-D iterable of float): helically symmetric matrix.
+    """
+    num_rows = matrix.shape[0]
+    num_columns = matrix.shape[1]
+
+    # Ensure poloidal symmetry at beginning and middle of period
+    matrix[0] = np.concatenate(
+        [
+            matrix[0, : int((num_columns - 1) / 2) + 1],
+            np.flip(matrix[0, : int(num_columns / 2)]),
+        ]
+    )
+    matrix[int((num_rows - 1) / 2)] = np.concatenate(
+        [
+            matrix[int((num_rows - 1) / 2), : int((num_columns - 1) / 2) + 1],
+            np.flip(matrix[int((num_rows - 1) / 2), : int(num_columns / 2)]),
+        ]
+    )
+
+    # Ensure helical symmetry toroidally and poloidally
+    for index in range(num_rows - 1, int((num_rows - 1) / 2), -1):
+        matrix[num_rows - 1 - index, -1] = matrix[num_rows - 1 - index, 0]
+        matrix[index] = np.flip(matrix[num_rows - 1 - index])
+
+    return matrix

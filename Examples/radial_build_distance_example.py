@@ -1,30 +1,7 @@
 import numpy as np
-from scipy.ndimage import gaussian_filter
 
 import parastell.parastell as ps
 import parastell.radial_distance_utils as rdu
-
-
-def smooth_matrix(matrix, steps):
-    """Smooths a matrix via Gaussian filtering, without allowing matrix
-    elements to increase in value.
-
-    Arguments:
-        matrix (2-D iterable of float): matrix to be smoothed.
-        steps (int): number of smoothing steps. Analagous to Gaussian sigma.
-
-    Returns:
-        smoothed_matrix (2-D iterable of float): smoothed matrix.
-    """
-    previous_iteration = matrix
-
-    for step in range(steps):
-        smoothed_matrix = np.minimum(
-            previous_iteration, gaussian_filter(previous_iteration, sigma=1)
-        )
-        previous_iteration = smoothed_matrix
-
-    return smoothed_matrix
 
 
 # Define directory to export all output files to
@@ -36,10 +13,9 @@ vmec_file = "wout_vmec.nc"
 stellarator = ps.Stellarator(vmec_file)
 
 # Define build parameters for in-vessel components
-toroidal_angles = np.linspace(0, 90, num=21)
-poloidal_angles = np.linspace(0, 360, num=23)
+toroidal_angles = np.linspace(0, 90, num=61)
+poloidal_angles = np.linspace(0, 360, num=67)
 wall_s = 1.08
-
 # Define build parameters for magnet coils
 coils_file = "coils.example"
 width = 40.0
@@ -55,64 +31,26 @@ available_space = rdu.measure_fw_coils_separation(
     coils_file,
     width,
     thickness,
-    sample_mod=2,
+    sample_mod=1,
 )
+# For matrices defined by angles that are regularly spaced, measurement results
+# in matrix elements that are close to, but not exactly, helcially symmetric
+available_space = rdu.enforce_helical_symmetry(available_space)
+# Smooth matrix
+available_space = rdu.smooth_matrix(available_space, 50, 1)
+# For matrices defined by angles that are regularly spaced, matrix smoothing
+# results in matrix elements that are close to, but not exactly, helcially
+# symmetric
+available_space = rdu.enforce_helical_symmetry(available_space)
 # Modify available space to account for thickness of magnets
-available_space = available_space - np.sqrt(2) * thickness / 2
-
-# Ensure poloidal symmetry at toroidal angles 0 and 45 degrees
-for index in range(
-    len(poloidal_angles) - 1, int((len(poloidal_angles) - 1) / 2), -1
-):
-    available_space[0, index] = np.flip(
-        available_space[0, len(poloidal_angles) - 1 - index]
-    )
-    available_space[int((len(toroidal_angles) - 1) / 2), index] = np.flip(
-        available_space[
-            int((len(toroidal_angles) - 1) / 2),
-            len(poloidal_angles) - 1 - index,
-        ]
-    )
-# Ensure quasi-symmetry toroidally and poloidally
-for index in range(
-    len(toroidal_angles) - 1, int((len(toroidal_angles) - 1) / 2), -1
-):
-    available_space[index] = np.flip(
-        available_space[len(toroidal_angles) - 1 - index]
-    )
-
-available_space = smooth_matrix(available_space, 100)
-
-# Ensure poloidal symmetry at toroidal angles 0 and 45 degrees
-for index in range(
-    len(poloidal_angles) - 1, int((len(poloidal_angles) - 1) / 2), -1
-):
-    available_space[0, index] = np.flip(
-        available_space[0, len(poloidal_angles) - 1 - index]
-    )
-    available_space[int((len(toroidal_angles) - 1) / 2), index] = np.flip(
-        available_space[
-            int((len(toroidal_angles) - 1) / 2),
-            len(poloidal_angles) - 1 - index,
-        ]
-    )
-# Ensure quasi-symmetry toroidally and poloidally
-for index in range(
-    len(toroidal_angles) - 1, int((len(toroidal_angles) - 1) / 2), -1
-):
-    available_space[index] = np.flip(
-        available_space[len(toroidal_angles) - 1 - index]
-    )
-
-print(available_space)
+available_space = available_space - max(width, thickness)
 
 # Define a matrix of uniform unit thickness
 uniform_unit_thickness = np.ones((len(toroidal_angles), len(poloidal_angles)))
-
 # Define thickness matrices for each in-vessel component of uniform thickness
 first_wall_thickness_matrix = uniform_unit_thickness * 5
 back_wall_thickness_matrix = uniform_unit_thickness * 5
-shield_thickness_matrix = uniform_unit_thickness * 50
+shield_thickness_matrix = uniform_unit_thickness * 35
 vacuum_vessel_thickness_matrix = uniform_unit_thickness * 30
 
 # Compute breeder thickness matrix
@@ -134,31 +72,28 @@ radial_build_dict = {
         "mat_tag": "vac_vessel",
     },
 }
+# radial_build_dict = {"space": {"thickness_matrix": available_space}}
+
 # Construct in-vessel components
 stellarator.construct_invessel_build(
     toroidal_angles,
     poloidal_angles,
     wall_s,
     radial_build_dict,
-    num_ribs=61,
-    num_rib_pts=67,
+    # Set num_ribs and num_rib_pts to be less than length of corresponding
+    # array to ensure that only defined angular locations are used
+    num_ribs=len(toroidal_angles) - 1,
+    num_rib_pts=len(poloidal_angles) - 1,
 )
 # Export in-vessel component files
-stellarator.export_invessel_build(
-    export_cad_to_dagmc=False, export_dir=export_dir
-)
+stellarator.export_invessel_build()
 
 # Construct magnets
 stellarator.construct_magnets(
     coils_file, width, thickness, toroidal_extent, sample_mod=6
 )
 # Export magnet files
-stellarator.export_magnets(
-    step_filename="magnets",
-    # export_mesh=True,
-    mesh_filename="magnet_mesh",
-    export_dir=export_dir,
-)
+stellarator.export_magnets()
 """
 # Define source mesh parameters
 mesh_size = (11, 81, 61)
