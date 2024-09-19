@@ -72,7 +72,6 @@ radial_build_dict = {
         "mat_tag": "vac_vessel",
     },
 }
-# radial_build_dict = {"space": {"thickness_matrix": available_space}}
 
 # Construct in-vessel components
 stellarator.construct_invessel_build(
