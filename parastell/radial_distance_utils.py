@@ -221,8 +221,8 @@ def measure_surface_coils_separation(surface):
     distance_matrix = np.array(
         [
             [
-                fire_ray(point, distance)
-                for point, distance in zip(rib.rib_loci, rib._normals())
+                fire_ray(point, direction)
+                for point, direction in zip(rib.rib_loci, rib._normals())
             ]
             for rib in surface.Ribs
         ]

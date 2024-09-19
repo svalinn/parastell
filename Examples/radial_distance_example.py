@@ -33,13 +33,14 @@ available_space = rdu.measure_fw_coils_separation(
     thickness,
     sample_mod=1,
 )
-# For matrices defined by angles that are regularly spaced, measurement results
-# in matrix elements that are close to, but not exactly, helcially symmetric
+# For matrices defined by angles that are regularly spaced, measurement can
+# result in matrix elements that are close to, but not exactly, helcially
+# symmetric
 available_space = rdu.enforce_helical_symmetry(available_space)
 # Smooth matrix
 available_space = rdu.smooth_matrix(available_space, 50, 1)
 # For matrices defined by angles that are regularly spaced, matrix smoothing
-# results in matrix elements that are close to, but not exactly, helcially
+# can result in matrix elements that are close to, but not exactly, helcially
 # symmetric
 available_space = rdu.enforce_helical_symmetry(available_space)
 # Modify available space to account for thickness of magnets
