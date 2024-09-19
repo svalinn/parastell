@@ -1,18 +1,30 @@
 # ParaStell
-Parametric 3-D CAD modeling toolset for stellarator fusion devices. This open-source Python package uses plasma equilibrium VMEC data and CadQuery to model in-vessel components of varying thickness in low-fidelity from a user-specified radial build. Furthermore, coil filament point-locus data and Coreform Cubit are used to model magnet coils of user-specified cross-section. Additional neutronics support includes the use of VMEC data and MOAB to generate tetrahedral neutron source definitions and Coreform Cubit to generate DAGMC geometries for use in Monte Carlo radiation transport software.
+Open-source Python package featuring a parametric 3-D CAD modeling toolset for stellarator fusion devices with additional neutronics support. ParaStell uses plasma equilibrium VMEC data and a user-defined radial build to model in-vessel components of varying thickness in low-fidelity. Furthermore, coil filament point-locus data and a user-defined cross-section are used to model magnet coils. Additional neutronics support includes the use of VMEC data and MOAB to generate tetrahedral neutron source definitions and Coreform Cubit to generate DAGMC geometries for use in Monte Carlo radiation transport software. In addition, an option is included to generate a tetrahedral mesh of the magnets using Coreform Cubit for use in Monte Carlo mesh tallies. A neutron wall-loading utility is included that uses OpenMC to fire rays from a ParaStell neutron source mesh onto a ParaStell first wall CAD geometry.
+
+![](ParaStell-Example.png)
 
 ## Dependencies
 ParaStell depends on:
 
-- [PyYAML](https://pyyaml.org/wiki/PyYAMLDocumentation)
+- [CadQuery](https://cadquery.readthedocs.io/en/latest/installation.html)
+- [PyStell](https://github.com/aaroncbader/pystell_uw)
+- [MOAB](https://bitbucket.org/fathomteam/moab/src/master/)
+- [Coreform Cubit](https://coreform.com/products/downloads/), version 2023.11
+- [CAD-to-DAGMC](https://github.com/fusion-energy/cad_to_dagmc)
+- [OpenMC](https://github.com/openmc-dev/openmc)
 - [NumPy](https://numpy.org/install/)
 - [SciPy](https://scipy.org/install/)
 - [scikit-learn](https://scikit-learn.org/stable/install.html)
-- [Coreform Cubit](https://coreform.com/products/downloads/), version 2023.11
-- [CadQuery](https://cadquery.readthedocs.io/en/latest/installation.html)
-- [MOAB](https://bitbucket.org/fathomteam/moab/src/master/)
-- [PyStell-UW](https://github.com/aaroncbader/pystell_uw) developed by @aaroncbader 
-- [CAD-to-DAGMC](https://github.com/fusion-energy/cad_to_dagmc)
+- [PyYAML](https://pyyaml.org/wiki/PyYAMLDocumentation)
+
+## Install ParaStell
+Download and extract the ParaStell repository:
+
+```bash
+git clone git@github.com:svalinn/parastell.git
+```
+
+or download the ZIP file from the repository home page. Once extracted, add the repository directory to your `PYTHONPATH`.
 
 ### Install Python Dependencies
 
@@ -44,17 +56,8 @@ While it is possible to use ParaStell with older versions of Cubit, additional s
 
 If you do not have a Coreform Cubit license, you may be able to get one through [Cubit Learn](https://coreform.com/products/coreform-cubit/free-meshing-software/) at no cost.
 
-## Install ParaStell
-Download and extract the ParaStell repository:
-
-```bash
-git clone git@github.com:svalinn/parastell.git
-```
-
-or download the ZIP file from the repository home page. Once extracted, add the repository directory to your `PYTHONPATH`.
-
 ## Executing ParaStell Scripts with YAML Input
-While ParaStell can imported as a module to make use of its Python API, each ParaStell class has a corresponding command-line executable to alternatively call ParaStell functionality via command line. These executables use a YAML configuration file as a command-line argument to define input parameters.
+While ParaStell can imported as a module to make use of its Python API, ParaStell also has an executable to alternatively call functionality via command line. This executable uses a YAML configuration file as a command-line argument to define input parameters.
 
 To make use of this feature, add the ParaStell `executables` directory to your `PATH` by adding a line similar to the following to your `.bashrc` file:
 
@@ -64,16 +67,21 @@ export PATH = $PATH:$HOME/parastell/executables/
 
 Replace `$HOME` with the path to the ParaStell repository directory on your system. Information about adding directories to your `PATH` can be found [here](https://phoenixnap.com/kb/linux-add-to-path).
 
-Next, give each file in the `executables` directory file execution permission:
+Next, give any files in the `executables` directory file execution permission:
 
 ```bash
 chmod -R u+x $HOME/parastell/executables/
 ```
 
-Now, each executable can be run from command line with a corresponding YAML file argument. For example, for the `Stellarator` class:
+Now, the executable can be run from command line with a corresponding YAML file argument. For example:
 
 ```bash
-stellarator config.yaml
+parastell config.yaml
 ```
 
-See each executable's help message for more details.
+See the executable's help message for more details.
+
+## Citing
+If referencing ParaStell in a document or presentation, please cite the following publication:
+
+- Connor A. Moreno, Aaron Bader, and Paul P.H. Wilson, "ParaStell: parametric modeling and neutronics support for stellarator fusion power plants," *Frontiers in Nuclear Engineering*, **3**:1384788 (2024). DOI: [10.3389/fnuen.2024.1384788](https://www.frontiersin.org/journals/nuclear-engineering/articles/10.3389/fnuen.2024.1384788/full)
