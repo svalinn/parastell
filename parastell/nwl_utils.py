@@ -186,6 +186,9 @@ def flux_coords(plas_eq, wall_s, coords, num_threads):
             for theta_coord_chunk in theta_coord_chunks
             for theta_coord in theta_coord_chunk
         ]
+    # Ensures theta_coords are all positive (add 360 degrees where needed)
+    theta_coords = [(theta if theta >= 0 else theta + 2 * np.pi) for theta in theta_coords]
+    
     return phi_coords.tolist(), theta_coords
 
 
@@ -353,12 +356,12 @@ def nwl_plot(
     # adjust endpoints to eliminate overlap
     phi_bins[0] = 0
     phi_bins[-1] = tor_ext
-    theta_bins[0] = -pol_ext / 2
-    theta_bins[-1] = pol_ext / 2
+    theta_bins[0] = 0
+    theta_bins[-1] = pol_ext
 
     # Compute centroids of bin dimensions
     phi_pts = np.linspace(0, tor_ext, num=num_phi)
-    theta_pts = np.linspace(-pol_ext / 2, pol_ext / 2, num=num_theta)
+    theta_pts = np.linspace(0, pol_ext, num=num_theta)
 
     # Define fusion neutron energy (eV)
     n_energy = 14.1e6
