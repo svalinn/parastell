@@ -240,6 +240,7 @@ def measure_fw_coils_separation(
     width,
     thickness,
     sample_mod=1,
+    custom_fw_profile=None,
 ):
     """Measures the distance between a given first wall definition and a set of
     magnet filaments, at specified angular locations and along the profile
@@ -258,12 +259,19 @@ def measure_fw_coils_separation(
             [cm].
         sample_mod (int): sampling modifier for filament points (defaults to
             1). For a user-defined value n, every nth point will be sampled.
+        custom_fw_profile (2-D iterable of float): thickness matrix defining
+            first wall profile (defaults to None).
 
     Returns:
         radial_distance_matrix (2-D np.array of float):
     """
+    if custom_fw_profile is None:
+        custom_fw_profile = np.zeros(
+            (len(toroidal_angles), len(poloidal_angles))
+        )
+
     vmec = read_vmec.VMECData(vmec_file)
-    radial_build_dict = {}
+    radial_build_dict = {"chamber": {"thickness_matrix": custom_fw_profile}}
 
     radial_build = ivb.RadialBuild(
         toroidal_angles,
