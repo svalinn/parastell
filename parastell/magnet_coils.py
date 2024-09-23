@@ -193,16 +193,16 @@ class MagnetSet(object):
         ]
 
         # Compute toroidal angles of filament centers of mass
-        com_list = np.array([coil.center_of_mass for coil in filtered_coils])
-        com_toroidal_angles = np.arctan2(com_list[:, 1], com_list[:, 0])
+        com_toroidal_angles = np.array(
+            [coil.com_toroidal_angle() for coil in filtered_coils]
+        )
         # Ensure angles are positive
         com_toroidal_angles = (com_toroidal_angles + 2 * np.pi) % (2 * np.pi)
 
         # Sort coils by center-of-mass toroidal angle and overwrite stored list
-        self.magnet_coils = [
-            coil
-            for _, coil in sorted(zip(com_toroidal_angles, filtered_coils))
-        ]
+        self.magnet_coils = sorted(
+            filtered_coils, key=lambda x: x.com_toroidal_angle()
+        )
 
     def _cut_magnets(self):
         """Cuts the magnets at the planes defining the toriodal extent.
@@ -369,6 +369,12 @@ class MagnetCoil(object):
             in_toroidal_extent = False
 
         return in_toroidal_extent
+
+    def com_toroidal_angle(self):
+        """Computes the toroidal angle of the coil center of mass, based on
+        filament coordinates.
+        """
+        return np.arctan2(self.center_of_mass[1], self.center_of_mass[0])
 
     def create_magnet(self):
         """Creates a single magnet coil CAD solid in CadQuery.

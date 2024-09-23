@@ -8,19 +8,6 @@ from . import invessel_build as ivb
 from . import cubit_io
 
 
-def calc_radius(point):
-    """Calculates the cylindrical radius of a reference point.
-
-    Arguments:
-        point (iterable of float): Cartesian coordinates of reference
-            point.
-
-    Returns:
-        (float): cylindrical radius.
-    """
-    return np.linalg.norm(point[0:2])
-
-
 def get_start_index(coil):
     """Finds the index of the outboard midplane coordinate on a coil filament.
 
@@ -30,11 +17,12 @@ def get_start_index(coil):
     Returns:
         outboard_index (int): index of the outboard midplane point.
     """
-    radii = [calc_radius(point) for point in coil.coords]
-    # Determine whether adjacent points cross the midplane
-    midplane_flags = np.less(
-        coil.coords[:, 2] / np.append(coil.coords[1:, 2], coil.coords[1, 2]),
-        np.zeros(len(coil.coords)),
+    # Compute radial distance of coordinates from z-axis
+    radii = np.linalg.norm(coil.coords[:, :2], axis=1)
+    # Determine whether adjacent points cross the midplane (if so, they will
+    # have opposite signs)
+    midplane_flags = -np.sign(
+        coil.coords[:, 2] * np.append(coil.coords[1:, 2], coil.coords[1, 2])
     )
     # Find index of outboard midplane point
     outboard_index = np.argmax(midplane_flags * radii)
@@ -78,16 +66,9 @@ def sort_coils_toroidally(magnet_coils):
         magnet_coils (list of object): list of MagnetCoil class objects.
 
     Returns:
-        magnet_coils (list of object): sorted list of MagnetCoil class objects.
+        (list of object): sorted list of MagnetCoil class objects.
     """
-    com_list = np.array([coil.center_of_mass for coil in magnet_coils])
-    com_toroidal_angles = np.arctan2(com_list[:, 1], com_list[:, 0])
-
-    magnet_coils = np.array(
-        [x for _, x in sorted(zip(com_toroidal_angles, magnet_coils))]
-    )
-
-    return magnet_coils
+    return sorted(magnet_coils, key=lambda x: x.com_toroidal_angle())
 
 
 def reorder_coils(magnet_set):
@@ -129,6 +110,19 @@ def build_line(point_1, point_2):
     return curve_id
 
 
+def downsample_loop(list, sample_mod):
+    """Downsamples a list representing a closed loop.
+
+    Arguments:
+        points (iterable): closed loop.
+        sample_mod (int): sampling modifier.
+
+    Returns:
+        (iterable): downsampled closed loop
+    """
+    return np.concatenate([list[:-1:sample_mod], [list[0]]])
+
+
 def build_magnet_surface(magnet_coils, sample_mod=1):
     """Builds a surface in Coreform Cubit spanning a list of coil filaments.
 
@@ -146,23 +140,19 @@ def build_magnet_surface(magnet_coils, sample_mod=1):
         [
             build_line(coord, next_coord)
             for coord, next_coord in zip(
-                np.concatenate(
-                    [coil.coords[:-1:sample_mod], [coil.coords[0]]]
-                ),
-                np.concatenate(
-                    [next_coil.coords[:-1:sample_mod], [next_coil.coords[0]]]
-                ),
+                downsample_loop(coil.coords, sample_mod),
+                downsample_loop(next_coil.coords, sample_mod),
             )
         ]
         for coil, next_coil in zip(magnet_coils[:-1], magnet_coils[1:])
     ]
-
     surface_lines = np.array(surface_lines)
+
     surface_sections = np.reshape(
         surface_lines,
         (
             len(magnet_coils) - 1,
-            len(magnet_coils[0].coords[:-1:sample_mod]) + 1,
+            len(downsample_loop(magnet_coils[0].coords, sample_mod)),
         ),
     )
 
