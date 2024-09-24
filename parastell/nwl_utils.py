@@ -343,7 +343,7 @@ def nwl_plot(
     phi_min = 0 - tor_ext / num_phi / 2
     phi_max = tor_ext + tor_ext / num_phi / 2
 
-    theta_min = 0 - pol_ext / num_theta / 2
+    theta_min = -pol_ext / 2 - pol_ext / num_theta / 2
     theta_max = pol_ext + pol_ext / num_theta / 2
     
     # Bin particle crossings
