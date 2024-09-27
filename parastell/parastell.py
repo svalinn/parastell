@@ -387,11 +387,11 @@ class Stellarator(object):
         else:
             cubit_io.init_cubit()
 
-        if self.magnet_set:
-            self._import_magnets_step()
-
         if self.invessel_build:
             self._import_ivb_step()
+
+        if self.magnet_set:
+            self._import_magnets_step()
 
         if skip_imprint:
             self.invessel_build.merge_layer_surfaces()
