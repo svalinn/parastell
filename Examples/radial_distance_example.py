@@ -14,8 +14,8 @@ vmec_file = "wout_vmec.nc"
 stellarator = ps.Stellarator(vmec_file)
 
 # Define build parameters for in-vessel components
-toroidal_angles = np.linspace(0, 90, num=61)
-poloidal_angles = np.linspace(0, 360, num=67)
+toroidal_angles = np.linspace(0, 90, num=97)
+poloidal_angles = np.linspace(0, 360, num=97)
 wall_s = 1.08
 # Define build parameters for magnet coils
 coils_file = "coils.example"
@@ -39,7 +39,7 @@ available_space = rdu.measure_fw_coils_separation(
 # symmetric
 available_space = enforce_helical_symmetry(available_space)
 # Smooth matrix
-available_space = smooth_matrix(available_space, 50, 1)
+available_space = smooth_matrix(available_space, 100, 1)
 # For matrices defined by angles that are regularly spaced, matrix smoothing
 # can result in matrix elements that are close to, but not exactly, helcially
 # symmetric
@@ -48,7 +48,9 @@ available_space = enforce_helical_symmetry(available_space)
 available_space = available_space - max(width, thickness)
 
 # Define a matrix of uniform unit thickness
-uniform_unit_thickness = np.ones((len(toroidal_angles), len(poloidal_angles)))
+uniform_unit_thickness = np.ones(
+    (len(toroidal_angles[::8]), len(poloidal_angles[::8]))
+)
 # Define thickness matrices for each in-vessel component of uniform thickness
 first_wall_thickness_matrix = uniform_unit_thickness * 5
 back_wall_thickness_matrix = uniform_unit_thickness * 5
@@ -57,7 +59,7 @@ vacuum_vessel_thickness_matrix = uniform_unit_thickness * 30
 
 # Compute breeder thickness matrix
 breeder_thickness_matrix = (
-    available_space
+    available_space[::8, ::8]
     - first_wall_thickness_matrix
     - back_wall_thickness_matrix
     - shield_thickness_matrix
@@ -77,14 +79,14 @@ radial_build_dict = {
 
 # Construct in-vessel components
 stellarator.construct_invessel_build(
-    toroidal_angles,
-    poloidal_angles,
+    toroidal_angles[::8],
+    poloidal_angles[::8],
     wall_s,
     radial_build_dict,
     # Set num_ribs and num_rib_pts to be less than length of corresponding
     # array to ensure that only defined angular locations are used
-    num_ribs=len(toroidal_angles) - 1,
-    num_rib_pts=len(poloidal_angles) - 1,
+    num_ribs=61,
+    num_rib_pts=61,
 )
 # Export in-vessel component files
 stellarator.export_invessel_build()

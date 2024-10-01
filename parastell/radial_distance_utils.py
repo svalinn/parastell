@@ -5,7 +5,7 @@ import pystell.read_vmec as read_vmec
 from . import magnet_coils
 from . import invessel_build as ivb
 from . import cubit_io
-from .utils import reorder_loop, downsample_loop
+from .utils import downsample_loop
 
 
 def reorder_filament(coil):
@@ -22,15 +22,10 @@ def reorder_filament(coil):
     """
     # Start the filament at the outboard midplane
     outboard_index = coil.get_ob_mp_index()
-
-    # Ensure filament is a closed loop
     if outboard_index != 0:
-        reordered_coords = reorder_loop(coil.coords, outboard_index)
-
+        coil.reorder_coords(outboard_index)
     # Ensure points initially progress in positive z-direction
-    if reordered_coords[0, 2] > reordered_coords[1, 2]:
-        reordered_coords = np.flip(reordered_coords, axis=0)
-    coil.coords = reordered_coords
+    coil.orient_coords()
 
 
 def reorder_coils(magnet_set):

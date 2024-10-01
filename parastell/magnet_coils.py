@@ -8,7 +8,7 @@ import cubit
 
 from . import log
 from . import cubit_io as cubit_io
-from .utils import read_yaml_config, filter_kwargs, m2cm
+from .utils import read_yaml_config, filter_kwargs, reorder_loop, m2cm
 
 export_allowed_kwargs = ["step_filename", "export_mesh", "mesh_filename"]
 
@@ -467,6 +467,28 @@ class MagnetCoil(object):
         outboard_index = np.argmax(midplane_flags * radii)
 
         return outboard_index
+
+    def reorder_coords(self, index):
+        """Reorders coil filament coordinate loop about a given index.
+
+        Arguments:
+            index (int): index about which to reorder coordinate loop.
+        """
+        self.coords = reorder_loop(self.coords, index)
+
+    def orient_coords(self, positive=True):
+        """Orients coil filament coordinate loop such that they initially
+        progress positively or negatively.
+
+        Arguments:
+            positive (bool): progress coordinates in positive direciton
+                (defaults to True). If negative, coordinates will progress in
+                negative direction.
+        """
+        if (positive and self.coords[0, 2] > self.coords[1, 2]) or (
+            not positive and self.coords[0, 2] < self.coords[1, 2]
+        ):
+            self.coords = np.flip(self.coords, axis=0)
 
 
 def parse_args():
