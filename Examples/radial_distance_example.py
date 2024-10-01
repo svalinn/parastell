@@ -2,6 +2,7 @@ import numpy as np
 
 import parastell.parastell as ps
 import parastell.radial_distance_utils as rdu
+from parastell.utils import enforce_helical_symmetry, smooth_matrix
 
 
 # Define directory to export all output files to
@@ -36,13 +37,13 @@ available_space = rdu.measure_fw_coils_separation(
 # For matrices defined by angles that are regularly spaced, measurement can
 # result in matrix elements that are close to, but not exactly, helcially
 # symmetric
-available_space = rdu.enforce_helical_symmetry(available_space)
+available_space = enforce_helical_symmetry(available_space)
 # Smooth matrix
-available_space = rdu.smooth_matrix(available_space, 50, 1)
+available_space = smooth_matrix(available_space, 50, 1)
 # For matrices defined by angles that are regularly spaced, matrix smoothing
 # can result in matrix elements that are close to, but not exactly, helcially
 # symmetric
-available_space = rdu.enforce_helical_symmetry(available_space)
+available_space = enforce_helical_symmetry(available_space)
 # Modify available space to account for thickness of magnets
 available_space = available_space - max(width, thickness)
 

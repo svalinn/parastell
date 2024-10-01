@@ -191,18 +191,10 @@ class MagnetSet(object):
             for coil in self.magnet_coils
             if coil.in_toroidal_extent(lower_bound, upper_bound)
         ]
-
-        # Compute toroidal angles of filament centers of mass
-        com_toroidal_angles = np.array(
-            [coil.com_toroidal_angle() for coil in filtered_coils]
-        )
-        # Ensure angles are positive
-        com_toroidal_angles = (com_toroidal_angles + 2 * np.pi) % (2 * np.pi)
+        self.magnet_coils = filtered_coils
 
         # Sort coils by center-of-mass toroidal angle and overwrite stored list
-        self.magnet_coils = sorted(
-            filtered_coils, key=lambda x: x.com_toroidal_angle()
-        )
+        self.magnet_coils = self.sort_coils_toroidally()
 
     def _cut_magnets(self):
         """Cuts the magnets at the planes defining the toriodal extent.
@@ -299,6 +291,17 @@ class MagnetSet(object):
             filename=mesh_filename, export_dir=export_dir
         )
 
+    def sort_coils_toroidally(self):
+        """Reorders list of coils by toroidal angle on range [-pi, pi].
+
+        Arguments:
+            magnet_coils (list of object): list of MagnetCoil class objects.
+
+        Returns:
+            (list of object): sorted list of MagnetCoil class objects.
+        """
+        return sorted(self.magnet_coils, key=lambda x: x.com_toroidal_angle())
+
 
 class MagnetCoil(object):
     """An object representing a single modular stellarator magnet coil.
@@ -339,42 +342,6 @@ class MagnetCoil(object):
         self.tangents = (
             tangents / np.linalg.norm(tangents, axis=1)[:, np.newaxis]
         )
-
-    def in_toroidal_extent(self, lower_bound, upper_bound):
-        """Determines if the coil lies within a given toroidal angular extent,
-        based on filament coordinates.
-
-        Arguments:
-            lower_bound (float): lower bound of toroidal extent [rad].
-            upper_bound (float): upper bound of toroidal extent [rad].
-
-        Returns:
-            in_toroidal_extent (bool): flag to indicate whether coil lies
-                within toroidal bounds.
-        """
-        # Compute toroidal angle of each point in filament
-        toroidal_angles = np.arctan2(self._coords[:, 1], self._coords[:, 0])
-        # Ensure angles are positive
-        toroidal_angles = (toroidal_angles + 2 * np.pi) % (2 * np.pi)
-        # Compute bounds of toroidal extent of filament
-        min_tor_ang = np.min(toroidal_angles)
-        max_tor_ang = np.max(toroidal_angles)
-
-        # Determine if filament toroidal extent overlaps with that of model
-        if (min_tor_ang >= lower_bound or min_tor_ang <= upper_bound) or (
-            max_tor_ang >= lower_bound or max_tor_ang <= upper_bound
-        ):
-            in_toroidal_extent = True
-        else:
-            in_toroidal_extent = False
-
-        return in_toroidal_extent
-
-    def com_toroidal_angle(self):
-        """Computes the toroidal angle of the coil center of mass, based on
-        filament coordinates.
-        """
-        return np.arctan2(self.center_of_mass[1], self.center_of_mass[0])
 
     def create_magnet(self):
         """Creates a single magnet coil CAD solid in CadQuery.
@@ -441,6 +408,65 @@ class MagnetCoil(object):
 
         shell = cq.Shell.makeShell(face_list)
         self.solid = cq.Solid.makeSolid(shell)
+
+    def in_toroidal_extent(self, lower_bound, upper_bound):
+        """Determines if the coil lies within a given toroidal angular extent,
+        based on filament coordinates.
+
+        Arguments:
+            lower_bound (float): lower bound of toroidal extent [rad].
+            upper_bound (float): upper bound of toroidal extent [rad].
+
+        Returns:
+            in_toroidal_extent (bool): flag to indicate whether coil lies
+                within toroidal bounds.
+        """
+        # Compute toroidal angle of each point in filament
+        toroidal_angles = np.arctan2(self._coords[:, 1], self._coords[:, 0])
+        # Ensure angles are positive
+        toroidal_angles = (toroidal_angles + 2 * np.pi) % (2 * np.pi)
+        # Compute bounds of toroidal extent of filament
+        min_tor_ang = np.min(toroidal_angles)
+        max_tor_ang = np.max(toroidal_angles)
+
+        # Determine if filament toroidal extent overlaps with that of model
+        if (min_tor_ang >= lower_bound or min_tor_ang <= upper_bound) or (
+            max_tor_ang >= lower_bound or max_tor_ang <= upper_bound
+        ):
+            in_toroidal_extent = True
+        else:
+            in_toroidal_extent = False
+
+        return in_toroidal_extent
+
+    def com_toroidal_angle(self):
+        """Computes the toroidal angle of the coil center of mass, based on
+        filament coordinates.
+
+        Returns:
+            (float): toroidal angle of coil center of mass [rad].
+        """
+        return np.arctan2(self.center_of_mass[1], self.center_of_mass[0])
+
+    def get_ob_mp_index(self):
+        """Finds the index of the outboard midplane coordinate on a coil
+        filament.
+
+        Returns:
+            outboard_index (int): index of the outboard midplane point.
+        """
+        # Compute radial distance of coordinates from z-axis
+        radii = np.linalg.norm(self.coords[:, :2], axis=1)
+        # Determine whether adjacent points cross the midplane (if so, they will
+        # have opposite signs)
+        midplane_flags = -np.sign(
+            self.coords[:, 2]
+            * np.append(self.coords[1:, 2], self.coords[1, 2])
+        )
+        # Find index of outboard midplane point
+        outboard_index = np.argmax(midplane_flags * radii)
+
+        return outboard_index
 
 
 def parse_args():

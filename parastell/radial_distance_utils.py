@@ -1,33 +1,11 @@
 import numpy as np
 import cubit
 import pystell.read_vmec as read_vmec
-from scipy.ndimage import gaussian_filter
 
 from . import magnet_coils
 from . import invessel_build as ivb
 from . import cubit_io
-
-
-def get_start_index(coil):
-    """Finds the index of the outboard midplane coordinate on a coil filament.
-
-    Arguments:
-        coil (object): MagnetCoil class object.
-
-    Returns:
-        outboard_index (int): index of the outboard midplane point.
-    """
-    # Compute radial distance of coordinates from z-axis
-    radii = np.linalg.norm(coil.coords[:, :2], axis=1)
-    # Determine whether adjacent points cross the midplane (if so, they will
-    # have opposite signs)
-    midplane_flags = -np.sign(
-        coil.coords[:, 2] * np.append(coil.coords[1:, 2], coil.coords[1, 2])
-    )
-    # Find index of outboard midplane point
-    outboard_index = np.argmax(midplane_flags * radii)
-
-    return outboard_index
+from .utils import reorder_loop, downsample_loop
 
 
 def reorder_filament(coil):
@@ -43,32 +21,16 @@ def reorder_filament(coil):
             coordinates defining a MagnetCoil filament.
     """
     # Start the filament at the outboard midplane
-    outboard_index = get_start_index(coil)
-    reordered_coords = np.concatenate(
-        [coil.coords[outboard_index:], coil.coords[1:outboard_index]]
-    )
+    outboard_index = coil.get_ob_mp_index()
+
     # Ensure filament is a closed loop
     if outboard_index != 0:
-        reordered_coords = np.concatenate(
-            [reordered_coords, [reordered_coords[0]]]
-        )
+        reordered_coords = reorder_loop(coil.coords, outboard_index)
+
     # Ensure points initially progress in positive z-direction
     if reordered_coords[0, 2] > reordered_coords[1, 2]:
         reordered_coords = np.flip(reordered_coords, axis=0)
     coil.coords = reordered_coords
-
-
-def sort_coils_toroidally(magnet_coils):
-    """Reorders list of coils by toroidal angle on range [-pi, pi] (coils
-    ordered in MagnetSet class by toroidal angle on range [0, 2*pi]).
-
-    Arguments:
-        magnet_coils (list of object): list of MagnetCoil class objects.
-
-    Returns:
-        (list of object): sorted list of MagnetCoil class objects.
-    """
-    return sorted(magnet_coils, key=lambda x: x.com_toroidal_angle())
 
 
 def reorder_coils(magnet_set):
@@ -87,7 +49,6 @@ def reorder_coils(magnet_set):
     magnet_coils = magnet_set.magnet_coils
 
     [reorder_filament(coil) for coil in magnet_coils]
-    magnet_coils = sort_coils_toroidally(magnet_coils)
 
     return magnet_coils
 
@@ -108,19 +69,6 @@ def build_line(point_1, point_2):
     curve_id = cubit.get_last_id("curve")
 
     return curve_id
-
-
-def downsample_loop(list, sample_mod):
-    """Downsamples a list representing a closed loop.
-
-    Arguments:
-        points (iterable): closed loop.
-        sample_mod (int): sampling modifier.
-
-    Returns:
-        (iterable): downsampled closed loop
-    """
-    return np.concatenate([list[:-1:sample_mod], [list[0]]])
 
 
 def build_magnet_surface(magnet_coils, sample_mod=1):
@@ -292,67 +240,3 @@ def measure_fw_coils_separation(
     radial_distance_matrix = measure_surface_coils_separation(surface)
 
     return radial_distance_matrix
-
-
-def smooth_matrix(matrix, steps, sigma):
-    """Smooths a matrix via Gaussian filtering, without allowing matrix
-    elements to increase in value.
-
-    Arguments:
-        matrix (2-D iterable of float): matrix to be smoothed.
-        steps (int): number of smoothing steps.
-        sigma (float): standard deviation for Gaussian kernel.
-
-    Returns:
-        smoothed_matrix (2-D iterable of float): smoothed matrix.
-    """
-    previous_iteration = matrix
-
-    for step in range(steps):
-        smoothed_matrix = np.minimum(
-            previous_iteration,
-            gaussian_filter(
-                previous_iteration,
-                sigma=sigma,
-                mode="wrap",
-            ),
-        )
-        previous_iteration = smoothed_matrix
-
-    return smoothed_matrix
-
-
-def enforce_helical_symmetry(matrix):
-    """Ensures that a matrix is helically symmetric according to stellarator
-    geometry by overwriting certain matrix elements. Assumes regular spacing
-    between angles defining matrix.
-
-    Arguments:
-        matrix (2-D iterable of float): matrix to be made helically symmetric.
-
-    Returns:
-        matrix (2-D iterable of float): helically symmetric matrix.
-    """
-    num_rows = matrix.shape[0]
-    num_columns = matrix.shape[1]
-
-    # Ensure poloidal symmetry at beginning and middle of period
-    matrix[0] = np.concatenate(
-        [
-            matrix[0, : int((num_columns - 1) / 2) + 1],
-            np.flip(matrix[0, : int(num_columns / 2)]),
-        ]
-    )
-    matrix[int((num_rows - 1) / 2)] = np.concatenate(
-        [
-            matrix[int((num_rows - 1) / 2), : int((num_columns - 1) / 2) + 1],
-            np.flip(matrix[int((num_rows - 1) / 2), : int(num_columns / 2)]),
-        ]
-    )
-
-    # Ensure helical symmetry toroidally and poloidally
-    for index in range(num_rows - 1, int((num_rows - 1) / 2), -1):
-        matrix[num_rows - 1 - index, -1] = matrix[num_rows - 1 - index, 0]
-        matrix[index] = np.flip(matrix[num_rows - 1 - index])
-
-    return matrix

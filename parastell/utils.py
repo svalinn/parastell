@@ -1,70 +1,92 @@
 import yaml
-import math
 
 import numpy as np
+from scipy.ndimage import gaussian_filter
 
 m2cm = 100
 m3tocm3 = m2cm * m2cm * m2cm
 
 
-def normalize(vec_list):
-    """Normalizes a set of vectors.
+def downsample_loop(list, sample_mod):
+    """Downsamples a list representing a closed loop.
 
     Arguments:
-        vec_list (1 or 2D np array): single 1D vector or array of 1D vectors
-            to be normalized
+        list (iterable): closed loop.
+        sample_mod (int): sampling modifier.
+
     Returns:
-        vec_list (np array of same shape as input): single 1D normalized vector
-            or array of normalized 1D vectors
+        (iterable): downsampled closed loop
     """
-    if len(vec_list.shape) == 1:
-        return vec_list / np.linalg.norm(vec_list)
-    elif len(vec_list.shape) == 2:
-        return vec_list / np.linalg.norm(vec_list, axis=1)[:, np.newaxis]
-    else:
-        print('Input "vec_list" must be 1-D or 2-D NumPy array')
+    return np.append(list[:-1:sample_mod], [list[0]], axis=0)
 
 
-def expand_ang_list(ang_list, num_ang):
-    """Expands list of angles by linearly interpolating according to specified
-    number to include in stellarator build.
+def enforce_helical_symmetry(matrix):
+    """Ensures that a matrix is helically symmetric according to stellarator
+    geometry by overwriting certain matrix elements. Assumes regular spacing
+    between angles defining matrix.
 
     Arguments:
-        ang_list (list of double): user-supplied list of toroidal or poloidal
-            angles (rad).
-        num_ang (int): number of angles to include in stellarator build.
+        matrix (2-D iterable of float): matrix to be made helically symmetric.
 
     Returns:
-        ang_list_exp (list of double): interpolated list of angles (rad).
+        matrix (2-D iterable of float): helically symmetric matrix.
     """
-    ang_list = np.deg2rad(ang_list)
+    num_rows = matrix.shape[0]
+    num_columns = matrix.shape[1]
 
-    ang_list_exp = []
+    # Ensure poloidal symmetry at beginning and middle of period
+    matrix[0] = np.concatenate(
+        [
+            matrix[0, : int((num_columns - 1) / 2) + 1],
+            np.flip(matrix[0, : int(num_columns / 2)]),
+        ]
+    )
+    matrix[int((num_rows - 1) / 2)] = np.concatenate(
+        [
+            matrix[int((num_rows - 1) / 2), : int((num_columns - 1) / 2) + 1],
+            np.flip(matrix[int((num_rows - 1) / 2), : int(num_columns / 2)]),
+        ]
+    )
 
-    init_ang = ang_list[0]
-    final_ang = ang_list[-1]
-    ang_extent = final_ang - init_ang
+    # Ensure helical symmetry toroidally and poloidally
+    for index in range(num_rows - 1, int((num_rows - 1) / 2), -1):
+        matrix[num_rows - 1 - index, -1] = matrix[num_rows - 1 - index, 0]
+        matrix[index] = np.flip(matrix[num_rows - 1 - index])
 
-    ang_diff_avg = ang_extent / (num_ang - 1)
+    return matrix
 
-    for ang, next_ang in zip(ang_list[:-1], ang_list[1:]):
-        n_ang = math.ceil((next_ang - ang) / ang_diff_avg)
 
-        ang_list_exp = np.append(
-            ang_list_exp, np.linspace(ang, next_ang, num=n_ang + 1)[:-1]
+def expand_list(list, num):
+    """Expands a list of ordered floats to a total number of entries by
+    linearly interpolating between entries, inserting a proportional number of
+    new entries between original entries.
+
+    Arguments:
+        list (iterable of float): list to be expanded.
+        num (int): desired number of entries in expanded list.
+
+    Returns:
+        list_exp (iterable of float): expanded list.
+    """
+    list_exp = []
+
+    init_entry = list[0]
+    final_entry = list[-1]
+    extent = final_entry - init_entry
+
+    avg_diff = extent / (num - 1)
+
+    for entry, next_entry in zip(list[:-1], list[1:]):
+        num_new_entries = int(round((next_entry - entry) / avg_diff))
+
+        list_exp = np.append(
+            list_exp,
+            np.linspace(entry, next_entry, num=num_new_entries + 1)[:-1],
         )
 
-    ang_list_exp = np.append(ang_list_exp, ang_list[-1])
+    list_exp = np.append(list_exp, list[-1])
 
-    return ang_list_exp
-
-
-def read_yaml_config(filename):
-    """Read YAML file describing ParaStell configuration and extract all data."""
-    with open(filename) as yaml_file:
-        all_data = yaml.safe_load(yaml_file)
-
-    return all_data
+    return list_exp
 
 
 def filter_kwargs(
@@ -101,3 +123,73 @@ def filter_kwargs(
         raise e
 
     return {name: dict[name] for name in allowed_keys}
+
+
+def normalize(vec_list):
+    """Normalizes a set of vectors.
+
+    Arguments:
+        vec_list (1 or 2D np array): single 1D vector or array of 1D vectors
+            to be normalized
+    Returns:
+        vec_list (np array of same shape as input): single 1D normalized vector
+            or array of normalized 1D vectors
+    """
+    if len(vec_list.shape) == 1:
+        return vec_list / np.linalg.norm(vec_list)
+    elif len(vec_list.shape) == 2:
+        return vec_list / np.linalg.norm(vec_list, axis=1)[:, np.newaxis]
+    else:
+        print('Input "vec_list" must be 1-D or 2-D NumPy array')
+
+
+def read_yaml_config(filename):
+    """Read YAML file describing ParaStell configuration and extract all data."""
+    with open(filename) as yaml_file:
+        all_data = yaml.safe_load(yaml_file)
+
+    return all_data
+
+
+def reorder_loop(list, index):
+    """Reorders a list representing a closed loop.
+
+    Arguments:
+        list (iterable): closed loop.
+        index (int): list index about which to reorder loop.
+
+    Returns:
+        reordered_loop (iterable): reordered closed loop.
+    """
+    reordered_list = np.concatenate([list[index:], list[1:index]])
+    reordered_list = np.append(reordered_list, [reordered_list[0]], axis=0)
+
+    return reordered_list
+
+
+def smooth_matrix(matrix, steps, sigma):
+    """Smooths a matrix via Gaussian filtering, without allowing matrix
+    elements to increase in value.
+
+    Arguments:
+        matrix (2-D iterable of float): matrix to be smoothed.
+        steps (int): number of smoothing steps.
+        sigma (float): standard deviation for Gaussian kernel.
+
+    Returns:
+        smoothed_matrix (2-D iterable of float): smoothed matrix.
+    """
+    previous_iteration = matrix
+
+    for step in range(steps):
+        smoothed_matrix = np.minimum(
+            previous_iteration,
+            gaussian_filter(
+                previous_iteration,
+                sigma=sigma,
+                mode="wrap",
+            ),
+        )
+        previous_iteration = smoothed_matrix
+
+    return smoothed_matrix
