@@ -485,9 +485,7 @@ class MagnetCoil(object):
                 (defaults to True). If negative, coordinates will progress in
                 negative direction.
         """
-        if (positive and self.coords[0, 2] > self.coords[1, 2]) or (
-            not positive and self.coords[0, 2] < self.coords[1, 2]
-        ):
+        if (positive == (self.coords[0, 2] > self.coords[1, 2]) ):
             self.coords = np.flip(self.coords, axis=0)
 
 
