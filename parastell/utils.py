@@ -79,6 +79,8 @@ def expand_list(list, num):
     for entry, next_entry in zip(list[:-1], list[1:]):
         num_new_entries = int(round((next_entry - entry) / avg_diff))
 
+        # don't append the last entry in the created linspace to avoid adding it twice when
+        # the next created linspace is appended
         list_exp = np.append(
             list_exp,
             np.linspace(entry, next_entry, num=num_new_entries + 1)[:-1],
