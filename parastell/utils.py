@@ -84,7 +84,7 @@ def expand_list(list, num):
             np.linspace(entry, next_entry, num=num_new_entries + 1)[:-1],
         )
 
-    list_exp = np.append(list_exp, list[-1])
+    list_exp = np.append(list_exp, final_entry)
 
     return list_exp
 
