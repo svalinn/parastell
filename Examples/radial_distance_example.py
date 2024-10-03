@@ -14,8 +14,9 @@ vmec_file = "wout_vmec.nc"
 stellarator = ps.Stellarator(vmec_file)
 
 # Define build parameters for in-vessel components
-toroidal_angles = np.linspace(0, 90, num=97)
-poloidal_angles = np.linspace(0, 360, num=97)
+# Use 13 x 13 uniformly spaced grid for in-vessel build
+toroidal_angles = np.linspace(0, 90, num=13)
+poloidal_angles = np.linspace(0, 360, num=13)
 wall_s = 1.08
 # Define build parameters for magnet coils
 coils_file = "coils.example"
@@ -39,7 +40,9 @@ available_space = rdu.measure_fw_coils_separation(
 # symmetric
 available_space = enforce_helical_symmetry(available_space)
 # Smooth matrix
-available_space = smooth_matrix(available_space, 100, 1)
+steps = 25  # Apply Gaussian filter 25 times
+sigma = 0.5  # Smooth using half a standard deviation for the Gaussian kernel
+available_space = smooth_matrix(available_space, steps, sigma)
 # For matrices defined by angles that are regularly spaced, matrix smoothing
 # can result in matrix elements that are close to, but not exactly, helcially
 # symmetric
@@ -48,9 +51,7 @@ available_space = enforce_helical_symmetry(available_space)
 available_space = available_space - max(width, thickness)
 
 # Define a matrix of uniform unit thickness
-uniform_unit_thickness = np.ones(
-    (len(toroidal_angles[::8]), len(poloidal_angles[::8]))
-)
+uniform_unit_thickness = np.ones((len(toroidal_angles), len(poloidal_angles)))
 # Define thickness matrices for each in-vessel component of uniform thickness
 first_wall_thickness_matrix = uniform_unit_thickness * 5
 back_wall_thickness_matrix = uniform_unit_thickness * 5
@@ -59,7 +60,7 @@ vacuum_vessel_thickness_matrix = uniform_unit_thickness * 30
 
 # Compute breeder thickness matrix
 breeder_thickness_matrix = (
-    available_space[::8, ::8]
+    available_space
     - first_wall_thickness_matrix
     - back_wall_thickness_matrix
     - shield_thickness_matrix
@@ -79,12 +80,12 @@ radial_build_dict = {
 
 # Construct in-vessel components
 stellarator.construct_invessel_build(
-    toroidal_angles[::8],
-    poloidal_angles[::8],
+    toroidal_angles,
+    poloidal_angles,
     wall_s,
     radial_build_dict,
-    # Set num_ribs and num_rib_pts to be less than length of corresponding
-    # array to ensure that only defined angular locations are used
+    # Set num_ribs and num_rib_pts such that four (60/12 - 1) additional
+    # locations are interpolated between each specified location
     num_ribs=61,
     num_rib_pts=61,
 )

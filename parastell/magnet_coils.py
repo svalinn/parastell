@@ -459,7 +459,7 @@ class MagnetCoil(object):
         radii = np.linalg.norm(self.coords[:, :2], axis=1)
         # Determine whether adjacent points cross the midplane (if so, they will
         # have opposite signs)
-        shifted_coords = np.append(self.coords[1:, :], self.coords[1, :])
+        shifted_coords = np.append(self.coords[1:], [self.coords[1]], axis=0)
         midplane_flags = -np.sign(self.coords[:, 2] * shifted_coords[:, 2])
         # Find index of outboard midplane point
         outboard_index = np.argmax(midplane_flags * radii)
@@ -483,7 +483,7 @@ class MagnetCoil(object):
                 (defaults to True). If negative, coordinates will progress in
                 negative direction.
         """
-        if (positive == (self.coords[0, 2] > self.coords[1, 2]) ):
+        if positive == (self.coords[0, 2] > self.coords[1, 2]):
             self.coords = np.flip(self.coords, axis=0)
 
 

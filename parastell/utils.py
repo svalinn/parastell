@@ -34,24 +34,28 @@ def enforce_helical_symmetry(matrix):
     num_rows = matrix.shape[0]
     num_columns = matrix.shape[1]
 
-    # Ensure poloidal symmetry at beginning and middle of period
+    # Ensure rows represent closed loops
+    for idx in range(num_rows):
+        matrix[idx, -1] = matrix[idx, 0]
+
+    # Ensure poloidal symmetry at beginning of period
     matrix[0] = np.concatenate(
         [
             matrix[0, : int((num_columns - 1) / 2) + 1],
             np.flip(matrix[0, : int(num_columns / 2)]),
         ]
     )
-    matrix[int((num_rows - 1) / 2)] = np.concatenate(
-        [
-            matrix[int((num_rows - 1) / 2), : int((num_columns - 1) / 2) + 1],
-            np.flip(matrix[int((num_rows - 1) / 2), : int(num_columns / 2)]),
-        ]
-    )
 
-    # Ensure helical symmetry toroidally and poloidally
-    for index in range(num_rows - 1, int((num_rows - 1) / 2), -1):
-        matrix[num_rows - 1 - index, -1] = matrix[num_rows - 1 - index, 0]
-        matrix[index] = np.flip(matrix[num_rows - 1 - index])
+    # Ensure helical symmetry toroidally and poloidally by mirroring the period
+    # about both matrix axes
+    flattened_matrix = matrix.flatten()
+
+    for idx, value in enumerate(
+        flattened_matrix[: int(len(flattened_matrix) / 2)], start=1
+    ):
+        flattened_matrix[-idx] = value
+
+    matrix = flattened_matrix.reshape((num_rows, num_columns))
 
     return matrix
 
@@ -79,8 +83,8 @@ def expand_list(list, num):
     for entry, next_entry in zip(list[:-1], list[1:]):
         num_new_entries = int(round((next_entry - entry) / avg_diff))
 
-        # don't append the last entry in the created linspace to avoid adding it twice when
-        # the next created linspace is appended
+        # Don't append the last entry in the created linspace to avoid adding
+        # it twice when the next created linspace is appended
         list_exp = np.append(
             list_exp,
             np.linspace(entry, next_entry, num=num_new_entries + 1)[:-1],
@@ -161,11 +165,9 @@ def reorder_loop(list, index):
         index (int): list index about which to reorder loop.
 
     Returns:
-        reordered_loop (iterable): reordered closed loop.
+        (iterable): reordered closed loop.
     """
-    reordered_list = np.concatenate([list[index:], list[1:index+1]])
-
-    return reordered_list
+    return np.concatenate([list[index:], list[1 : index + 1]])
 
 
 def smooth_matrix(matrix, steps, sigma):
