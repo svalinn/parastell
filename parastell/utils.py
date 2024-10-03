@@ -161,8 +161,7 @@ def reorder_loop(list, index):
     Returns:
         reordered_loop (iterable): reordered closed loop.
     """
-    reordered_list = np.concatenate([list[index:], list[1:index]])
-    reordered_list = np.append(reordered_list, [reordered_list[0]], axis=0)
+    reordered_list = np.concatenate([list[index:], list[1:index+1]])
 
     return reordered_list
 
