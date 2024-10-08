@@ -1,6 +1,7 @@
 import yaml
 
 import numpy as np
+import math
 from scipy.ndimage import gaussian_filter
 
 m2cm = 100
@@ -22,8 +23,13 @@ def downsample_loop(list, sample_mod):
 
 def enforce_helical_symmetry(matrix):
     """Ensures that a matrix is helically symmetric according to stellarator
-    geometry by overwriting certain matrix elements. Assumes regular spacing
-    between angles defining matrix.
+    geometry by overwriting certain matrix elements.
+
+    Assumes several qualities about the input matrix:
+        - Regular spacing between angles defining matrix
+        - Matrix represents a full stellarator period
+        - The first row corresponds to a toroidal angle at the beginning of a
+          period (i.e., poloidal symmetry is expected)
 
     Arguments:
         matrix (2-D iterable of float): matrix to be made helically symmetric.
@@ -34,24 +40,24 @@ def enforce_helical_symmetry(matrix):
     num_rows, num_columns = matrix.shape
 
     # Ensure rows represent closed loops
-    matrix[:,-1] = matrix[:,0]
+    matrix[:, -1] = matrix[:, 0]
 
     # Ensure poloidal symmetry at beginning of period
     matrix[0] = np.concatenate(
         [
-            matrix[0, : int((num_columns - 1) / 2) + 1],
-            np.flip(matrix[0, : int(num_columns / 2)]),
+            matrix[0, : math.ceil(num_columns / 2)],
+            np.flip(matrix[0, : math.floor(num_columns / 2)]),
         ]
     )
 
     # Ensure helical symmetry toroidally and poloidally by mirroring the period
     # about both matrix axes
     flattened_matrix = matrix.flatten()
+    flattened_length = len(flattened_matrix)
 
-    for idx, value in enumerate(
-        flattened_matrix[: int(len(flattened_matrix) / 2)], start=1
-    ):
-        flattened_matrix[-idx] = value
+    first_half = flattened_matrix[: math.ceil(flattened_length / 2)]
+    last_half = np.flip(flattened_matrix[: math.floor(flattened_length / 2)])
+    flattened_matrix = np.concatenate([first_half, last_half])
 
     matrix = flattened_matrix.reshape((num_rows, num_columns))
 
@@ -184,7 +190,7 @@ def smooth_matrix(matrix, steps, sigma):
 
     for step in range(steps):
         smoothed_matrix = np.minimum(
-            previous_iteration,
+            previous_matrix,
             gaussian_filter(
                 previous_matrix,
                 sigma=sigma,
