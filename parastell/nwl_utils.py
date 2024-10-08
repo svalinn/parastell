@@ -145,6 +145,7 @@ def find_coords(data):
             bounds=[(-np.pi, np.pi)],
             args=(vmec, wall_s, coords[0], coords[1]),
         )
+        # remap from [-pi,pi] to [0, 2pi] to match parastell's angle convention
         thetas.append((theta.x[0] + 2 * np.pi) % (2 * np.pi))
     return thetas
 
