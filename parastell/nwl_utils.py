@@ -187,7 +187,9 @@ def flux_coords(plas_eq, wall_s, coords, num_threads):
             for theta_coord in theta_coord_chunk
         ]
     # Ensures theta_coords are all positive (add 360 degrees where needed)
-    theta_coords = (theta_coords + 2 * np.pi) % 2 * np.pi
+    theta_coords = [
+        (theta_coord + 2 * np.pi) % 2 * np.pi for theta_coord in theta_coords
+    ]
 
     return phi_coords.tolist(), theta_coords
 

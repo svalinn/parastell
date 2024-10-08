@@ -827,7 +827,8 @@ def generate_invessel_build():
         invessel_build_dict["poloidal_angles"],
         invessel_build_dict["wall_s"],
         invessel_build_dict["radial_build"],
-        logger=logger**invessel_build_dict,
+        logger=logger,
+        **invessel_build_dict,
     )
 
     invessel_build = InVesselBuild(
