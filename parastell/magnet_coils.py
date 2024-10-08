@@ -430,9 +430,12 @@ class MagnetCoil(object):
         max_tor_ang = np.max(toroidal_angles)
 
         # Determine if filament toroidal extent overlaps with that of model
-        in_toroidal_extent = (lower_bound <= min_tor_ang <= upper_bound) or (
-            lower_bound <= max_tor_ang <= upper_bound
-        )
+        if (min_tor_ang >= lower_bound or min_tor_ang <= upper_bound) or (
+            max_tor_ang >= lower_bound or max_tor_ang <= upper_bound
+        ):
+            in_toroidal_extent = True
+        else:
+            in_toroidal_extent = False
 
         return in_toroidal_extent
 
