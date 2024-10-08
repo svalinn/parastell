@@ -145,7 +145,7 @@ def find_coords(data):
             bounds=[(-np.pi, np.pi)],
             args=(vmec, wall_s, coords[0], coords[1]),
         )
-        thetas.append(theta.x[0])
+        thetas.append((theta.x[0] + 2 * np.pi) % (2 * np.pi))
     return thetas
 
 
@@ -186,10 +186,6 @@ def flux_coords(plas_eq, wall_s, coords, num_threads):
             for theta_coord_chunk in theta_coord_chunks
             for theta_coord in theta_coord_chunk
         ]
-    # Ensures theta_coords are all positive (add 360 degrees where needed)
-    theta_coords = [
-        (theta_coord + 2 * np.pi) % 2 * np.pi for theta_coord in theta_coords
-    ]
 
     return phi_coords.tolist(), theta_coords
 
