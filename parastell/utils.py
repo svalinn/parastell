@@ -34,8 +34,7 @@ def enforce_helical_symmetry(matrix):
     num_rows, num_columns = matrix.shape
 
     # Ensure rows represent closed loops
-    for idx in range(num_rows):
-        matrix[idx, -1] = matrix[idx, 0]
+    matrix[:,-1] = matrix[:,0]
 
     # Ensure poloidal symmetry at beginning of period
     matrix[0] = np.concatenate(
@@ -181,17 +180,17 @@ def smooth_matrix(matrix, steps, sigma):
     Returns:
         smoothed_matrix (2-D iterable of float): smoothed matrix.
     """
-    previous_iteration = matrix
+    previous_matrix = matrix
 
     for step in range(steps):
         smoothed_matrix = np.minimum(
             previous_iteration,
             gaussian_filter(
-                previous_iteration,
+                previous_matrix,
                 sigma=sigma,
                 mode="wrap",
             ),
         )
-        previous_iteration = smoothed_matrix
+        previous_matrix = smoothed_matrix
 
     return smoothed_matrix
