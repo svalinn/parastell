@@ -31,8 +31,7 @@ def enforce_helical_symmetry(matrix):
     Returns:
         matrix (2-D iterable of float): helically symmetric matrix.
     """
-    num_rows = matrix.shape[0]
-    num_columns = matrix.shape[1]
+    num_rows, num_columns = matrix.shape
 
     # Ensure rows represent closed loops
     for idx in range(num_rows):
