@@ -114,9 +114,27 @@ def test_parastell(stellarator):
 
     assert Path(filename_exp).with_suffix(".h5m").exists()
 
+    chamber_volume_id_exp = 1
+    component_volume_id_exp = 2
+    magnet_volume_ids_exp = range(3, 4)
     filename_exp = "dagmc"
 
     stellarator.build_cubit_model()
+
+    assert (
+        stellarator.invessel_build.radial_build.radial_build["chamber"][
+            "vol_id"
+        ]
+        == chamber_volume_id_exp
+    )
+    assert (
+        stellarator.invessel_build.radial_build.radial_build[
+            component_name_exp
+        ]["vol_id"]
+        == component_volume_id_exp
+    )
+    assert stellarator.magnet_set.volume_ids == magnet_volume_ids_exp
+
     stellarator.export_dagmc(filename=filename_exp)
     stellarator.export_cub5(filename=filename_exp)
 
