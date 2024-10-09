@@ -12,7 +12,7 @@ import pystell.read_vmec as read_vmec
 from . import log
 from .utils import (
     normalize,
-    expand_ang_list,
+    expand_list,
     read_yaml_config,
     filter_kwargs,
     m2cm,
@@ -181,11 +181,11 @@ class InVesselBuild(object):
             "Populating surface objects for in-vessel components..."
         )
 
-        self._toroidal_angles_exp = expand_ang_list(
-            self.radial_build.toroidal_angles, self.num_ribs
+        self._toroidal_angles_exp = np.deg2rad(
+            expand_list(self.radial_build.toroidal_angles, self.num_ribs)
         )
-        self._poloidal_angles_exp = expand_ang_list(
-            self.radial_build.poloidal_angles, self.num_rib_pts
+        self._poloidal_angles_exp = np.deg2rad(
+            expand_list(self.radial_build.poloidal_angles, self.num_rib_pts)
         )
 
         offset_mat = np.zeros(
