@@ -238,6 +238,19 @@ class MagnetSet(object):
 
         self._cut_magnets()
 
+    def import_step_cubit(self):
+        """Import STEP file for magnet set into Coreform Cubit."""
+        if cubit_io.initialized:
+            first_vol_id = cubit.get_last_id("volume") + 1
+        else:
+            first_vol_id = 1
+
+        last_vol_id = cubit_io.import_step_cubit(
+            self.step_filename, self.export_dir
+        )
+
+        self.volume_ids = range(first_vol_id, last_vol_id + 1)
+
     def export_step(self, step_filename="magnet_set", export_dir=""):
         """Export CAD solids as a STEP file via CadQuery.
 
@@ -261,19 +274,28 @@ class MagnetSet(object):
         )
         cq.exporters.export(coil_set, str(export_path))
 
-    def mesh_magnets(self):
-        """Creates tetrahedral mesh of magnet volumes via Coreform Cubit."""
+    def mesh_magnets(self, min_size=20.0, max_size=50.0, max_gradient=1.5):
+        """Creates tetrahedral mesh of magnet volumes via Coreform Cubit.
+
+        Arguments:
+            min_size (float): minimum size of mesh elements (defaults to 20.0).
+            max_size (float): maximum size of mesh elements (defaults to 50.0).
+            max_gradient (float): maximum transition in mesh element size
+                (defaults to 1.5).
+        """
         self._logger.info("Generating tetrahedral mesh of magnet coils...")
 
-        last_vol_id = cubit_io.import_step_cubit(
-            self.step_filename, self.export_dir
+        if not hasattr(self, "volume_ids"):
+            self.import_step_cubit()
+
+        volume_ids_str = " ".join(str(id) for id in self.volume_ids)
+        cubit.cmd(f"volume {volume_ids_str} scheme tetmesh")
+        cubit.cmd(
+            f"volume {volume_ids_str} sizing function type skeleton min_size "
+            f"{min_size} max_size {max_size} max_gradient {max_gradient} "
+            "min_num_layers_3d 1 min_num_layers_2d 1 min_num_layers_1d 1"
         )
-
-        self.volume_ids = range(1, last_vol_id + 1)
-
-        for vol in self.volume_ids:
-            cubit.cmd(f"volume {vol} scheme tetmesh")
-            cubit.cmd(f"mesh volume {vol}")
+        cubit.cmd(f"mesh volume {volume_ids_str}")
 
     def export_mesh(self, mesh_filename="magnet_mesh", export_dir=""):
         """Creates tetrahedral mesh of magnet volumes and exports H5M format
@@ -290,6 +312,10 @@ class MagnetSet(object):
         cubit_io.export_mesh_cubit(
             filename=mesh_filename, export_dir=export_dir
         )
+
+        # Delete magnet mesh to prevent inclusion in future Cubit mesh exports
+        volume_ids_str = " ".join(str(id) for id in self.volume_ids)
+        cubit.cmd(f"delete mesh volume {volume_ids_str} propagate")
 
     def sort_coils_toroidally(self):
         """Reorders list of coils by toroidal angle on range [-pi, pi].
