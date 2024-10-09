@@ -97,6 +97,10 @@ def export_mesh_cubit(filename, export_dir=""):
     subprocess.run(f"mbconvert {exo_path} {h5m_path}", shell=True)
     Path.unlink(exo_path)
 
+    # Delete any meshes present to prevent inclusion in future Cubit mesh
+    # exports
+    cubit.cmd(f"delete mesh volume all propagate")
+
 
 def export_dagmc_cubit_legacy(
     faceting_tolerance=None,
@@ -177,3 +181,7 @@ def export_dagmc_cubit_native(
 
     export_path = Path(export_dir) / Path(filename).with_suffix(".h5m")
     cubit.cmd(f'export cf_dagmc "{export_path}" overwrite')
+
+    # Delete any meshes present to prevent inclusion in future Cubit mesh
+    # exports
+    cubit.cmd(f"delete mesh volume all propagate")

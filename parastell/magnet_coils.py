@@ -313,10 +313,6 @@ class MagnetSet(object):
             filename=mesh_filename, export_dir=export_dir
         )
 
-        # Delete magnet mesh to prevent inclusion in future Cubit mesh exports
-        volume_ids_str = " ".join(str(id) for id in self.volume_ids)
-        cubit.cmd(f"delete mesh volume {volume_ids_str} propagate")
-
     def sort_coils_toroidally(self):
         """Reorders list of coils by toroidal angle on range [-pi, pi].
 
