@@ -45,6 +45,7 @@ def enforce_helical_symmetry(matrix):
     # Ensure poloidal symmetry at beginning of period
     matrix[0] = np.concatenate(
         [
+            # ceil and floor ensure middle element of odd sized array is included only once
             matrix[0, : math.ceil(num_columns / 2)],
             np.flip(matrix[0, : math.floor(num_columns / 2)]),
         ]
