@@ -356,12 +356,18 @@ class SourceMesh(object):
         ]
 
         # Define MOAB canonical ordering of hexahedron vertex indices
+        # Ordering follows right hand rule such that the fingers curl around
+        # one side of the tetrahedron and the thumb points to the remaining
+        # vertex. The vertices are ordered such that those on the side are
+        # first, ordered clockwise relative to the thumb, followed by the
+        # remaining vertex at the end of the thumb.
+        # See Moreno, Bader, Wilson 2024 for hexahedron splitting
         hex_canon_ids = [
-            [idx_list[0], idx_list[3], idx_list[1], idx_list[4]],
-            [idx_list[7], idx_list[4], idx_list[6], idx_list[3]],
-            [idx_list[2], idx_list[1], idx_list[3], idx_list[6]],
-            [idx_list[5], idx_list[6], idx_list[4], idx_list[1]],
-            [idx_list[3], idx_list[1], idx_list[4], idx_list[6]],
+            [idx_list[0], idx_list[2], idx_list[1], idx_list[5]],
+            [idx_list[0], idx_list[3], idx_list[2], idx_list[7]],
+            [idx_list[0], idx_list[7], idx_list[5], idx_list[4]],
+            [idx_list[7], idx_list[2], idx_list[5], idx_list[6]],
+            [idx_list[0], idx_list[2], idx_list[5], idx_list[7]],
         ]
 
         for vertex_ids in hex_canon_ids:
@@ -395,10 +401,16 @@ class SourceMesh(object):
         ]
 
         # Define MOAB canonical ordering of wedge vertex indices
+        # Ordering follows right hand rule such that the fingers curl around
+        # one side of the tetrahedron and the thumb points to the remaining
+        # vertex. The vertices are ordered such that those on the side are
+        # first, ordered clockwise relative to the thumb, followed by the
+        # remaining vertex at the end of the thumb.
+        # See Moreno, Bader, Wilson 2024 for wedge splitting
         wedge_canon_ids = [
-            [idx_list[1], idx_list[2], idx_list[4], idx_list[0]],
-            [idx_list[5], idx_list[4], idx_list[2], idx_list[3]],
-            [idx_list[0], idx_list[2], idx_list[4], idx_list[3]],
+            [idx_list[0], idx_list[2], idx_list[1], idx_list[3]],
+            [idx_list[3], idx_list[2], idx_list[4], idx_list[5]],
+            [idx_list[3], idx_list[2], idx_list[1], idx_list[4]],
         ]
 
         for vertex_ids in wedge_canon_ids:
