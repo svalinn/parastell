@@ -116,7 +116,7 @@ def test_parastell(stellarator):
 
     chamber_volume_id_exp = 1
     component_volume_id_exp = 2
-    magnet_volume_ids_exp = range(3, 4)
+    magnet_volume_ids_exp = list(range(3, 4))
     filename_exp = "dagmc"
 
     stellarator.build_cubit_model()

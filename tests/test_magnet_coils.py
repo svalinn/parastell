@@ -67,7 +67,7 @@ def test_magnet_construction(coil_set):
 
 def test_magnet_exports(coil_set):
 
-    volume_ids_exp = range(1, 2)
+    volume_ids_exp = list(range(1, 2))
 
     remove_files()
 

@@ -248,7 +248,7 @@ class MagnetSet(object):
             self.step_filename, self.export_dir
         )
 
-        self.volume_ids = [range(first_vol_id, last_vol_id + 1)]
+        self.volume_ids = list(range(first_vol_id, last_vol_id + 1))
 
     def export_step(self, step_filename="magnet_set", export_dir=""):
         """Export CAD solids as a STEP file via CadQuery.
