@@ -10,6 +10,7 @@ import cad_to_dagmc
 import pystell.read_vmec as read_vmec
 
 from . import log
+from . import cubit_io
 from .utils import (
     normalize,
     expand_list,
@@ -291,6 +292,12 @@ class InVesselBuild(object):
                     f"merge surface {inner_surface_id} {prev_outer_surface_id}"
                 )
                 prev_outer_surface_id = outer_surface_id
+
+    def import_step_cubit(self):
+        """Imports STEP files from in-vessel build into Coreform Cubit."""
+        for name, data in self.radial_build.radial_build.items():
+            vol_id = cubit_io.import_step_cubit(name, self.export_dir)
+            data["vol_id"] = vol_id
 
     def export_step(self, export_dir=""):
         """Export CAD solids as STEP files via CadQuery.

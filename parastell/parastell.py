@@ -7,7 +7,6 @@ import numpy as np
 import pystell.read_vmec as read_vmec
 
 from . import log
-
 from . import invessel_build as ivb
 from . import magnet_coils as mc
 from . import source_mesh as sm
@@ -233,6 +232,7 @@ class Stellarator(object):
         export_mesh=False,
         mesh_filename="magnet_mesh",
         export_dir="",
+        **kwargs,
     ):
         """Export magnet components.
 
@@ -246,13 +246,21 @@ class Stellarator(object):
                 '.h5m' extension (optional, defaults to 'magnet_mesh').
             export_dir (str): directory to which to export output files
                 (optional, defaults to empty string).
+
+        Optional attributes:
+            min_size (float): minimum size of magnet mesh elements (defaults to
+                20.0).
+            max_size (float): maximum size of magnet mesh elements (defaults to
+                50.0).
+            max_gradient (float): maximum transition in magnet mesh element
+                size (defaults to 1.5).
         """
         self.magnet_set.export_step(
             step_filename=step_filename, export_dir=export_dir
         )
 
         if export_mesh:
-            self.magnet_set.mesh_magnets()
+            self.magnet_set.mesh_magnets(**kwargs)
             self.magnet_set.export_mesh(
                 mesh_filename=mesh_filename, export_dir=export_dir
             )
@@ -303,29 +311,6 @@ class Stellarator(object):
                 (optional, defaults to empty string).
         """
         self.source_mesh.export_mesh(filename=filename, export_dir=export_dir)
-
-    def _import_ivb_step(self):
-        """Imports STEP files from in-vessel build into Coreform Cubit.
-        (Internal function not intended to be called externally)
-        """
-        for (
-            name,
-            data,
-        ) in self.invessel_build.radial_build.radial_build.items():
-            vol_id = cubit_io.import_step_cubit(
-                name, self.invessel_build.export_dir
-            )
-            data["vol_id"] = vol_id
-
-    def _import_magnets_step(self):
-        """Import STEP file for magnet set into Coreform Cubit.
-        (Internal function not intended to be called externally)
-        """
-        last_vol_id = cubit_io.import_step_cubit(
-            self.magnet_set.step_filename, self.magnet_set.export_dir
-        )
-
-        self.magnet_set.volume_ids = range(1, last_vol_id + 1)
 
     def _tag_materials_legacy(self):
         """Applies material tags to corresponding CAD volumes for legacy DAGMC
@@ -382,16 +367,17 @@ class Stellarator(object):
             "Building DAGMC neutronics model via Coreform Cubit..."
         )
 
+        # Ensure fresh Cubit instance
         if cubit_io.initialized:
             cubit.cmd("new")
         else:
             cubit_io.init_cubit()
 
         if self.invessel_build:
-            self._import_ivb_step()
+            self.invessel_build.import_step_cubit()
 
         if self.magnet_set:
-            self._import_magnets_step()
+            self.magnet_set.import_step_cubit()
 
         if skip_imprint:
             self.invessel_build.merge_layer_surfaces()

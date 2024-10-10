@@ -79,7 +79,7 @@ def export_cub5(filename, export_dir=""):
     cubit.cmd(f'save cub5 "{export_path}" overwrite')
 
 
-def export_mesh_cubit(filename, export_dir=""):
+def export_mesh_cubit(filename, export_dir="", delete_upon_export=True):
     """Exports Cubit mesh to H5M file format, first exporting to Exodus format
     via Coreform Cubit and converting to H5M via MOAB.
 
@@ -87,6 +87,8 @@ def export_mesh_cubit(filename, export_dir=""):
         filename (str): name of H5M output file, excluding '.h5m' extension.
         export_dir (str): directory to which to export the H5M output file
             (defaults to empty string).
+        delete_upon_export (bool): delete the mesh from the Cubit instance
+            after exporting. Prevents inclusion of mesh in future exports.
     """
     init_cubit()
 
@@ -96,6 +98,11 @@ def export_mesh_cubit(filename, export_dir=""):
     cubit.cmd(f'export mesh "{exo_path}" overwrite')
     subprocess.run(f"mbconvert {exo_path} {h5m_path}", shell=True)
     Path.unlink(exo_path)
+
+    # Delete any meshes present to prevent inclusion in future Cubit mesh
+    # exports
+    if delete_upon_export:
+        cubit.cmd(f"delete mesh volume all propagate")
 
 
 def export_dagmc_cubit_legacy(
@@ -151,6 +158,7 @@ def export_dagmc_cubit_native(
     deviation_angle=5.0,
     filename="dagmc",
     export_dir="",
+    delete_upon_export=True,
 ):
     """Exports DAGMC neutronics H5M file of ParaStell components via native
     faceting method for Coreform Cubit.
@@ -165,6 +173,8 @@ def export_dagmc_cubit_native(
             (defaults to 'dagmc').
         export_dir (str): directory to which to export the DAGMC output file
             (defaults to empty string).
+        delete_upon_export (bool): delete the mesh from the Cubit instance
+            after exporting. Prevents inclusion of mesh in future exports.
     """
     init_cubit()
 
@@ -177,3 +187,8 @@ def export_dagmc_cubit_native(
 
     export_path = Path(export_dir) / Path(filename).with_suffix(".h5m")
     cubit.cmd(f'export cf_dagmc "{export_path}" overwrite')
+
+    # Delete any meshes present to prevent inclusion in future Cubit mesh
+    # exports
+    if delete_upon_export:
+        cubit.cmd(f"delete mesh volume all propagate")

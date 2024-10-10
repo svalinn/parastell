@@ -67,6 +67,8 @@ def test_magnet_construction(coil_set):
 
 def test_magnet_exports(coil_set):
 
+    volume_ids_exp = list(range(1, 2))
+
     remove_files()
 
     coil_set.populate_magnet_coils()
@@ -75,6 +77,8 @@ def test_magnet_exports(coil_set):
     assert Path("magnet_set.step").exists()
 
     coil_set.mesh_magnets()
+    assert coil_set.volume_ids == volume_ids_exp
+
     coil_set.export_mesh()
     assert Path("magnet_mesh.h5m").exists()
 
