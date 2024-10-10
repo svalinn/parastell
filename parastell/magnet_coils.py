@@ -240,10 +240,9 @@ class MagnetSet(object):
 
     def import_step_cubit(self):
         """Import STEP file for magnet set into Coreform Cubit."""
+        first_vol_id = 1
         if cubit_io.initialized:
-            first_vol_id = cubit.get_last_id("volume") + 1
-        else:
-            first_vol_id = 1
+            first_vol_id += cubit.get_last_id("volume")
 
         last_vol_id = cubit_io.import_step_cubit(
             self.step_filename, self.export_dir
