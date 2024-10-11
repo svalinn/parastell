@@ -22,7 +22,9 @@ def source_mesh():
 
     vmec_obj = read_vmec.VMECData(vmec_file)
 
-    mesh_size = (4, 8, 4)
+    # Set mesh size to minimum that maintains element aspect ratios that do not
+    # result in negative volumes
+    mesh_size = (3, 31, 31)
     toroidal_extent = 90.0
 
     source_mesh_obj = sm.SourceMesh(vmec_obj, mesh_size, toroidal_extent)
@@ -64,6 +66,20 @@ def test_vertices(source_mesh):
     assert source_mesh.coords.shape == (num_verts_exp, 3)
     assert source_mesh.coords_s.shape == (num_verts_exp,)
     assert len(source_mesh.verts) == num_verts_exp
+
+    remove_files()
+
+
+def test_mesh_generation(source_mesh):
+
+    count_neg_vols_exp = 0
+
+    remove_files()
+
+    source_mesh.create_vertices()
+    source_mesh.create_mesh()
+
+    assert len([i for i in source_mesh.volumes if i < 0]) == count_neg_vols_exp
 
     remove_files()
 
