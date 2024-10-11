@@ -24,7 +24,7 @@ def source_mesh():
 
     # Set mesh size to minimum that maintains element aspect ratios that do not
     # result in negative volumes
-    mesh_size = (3, 31, 31)
+    mesh_size = (6, 41, 51)
     toroidal_extent = 90.0
 
     source_mesh_obj = sm.SourceMesh(vmec_obj, mesh_size, toroidal_extent)
@@ -34,9 +34,9 @@ def source_mesh():
 
 def test_mesh_basics(source_mesh):
 
-    num_s_exp = 3
-    num_theta_exp = 31
-    num_phi_exp = 31
+    num_s_exp = 6
+    num_theta_exp = 41
+    num_phi_exp = 51
     tor_ext_exp = 90.0
     scale_exp = 100
 
@@ -53,9 +53,9 @@ def test_mesh_basics(source_mesh):
 
 def test_vertices(source_mesh):
 
-    num_s = 3
-    num_theta = 31
-    num_phi = 31
+    num_s = 6
+    num_theta = 41
+    num_phi = 51
 
     num_verts_exp = num_phi * ((num_s - 1) * (num_theta - 1) + 1)
 
@@ -72,9 +72,9 @@ def test_vertices(source_mesh):
 
 def test_mesh_generation(source_mesh):
 
-    num_s = 3
-    num_theta = 31
-    num_phi = 31
+    num_s = 6
+    num_theta = 41
+    num_phi = 51
 
     tets_per_wedge = 3
     tets_per_hex = 5
