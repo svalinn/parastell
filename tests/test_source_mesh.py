@@ -72,14 +72,25 @@ def test_vertices(source_mesh):
 
 def test_mesh_generation(source_mesh):
 
-    count_neg_vols_exp = 0
+    num_s = 3
+    num_theta = 31
+    num_phi = 31
+
+    tets_per_wedge = 3
+    tets_per_hex = 5
+
+    num_elements_exp = tets_per_wedge * (num_theta - 1) * (
+        num_phi - 1
+    ) + tets_per_hex * (num_s - 2) * (num_theta - 1) * (num_phi - 1)
+    num_neg_vols_exp = 0
 
     remove_files()
 
     source_mesh.create_vertices()
     source_mesh.create_mesh()
 
-    assert len([i for i in source_mesh.volumes if i < 0]) == count_neg_vols_exp
+    assert len(source_mesh.volumes) == num_elements_exp
+    assert len([i for i in source_mesh.volumes if i < 0]) == num_neg_vols_exp
 
     remove_files()
 
