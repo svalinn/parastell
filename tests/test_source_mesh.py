@@ -34,9 +34,9 @@ def source_mesh():
 
 def test_mesh_basics(source_mesh):
 
-    num_s_exp = 4
-    num_theta_exp = 8
-    num_phi_exp = 4
+    num_s_exp = 3
+    num_theta_exp = 31
+    num_phi_exp = 31
     tor_ext_exp = 90.0
     scale_exp = 100
 
@@ -53,9 +53,9 @@ def test_mesh_basics(source_mesh):
 
 def test_vertices(source_mesh):
 
-    num_s = 4
-    num_theta = 8
-    num_phi = 4
+    num_s = 3
+    num_theta = 31
+    num_phi = 31
 
     num_verts_exp = num_phi * ((num_s - 1) * (num_theta - 1) + 1)
 
