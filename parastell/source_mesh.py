@@ -129,6 +129,7 @@ class SourceMesh(object):
             self.__setattr__(name, kwargs[name])
 
         self.strengths = []
+        self.volumes = []
 
         self._create_mbc()
 
@@ -155,19 +156,29 @@ class SourceMesh(object):
     def _create_mbc(self):
         """Creates PyMOAB core instance with source strength tag.
         (Internal function not intended to be called externally)
-
-        Returns:
-            mbc (object): PyMOAB core instance.
-            tag_handle (TagHandle): PyMOAB source strength tag.
         """
         self.mbc = core.Core()
 
         tag_type = types.MB_TYPE_DOUBLE
         tag_size = 1
         storage_type = types.MB_TAG_DENSE
-        tag_name = "SourceStrength"
-        self.tag_handle = self.mbc.tag_get_handle(
-            tag_name, tag_size, tag_type, storage_type, create_if_missing=True
+
+        ss_tag_name = "Source Strength"
+        self.source_strength_tag = self.mbc.tag_get_handle(
+            ss_tag_name,
+            tag_size,
+            tag_type,
+            storage_type,
+            create_if_missing=True,
+        )
+
+        vol_tag_name = "Volume"
+        self.volume_tag = self.mbc.tag_get_handle(
+            vol_tag_name,
+            tag_size,
+            tag_type,
+            storage_type,
+            create_if_missing=True,
         )
 
     def create_vertices(self):
@@ -265,11 +276,11 @@ class SourceMesh(object):
         # Compute edge vectors between tetrahedron vertices
         edge_vectors = np.subtract(tet_coords[:3], tet_coords[3]).T
 
-        tet_vol = np.abs(np.linalg.det(edge_vectors)) / 6
+        tet_vol = -np.linalg.det(edge_vectors) / 6
 
-        ss = tet_vol * np.dot(int_w, ss_int_pts)
+        ss = np.abs(tet_vol) * np.dot(int_w, ss_int_pts)
 
-        return ss
+        return ss, tet_vol
 
     def _create_tet(self, tet_ids):
         """Creates tetrahedron and adds to pyMOAB core.
@@ -284,11 +295,13 @@ class SourceMesh(object):
         self.mbc.add_entity(self.mesh_set, tet)
 
         # Compute source strength for tetrahedron
-        ss = self._source_strength(tet_ids)
+        ss, vol = self._source_strength(tet_ids)
         self.strengths.append(ss)
+        self.volumes.append(vol)
 
-        # Tag tetrahedra with source strength data
-        self.mbc.tag_set_data(self.tag_handle, tet, [ss])
+        # Tag tetrahedra with data
+        self.mbc.tag_set_data(self.source_strength_tag, tet, [ss])
+        self.mbc.tag_set_data(self.volume_tag, tet, [vol])
 
     def _get_vertex_id(self, vertex_idx):
         """Computes vertex index in row-major order as stored by MOAB from
@@ -356,12 +369,18 @@ class SourceMesh(object):
         ]
 
         # Define MOAB canonical ordering of hexahedron vertex indices
+        # Ordering follows right hand rule such that the fingers curl around
+        # one side of the tetrahedron and the thumb points to the remaining
+        # vertex. The vertices are ordered such that those on the side are
+        # first, ordered clockwise relative to the thumb, followed by the
+        # remaining vertex at the end of the thumb.
+        # See Moreno, Bader, Wilson 2024 for hexahedron splitting
         hex_canon_ids = [
-            [idx_list[0], idx_list[3], idx_list[1], idx_list[4]],
-            [idx_list[7], idx_list[4], idx_list[6], idx_list[3]],
-            [idx_list[2], idx_list[1], idx_list[3], idx_list[6]],
-            [idx_list[5], idx_list[6], idx_list[4], idx_list[1]],
-            [idx_list[3], idx_list[1], idx_list[4], idx_list[6]],
+            [idx_list[0], idx_list[2], idx_list[1], idx_list[5]],
+            [idx_list[0], idx_list[3], idx_list[2], idx_list[7]],
+            [idx_list[0], idx_list[7], idx_list[5], idx_list[4]],
+            [idx_list[7], idx_list[2], idx_list[5], idx_list[6]],
+            [idx_list[0], idx_list[2], idx_list[5], idx_list[7]],
         ]
 
         for vertex_ids in hex_canon_ids:
@@ -395,10 +414,16 @@ class SourceMesh(object):
         ]
 
         # Define MOAB canonical ordering of wedge vertex indices
+        # Ordering follows right hand rule such that the fingers curl around
+        # one side of the tetrahedron and the thumb points to the remaining
+        # vertex. The vertices are ordered such that those on the side are
+        # first, ordered clockwise relative to the thumb, followed by the
+        # remaining vertex at the end of the thumb.
+        # See Moreno, Bader, Wilson 2024 for wedge splitting
         wedge_canon_ids = [
-            [idx_list[1], idx_list[2], idx_list[4], idx_list[0]],
-            [idx_list[5], idx_list[4], idx_list[2], idx_list[3]],
-            [idx_list[0], idx_list[2], idx_list[4], idx_list[3]],
+            [idx_list[0], idx_list[2], idx_list[1], idx_list[3]],
+            [idx_list[3], idx_list[2], idx_list[4], idx_list[5]],
+            [idx_list[3], idx_list[2], idx_list[1], idx_list[4]],
         ]
 
         for vertex_ids in wedge_canon_ids:
