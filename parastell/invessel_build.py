@@ -316,11 +316,21 @@ class InVesselBuild(object):
             )
             cq.exporters.export(component, str(export_path))
 
-    def export_cad_to_dagmc(self, dagmc_filename="dagmc", export_dir=""):
+    def export_cad_to_dagmc(
+        self,
+        min_mesh_size=1,
+        max_mesh_size=5,
+        dagmc_filename="dagmc",
+        export_dir="",
+    ):
         """Exports DAGMC neutronics H5M file of ParaStell in-vessel components
         via CAD-to-DAGMC.
 
         Arguments:
+            min_mesh_size (float): minimum size of mesh elements [cm] (defaults
+                to 1.0).
+            max_mesh_size (float): maximum size of mesh elements [cm] (defaults
+                to 5.0).
             dagmc_filename (str): name of DAGMC output file, excluding '.h5m'
                 extension (optional, defaults to 'dagmc').
             export_dir (str): directory to which to export the DAGMC output file
@@ -344,7 +354,11 @@ class InVesselBuild(object):
             ".h5m"
         )
 
-        model.export_dagmc_h5m_file(filename=str(export_path))
+        model.export_dagmc_h5m_file(
+            filename=str(export_path),
+            min_mesh_size=min_mesh_size,
+            max_mesh_size=max_mesh_size,
+        )
 
 
 class Surface(object):
