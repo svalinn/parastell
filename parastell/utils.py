@@ -138,7 +138,7 @@ def filter_kwargs(
 
 
 def normalize(vec_list):
-    """Normalizes an array. Input must be a 1-D, 2-D, or 3-D array.
+    """Normalizes a NumPy array. Input must be a 1-D, 2-D, or 3-D array.
 
     Arguments:
         vec_list (iterable of float): array to be normalized.
