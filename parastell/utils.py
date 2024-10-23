@@ -138,21 +138,22 @@ def filter_kwargs(
 
 
 def normalize(vec_list):
-    """Normalizes a set of vectors.
+    """Normalizes an array. Input must be a 1-D, 2-D, or 3-D array.
 
     Arguments:
-        vec_list (1 or 2D np array): single 1D vector or array of 1D vectors
-            to be normalized
+        vec_list (iterable of float): array to be normalized.
+
     Returns:
-        vec_list (np array of same shape as input): single 1D normalized vector
-            or array of normalized 1D vectors
+        vec_list (iterable of float): normalized array.
     """
     if len(vec_list.shape) == 1:
         return vec_list / np.linalg.norm(vec_list)
     elif len(vec_list.shape) == 2:
         return vec_list / np.linalg.norm(vec_list, axis=1)[:, np.newaxis]
+    elif len(vec_list.shape) == 3:
+        return vec_list / np.linalg.norm(vec_list, axis=2)[:, :, np.newaxis]
     else:
-        print('Input "vec_list" must be 1-D or 2-D NumPy array')
+        print("Input must be a 1-D, 2-D, or 3-D array")
 
 
 def read_yaml_config(filename):
