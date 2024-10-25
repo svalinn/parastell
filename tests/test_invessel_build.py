@@ -49,9 +49,11 @@ def invessel_build(radial_build):
 
     vmec_file = Path("files_for_tests") / "wout_vmec.nc"
     vmec = read_vmec.VMECData(vmec_file)
-    num_ribs = 11
+    toroidal_grid_size = 11
 
-    ivb_obj = ivb.InVesselBuild(vmec, radial_build, num_ribs=num_ribs)
+    ivb_obj = ivb.InVesselBuild(
+        vmec, radial_build, toroidal_grid_size=toroidal_grid_size
+    )
 
     return ivb_obj
 
@@ -62,9 +64,8 @@ def test_ivb_basics(invessel_build):
     poloidal_angles_exp = [0.0, 120.0, 240.0, 360.0]
     num_components_exp = 2
     wall_s_exp = 1.08
-    repeat_exp = 0
-    num_ribs_exp = 11
-    num_rib_pts_exp = 67
+    toroidal_grid_size_exp = 11
+    poloidal_grid_size_exp = 61
     scale_exp = 100
     chamber_mat_tag_exp = "Vacuum"
 
@@ -87,9 +88,8 @@ def test_ivb_basics(invessel_build):
         invessel_build.radial_build.radial_build["chamber"]["mat_tag"]
         == chamber_mat_tag_exp
     )
-    assert invessel_build.repeat == repeat_exp
-    assert invessel_build.num_ribs == num_ribs_exp
-    assert invessel_build.num_rib_pts == num_rib_pts_exp
+    assert invessel_build.toroidal_grid_size == toroidal_grid_size_exp
+    assert invessel_build.poloidal_grid_size == poloidal_grid_size_exp
     assert invessel_build.scale == scale_exp
 
     remove_files()
@@ -106,11 +106,11 @@ def test_ivb_construction(invessel_build):
     invessel_build.calculate_loci()
     invessel_build.generate_components()
 
-    rib_loci = invessel_build.Surfaces["component"].get_loci()[0]
+    pt_loci = invessel_build.Surfaces["component"].surface_loci[0]
 
     assert len(invessel_build.Components) == num_components_exp
-    assert len(rib_loci[0]) == len_loci_pt_exp
-    assert isinstance(rib_loci[0][0], float)
+    assert len(pt_loci[0]) == len_loci_pt_exp
+    assert isinstance(pt_loci[0][0], float)
 
     remove_files()
 
