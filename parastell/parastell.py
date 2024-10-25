@@ -137,17 +137,19 @@ class Stellarator(object):
             sol_mat_tag (str): alternate DAGMC material tag to use for
                 scrape-off layer. If none is supplied, 'Vacuum' will be used
                 (defaults to None).
-            repeat (int): number of times to repeat build segment for full model
-                (defaults to 0).
-            num_ribs (int): total number of ribs over which to loft for each
-                build segment (defaults to 61). Ribs are set at toroidal angles
-                interpolated between those specified in 'toroidal_angles' if
-                this value is greater than the number of entries in
-                'toroidal_angles'.
-            num_rib_pts (int): total number of points defining each rib spline
-                (defaults to 61). Points are set at poloidal angles interpolated
-                between those specified in 'poloidal_angles' if this value is
-                greater than the number of entries in 'poloidal_angles'.
+            toroidal_grid_size (int): number of toroidal angle grid points
+                defining point clouds over which spline surfaces are fit. If
+                this value is greater than the length of "toroidal_angles",
+                additional grid points are set at toroidal angles interpolated
+                between those specified in "toroidal_angles".
+            poloidal_grid_size (int): number of poloidal angle grid points
+                defining point clouds over which spline surfaces are fit. If
+                this value is greater than the length of "poloidal_angles",
+                additional grid points are set at poloidal angles interpolated
+                between those specified in "poloidal_angles".
+            transpose_fit (bool): flag to indicate whether the 2-D iterable of
+                points through which each component's spline surface is fit
+                should be transposed. Can sometimes fix errant CAD generation.
             scale (float): a scaling factor between the units of VMEC and [cm]
                 (defaults to m2cm = 100).
         """

@@ -60,14 +60,14 @@ def test_parastell(stellarator):
             * 10
         }
     }
-    num_ribs = 11
+    toroidal_grid_size = 11
 
     stellarator.construct_invessel_build(
         toroidal_angles,
         poloidal_angles,
         wall_s,
         radial_build_dict,
-        num_ribs=num_ribs,
+        toroidal_grid_size=toroidal_grid_size,
     )
 
     chamber_filename_exp = Path("chamber").with_suffix(".step")

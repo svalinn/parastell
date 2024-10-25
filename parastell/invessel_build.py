@@ -492,12 +492,13 @@ class Surface(object):
         set of points computed by calculate_loci.
         """
         if not self.surface:
-            vectors = [
-                [cq.Vector(tuple(pt)) for pt in profile]
-                for profile in self.surface_loci
-            ]
             if self.transpose_fit:
-                vectors = list(map(list, zip(*vectors)))
+                self.surface_loci = np.transpose(self.surface_loci, (1, 0, 2))
+
+            vectors = [
+                [cq.Vector(tuple(pt)) for pt in grid_row]
+                for grid_row in self.surface_loci
+            ]
 
             self.surface = cq.Face.makeSplineApprox(
                 vectors,

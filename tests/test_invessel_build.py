@@ -2,12 +2,9 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-
-# import this before read_vmec to deal with conflicting
-# dependencies correctly
-import parastell.invessel_build as ivb
-
 import pystell.read_vmec as read_vmec
+
+import parastell.invessel_build as ivb
 
 
 def remove_files():
@@ -52,7 +49,10 @@ def invessel_build(radial_build):
     toroidal_grid_size = 11
 
     ivb_obj = ivb.InVesselBuild(
-        vmec, radial_build, toroidal_grid_size=toroidal_grid_size
+        vmec,
+        radial_build,
+        toroidal_grid_size=toroidal_grid_size,
+        transpose_fit=True,
     )
 
     return ivb_obj
