@@ -1,6 +1,7 @@
 import argparse
 from pathlib import Path
 
+import math
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
 
@@ -75,16 +76,19 @@ class InVesselBuild(object):
             logger is supplied, a default logger will be instantiated.
 
     Optional attributes:
-        repeat (int): number of times to repeat build segment for full model
-            (defaults to 0).
-        num_ribs (int): total number of ribs over which to loft for each build
-            segment (defaults to 61). Ribs are set at toroidal angles
-            interpolated between those specified in 'toroidal_angles' if this
-            value is greater than the number of entries in 'toroidal_angles'.
-        num_rib_pts (int): total number of points defining each rib spline
-            (defaults to 67). Points are set at poloidal angles interpolated
-            between those specified in 'poloidal_angles' if this value is
-            greater than the number of entries in 'poloidal_angles'.
+        toroidal_grid_size (int): number of toroidal angle grid points defining
+            point clouds over which spline surfaces are fit. If this value is
+            greater than the length of "toroidal_angles", additional grid
+            points are set at toroidal angles interpolated between those
+            specified in "toroidal_angles".
+        poloidal_grid_size (int): number of poloidal angle grid points defining
+            point clouds over which spline surfaces are fit. If this value is
+            greater than the length of "poloidal_angles", additional grid
+            points are set at poloidal angles interpolated between those
+            specified in "poloidal_angles".
+        transpose_fit (bool): flag to indicate whether the 2-D iterable of
+            points through which each component's spline surface is fit should
+            be transposed. Can sometimes fix errant CAD generation.
         scale (float): a scaling factor between the units of VMEC and [cm]
             (defaults to m2cm = 100).
     """
@@ -95,15 +99,15 @@ class InVesselBuild(object):
         self.vmec_obj = vmec_obj
         self.radial_build = radial_build
 
-        self.repeat = 0
-        self.num_ribs = 61
-        self.num_rib_pts = 67
+        self.toroidal_grid_size = 61
+        self.poloidal_grid_size = 61
+        self.transpose_fit = False
         self.scale = m2cm
 
         for name in kwargs.keys() & (
-            "repeat",
-            "num_ribs",
-            "num_rib_pts",
+            "toroidal_grid_size",
+            "poloidal_grid_size",
+            "transpose_fit",
             "scale",
         ):
             self.__setattr__(name, kwargs[name])
@@ -126,22 +130,6 @@ class InVesselBuild(object):
     @logger.setter
     def logger(self, logger_object):
         self._logger = log.check_init(logger_object)
-
-    @property
-    def repeat(self):
-        return self._repeat
-
-    @repeat.setter
-    def repeat(self, num):
-        self._repeat = num
-        if (self._repeat + 1) * self.radial_build.toroidal_angles[-1] > 360.0:
-            e = AssertionError(
-                "Total toroidal extent requested with repeated geometry "
-                'exceeds 360 degrees. Please examine the "repeat" parameter '
-                'and the "toroidal_angles" parameter of "radial_build".'
-            )
-            self._logger.error(e.args[0])
-            raise e
 
     def _interpolate_offset_matrix(self, offset_mat):
         """Interpolates total offset for expanded angle lists using cubic spline
@@ -183,10 +171,14 @@ class InVesselBuild(object):
         )
 
         self._toroidal_angles_exp = np.deg2rad(
-            expand_list(self.radial_build.toroidal_angles, self.num_ribs)
+            expand_list(
+                self.radial_build.toroidal_angles, self.toroidal_grid_size
+            )
         )
         self._poloidal_angles_exp = np.deg2rad(
-            expand_list(self.radial_build.poloidal_angles, self.num_rib_pts)
+            expand_list(
+                self.radial_build.poloidal_angles, self.poloidal_grid_size
+            )
         )
 
         offset_mat = np.zeros(
@@ -213,10 +205,9 @@ class InVesselBuild(object):
                 self._poloidal_angles_exp,
                 self._toroidal_angles_exp,
                 interpolated_offset_mat,
+                self.transpose_fit,
                 self.scale,
             )
-
-        [surface.populate_ribs() for surface in self.Surfaces.values()]
 
     def calculate_loci(self):
         """Calls calculate_loci method in Surface class for each component
@@ -226,39 +217,71 @@ class InVesselBuild(object):
 
         [surface.calculate_loci() for surface in self.Surfaces.values()]
 
+    def _check_edge(self, edge):
+        """Checks a CadQuery edge to determine if the its center of mass is
+        located at either end of the stellarator build.
+        (Internal function not intended to be called externally)
+
+        Arguments:
+            edge (object): CadQuery.Edge object.
+
+        Returns:
+            (bool): flag to indicate whether edge is located at either end of
+                stellarator build.
+        """
+        x = edge.Center().x
+        y = edge.Center().y
+
+        toroidal_angle = np.arctan2(y, x)
+        """if self.radial_build.toroidal_angles[0] >= 0.0:
+            toroidal_angle = (toroidal_angle + 2 * np.pi) % (2 * np.pi)"""
+        toroidal_angle = np.rad2deg(toroidal_angle)
+
+        toroidal_extent = [
+            self.radial_build.toroidal_angles[0],
+            self.radial_build.toroidal_angles[-1],
+        ]
+
+        return np.any(np.isclose(toroidal_extent, toroidal_angle))
+
     def generate_components(self):
         """Constructs a CAD solid for each component specified in the radial
-        build by cutting the interior surface solid from the outer surface
-        solid for a given component.
+        build by combining each component's outer surface with that of the
+        component interior to it.
         """
         self._logger.info(
             "Constructing CadQuery objects for in-vessel components..."
         )
 
-        interior_surface = None
-
-        segment_angles = np.linspace(
-            self.radial_build.toroidal_angles[-1],
-            self._repeat * self.radial_build.toroidal_angles[-1],
-            num=self._repeat,
-        )
+        inner_surface = None
 
         for name, surface in self.Surfaces.items():
             outer_surface = surface.generate_surface()
+            edge_list = [
+                edge
+                for edge in outer_surface.Edges()
+                if self._check_edge(edge)
+            ]
+            wire_list = [cq.Wire.assembleEdges([edge]) for edge in edge_list]
 
-            if interior_surface is not None:
-                segment = outer_surface.cut(interior_surface)
+            if inner_surface:
+                face_list = [
+                    cq.Face.makeFromWires(wire, innerWires=[inner_wire])
+                    for wire, inner_wire in zip(wire_list, inner_wire_list)
+                ]
+                face_list.append(inner_surface)
+
             else:
-                segment = outer_surface
+                face_list = [cq.Face.makeFromWires(wire) for wire in wire_list]
 
-            component = segment
+            face_list.append(outer_surface)
+            shell = cq.Shell.makeShell(face_list)
+            solid = cq.Solid.makeSolid(shell)
 
-            for angle in segment_angles:
-                rot_segment = segment.rotate((0, 0, 0), (0, 0, 1), angle)
-                component = component.fuse(rot_segment)
+            self.Components[name] = solid
 
-            self.Components[name] = component
-            interior_surface = outer_surface
+            inner_wire_list = wire_list
+            inner_surface = outer_surface
 
     def get_loci(self):
         """Returns the set of point-loci defining the outer surfaces of the
@@ -318,8 +341,8 @@ class InVesselBuild(object):
 
     def export_cad_to_dagmc(
         self,
-        min_mesh_size=1,
-        max_mesh_size=5,
+        min_mesh_size=10,
+        max_mesh_size=50,
         dagmc_filename="dagmc",
         export_dir="",
     ):
@@ -362,9 +385,9 @@ class InVesselBuild(object):
 
 
 class Surface(object):
-    """An object representing a surface formed by lofting across a set of
-    "ribs" located at different toroidal planes and offset from a reference
-    surface.
+    """An object representing a surface formed by approximating a spline
+    surface through a set of points defined by a toroidal angle, poloidal angle
+    grid and offset from a reference surface.
 
     Arguments:
         vmec_obj (object): plasma equilibrium VMEC object as defined by the
@@ -374,92 +397,41 @@ class Surface(object):
             toroidal angle, phi.
         s (float): the normalized closed flux surface label defining the point
             of reference for offset.
-        theta_list (np.array(double)): the set of poloidal angles specified for
-            each rib [rad].
-        phi_list (np.array(double)): the set of toroidal angles defining the
-            plane in which each rib is located [rad].
+        poloidal_angles (array of float): poloidal angles adefining grid through
+            which the spline surface is approximated [deg]. This array should
+            always span exactly 360 degrees.
+        toroidal_angles (array of float): toroidal angles defining grid through
+            which the spline surface is approximated [deg]. This array should
+            never exceed 360 degrees.
         offset_mat (np.array(double)): the set of offsets from the surface
             defined by s for each toroidal angle, poloidal angle pair on the
             surface [cm].
+        transpose_fit (bool): flag to indicate whether the 2-D iterable of
+            points through which the spline surface is fit should be
+            transposed. Can sometimes fix errant CAD generation.
         scale (float): a scaling factor between the units of VMEC and [cm].
     """
 
-    def __init__(self, vmec_obj, s, theta_list, phi_list, offset_mat, scale):
+    def __init__(
+        self,
+        vmec_obj,
+        s,
+        poloidal_angles,
+        toroidal_angles,
+        offset_mat,
+        transpose_fit,
+        scale,
+    ):
 
         self.vmec_obj = vmec_obj
         self.s = s
-        self.theta_list = theta_list
-        self.phi_list = phi_list
+        self.poloidal_angles = poloidal_angles
+        self.toroidal_angles = toroidal_angles
         self.offset_mat = offset_mat
+        self.transpose_fit = transpose_fit
         self.scale = scale
 
         self.surface = None
-
-    def populate_ribs(self):
-        """Populates Rib class objects for each toroidal angle specified in
-        the surface.
-        """
-        self.Ribs = [
-            Rib(
-                self.vmec_obj,
-                self.s,
-                self.theta_list,
-                phi,
-                self.offset_mat[i, :],
-                self.scale,
-            )
-            for i, phi in enumerate(self.phi_list)
-        ]
-
-    def calculate_loci(self):
-        """Calls calculate_loci method in Rib class for each rib in the surface."""
-        [rib.calculate_loci() for rib in self.Ribs]
-
-    def generate_surface(self):
-        """Constructs a surface by lofting across a set of rib splines."""
-        if not self.surface:
-            self.surface = cq.Solid.makeLoft(
-                [rib.generate_rib() for rib in self.Ribs]
-            )
-
-        return self.surface
-
-    def get_loci(self):
-        """Returns the set of point-loci defining the ribs in the surface."""
-        return np.array([rib.rib_loci for rib in self.Ribs])
-
-
-class Rib(object):
-    """An object representing a curve formed by interpolating a spline through
-    a set of points located in the same toroidal plane but differing poloidal
-    angles and offset from a reference curve.
-
-    Arguments:
-        vmec_obj (object): plasma equilibrium VMEC object as defined by the
-            PyStell-UW VMEC reader. Must have a method
-            'vmec2xyz(s, theta, phi)' that returns an (x,y,z) coordinate for
-            any closed flux surface label, s, poloidal angle, theta, and
-            toroidal angle, phi.
-        s (float): the normalized closed flux surface label defining the point
-            of reference for offset.
-        phi (np.array(double)): the toroidal angle defining the plane in which
-            the rib is located [rad].
-        theta_list (np.array(double)): the set of poloidal angles specified for
-            the rib [rad].
-        offset_list (np.array(double)): the set of offsets from the curve
-            defined by s for each toroidal angle, poloidal angle pair in the rib
-            [cm].
-        scale (float): a scaling factor between the units of VMEC and [cm].
-    """
-
-    def __init__(self, vmec_obj, s, theta_list, phi, offset_list, scale):
-
-        self.vmec_obj = vmec_obj
-        self.s = s
-        self.theta_list = theta_list
-        self.phi = phi
-        self.offset_list = offset_list
-        self.scale = scale
 
     def _vmec2xyz(self, poloidal_offset=0):
         """Return an N x 3 NumPy array containing the Cartesian coordinates of
@@ -474,8 +446,11 @@ class Rib(object):
         """
         return self.scale * np.array(
             [
-                self.vmec_obj.vmec2xyz(self.s, theta, self.phi)
-                for theta in (self.theta_list + poloidal_offset)
+                [
+                    self.vmec_obj.vmec2xyz(self.s, theta, phi)
+                    for theta in (self.poloidal_angles + poloidal_offset)
+                ]
+                for phi in self.toroidal_angles
             ]
         )
 
@@ -485,38 +460,54 @@ class Rib(object):
         cross-product of that tangent with a vector defined as normal to the
         plane at this toroidal angle.
         (Internal function not intended to be called externally)
-
-        Arguments:
-            r_loci (np.array(double)): Cartesian point-loci of reference
-                surface rib [cm].
         """
         eps = 1e-4
-        next_pt_loci = self._vmec2xyz(eps)
+        perturbed_loci = self._vmec2xyz(eps)
 
-        tangent = next_pt_loci - self.rib_loci
+        tangents = perturbed_loci - self.surface_loci
 
-        plane_norm = np.array([-np.sin(self.phi), np.cos(self.phi), 0])
+        binormals = np.array(
+            [
+                -np.sin(self.toroidal_angles),
+                np.cos(self.toroidal_angles),
+                np.zeros(len(self.toroidal_angles)),
+            ]
+        ).T
 
-        norm = np.cross(plane_norm, tangent)
+        normals = np.cross(binormals[:, :, np.newaxis], tangents, axisa=1)
 
-        return normalize(norm)
+        return normalize(normals)
 
     def calculate_loci(self):
-        """Generates Cartesian point-loci for stellarator rib."""
-        self.rib_loci = self._vmec2xyz()
+        """Generates Cartesian point-loci for stellarator surface."""
+        self.surface_loci = self._vmec2xyz()
 
-        if not np.all(self.offset_list == 0):
-            self.rib_loci += self.offset_list[:, np.newaxis] * self._normals()
+        if not np.all(self.offset_mat == 0):
+            self.surface_loci += (
+                self.offset_mat[:, :, np.newaxis] * self._normals()
+            )
 
-    def generate_rib(self):
-        """Constructs component rib by constructing a spline connecting all
-        specified Cartesian point-loci.
+    def generate_surface(self):
+        """Constructs a surface by approximating a spline surface through the
+        set of points computed by calculate_loci.
         """
-        rib_loci = [cq.Vector(tuple(r)) for r in self.rib_loci]
-        spline = cq.Edge.makeSpline(rib_loci).close()
-        rib_spline = cq.Wire.assembleEdges([spline]).close()
+        if not self.surface:
+            vectors = [
+                [cq.Vector(tuple(pt)) for pt in profile]
+                for profile in self.surface_loci
+            ]
+            if self.transpose_fit:
+                vectors = list(map(list, zip(*vectors)))
 
-        return rib_spline
+            self.surface = cq.Face.makeSplineApprox(
+                vectors,
+                tol=1e-2,
+                minDeg=1,
+                maxDeg=6,
+                smoothing=(1, 1, 1),
+            )
+
+        return self.surface.clean()
 
 
 class RadialBuild(object):
@@ -527,12 +518,10 @@ class RadialBuild(object):
 
     Arguments:
         toroidal_angles (array of float): toroidal angles at which radial build
-            is specified. This list should always begin at 0.0 and it is
-            advised not to extend beyond one stellarator period. To build a
-            geometry that extends beyond one period, make use of the 'repeat'
-            parameter [deg].
-        poloidal_angles (array of float): poloidal angles at which radial build
-            is specified. This array should always span 360 degrees [deg].
+            is specified [deg]. This array should never exceed 360 degrees.
+        poloidal_angles (array of float): poloidal angles adefining grid through
+            which the spline surface is approximated [deg]. This array should
+            always span exactly 360 degrees.
         wall_s (float): closed flux surface label extrapolation at wall.
         radial_build (dict): dictionary representing the three-dimensional
             radial build of in-vessel components, including
@@ -609,15 +598,12 @@ class RadialBuild(object):
             self._logger.error(e.args[0])
             raise e
 
-        self._toroidal_angles = angle_list
-        if self._toroidal_angles[0] != 0.0:
-            e = ValueError("The first entry in toroidal_angles must be 0.0.")
-            self._logger.error(e.args[0])
-            raise e
-        if self._toroidal_angles[-1] > 360.0:
+        if angle_list[-1] - angle_list[0] > 360.0:
             e = ValueError("Toroidal extent cannot exceed 360.0 degrees.")
             self._logger.error(e.args[0])
             raise e
+
+        self._toroidal_angles = angle_list
 
     @property
     def poloidal_angles(self):
@@ -633,13 +619,14 @@ class RadialBuild(object):
             self._logger.error(e.args[0])
             raise e
 
-        self._poloidal_angles = angle_list
-        if self._poloidal_angles[-1] - self._poloidal_angles[0] > 360.0:
+        if angle_list[-1] - angle_list[0] != 360.0:
             e = AssertionError(
                 "Poloidal extent must span exactly 360.0 degrees."
             )
             self._logger.error(e.args[0])
             raise e
+
+        self._poloidal_angles = angle_list
 
     @property
     def wall_s(self):
