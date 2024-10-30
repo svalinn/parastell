@@ -65,6 +65,23 @@ def export_step_cubit(filename, export_dir=""):
     cubit.cmd(f'export step "{export_path}" overwrite')
 
 
+def import_cub5_cubit(filename, import_dir):
+    """Imports cub5 file with Coreform Cubit with default import settings.
+    Arguments:
+        filename (str): name of cub5 input file, excluding '.step' extension.
+        import_dir (str): directory from which to import cub5 file.
+    Returns:
+        vol_id (int): Cubit volume ID of imported CAD solid.
+    """
+    init_cubit()
+    import_path = Path(import_dir) / Path(filename).with_suffix(".cub5")
+    cubit.cmd(
+        f'import cubit "{import_path}" nofreesurfaces attributes_on separate_bodies'
+    )
+    vol_id = cubit.get_last_id("volume")
+    return vol_id
+
+
 def export_cub5(filename, export_dir=""):
     """Export cub5 representation of model (native Cubit format).
 
@@ -192,3 +209,22 @@ def export_dagmc_cubit_native(
     # exports
     if delete_upon_export:
         cubit.cmd(f"delete mesh volume all propagate")
+
+
+def cubit_importer(filename, import_dir=""):
+    """Attempts to open a geometry file with the appropriate cubit_io function,
+        based on file extension
+    Arguments:
+        filename (path): Path to file to import, including the suffix
+        import_dir (str): directory from which to import cub5 file.
+    Returns:
+        vol_id (int): Cubit volume ID of imported CAD solid.
+    """
+    importers = {
+        ".step": import_step_cubit,
+        ".stp": import_step_cubit,
+        ".cub5": import_cub5_cubit,
+    }
+    filename = Path(filename)
+    vol_id = importers[filename.suffix](filename, import_dir)
+    return vol_id
