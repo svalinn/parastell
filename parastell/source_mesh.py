@@ -375,13 +375,25 @@ class SourceMesh(object):
         # first, ordered clockwise relative to the thumb, followed by the
         # remaining vertex at the end of the thumb.
         # See Moreno, Bader, Wilson 2024 for hexahedron splitting
-        hex_canon_ids = [
-            [idx_list[0], idx_list[2], idx_list[1], idx_list[5]],
-            [idx_list[0], idx_list[3], idx_list[2], idx_list[7]],
-            [idx_list[0], idx_list[7], idx_list[5], idx_list[4]],
-            [idx_list[7], idx_list[2], idx_list[5], idx_list[6]],
-            [idx_list[0], idx_list[2], idx_list[5], idx_list[7]],
-        ]
+        # Conditionally alternate ordering of vertices defining hexahedron
+        # splitting to avoid gaps and overlaps between non-planar hexahedron
+        # faces
+        if self.alt_flag:
+            hex_canon_ids = [
+                [idx_list[0], idx_list[2], idx_list[1], idx_list[5]],
+                [idx_list[0], idx_list[3], idx_list[2], idx_list[7]],
+                [idx_list[0], idx_list[7], idx_list[5], idx_list[4]],
+                [idx_list[7], idx_list[2], idx_list[5], idx_list[6]],
+                [idx_list[0], idx_list[2], idx_list[5], idx_list[7]],
+            ]
+        else:
+            hex_canon_ids = [
+                [idx_list[0], idx_list[3], idx_list[1], idx_list[4]],
+                [idx_list[1], idx_list[3], idx_list[2], idx_list[6]],
+                [idx_list[1], idx_list[4], idx_list[6], idx_list[5]],
+                [idx_list[3], idx_list[6], idx_list[4], idx_list[7]],
+                [idx_list[1], idx_list[3], idx_list[6], idx_list[4]],
+            ]
 
         for vertex_ids in hex_canon_ids:
             self._create_tet(vertex_ids)
@@ -420,11 +432,20 @@ class SourceMesh(object):
         # first, ordered clockwise relative to the thumb, followed by the
         # remaining vertex at the end of the thumb.
         # See Moreno, Bader, Wilson 2024 for wedge splitting
-        wedge_canon_ids = [
-            [idx_list[0], idx_list[2], idx_list[1], idx_list[3]],
-            [idx_list[3], idx_list[2], idx_list[4], idx_list[5]],
-            [idx_list[3], idx_list[2], idx_list[1], idx_list[4]],
-        ]
+        # Conditionally alternate ordering of vertices defining wedge splitting
+        # to avoid gaps and overlaps between non-planar wedge faces
+        if self.alt_flag:
+            wedge_canon_ids = [
+                [idx_list[0], idx_list[2], idx_list[1], idx_list[3]],
+                [idx_list[1], idx_list[3], idx_list[5], idx_list[4]],
+                [idx_list[1], idx_list[3], idx_list[2], idx_list[5]],
+            ]
+        else:
+            wedge_canon_ids = [
+                [idx_list[0], idx_list[2], idx_list[1], idx_list[3]],
+                [idx_list[3], idx_list[2], idx_list[4], idx_list[5]],
+                [idx_list[3], idx_list[2], idx_list[1], idx_list[4]],
+            ]
 
         for vertex_ids in wedge_canon_ids:
             self._create_tet(vertex_ids)
@@ -437,14 +458,18 @@ class SourceMesh(object):
         self.mbc.add_entity(self.mesh_set, self.verts)
 
         for phi_idx in range(self.num_phi - 1):
+            # Set alternation flag to true at beginning of each toroidal block
+            self.alt_flag = True
             # Create tetrahedra for wedges at center of plasma
             for theta_idx in range(1, self.num_theta):
                 self._create_tets_from_wedge(theta_idx, phi_idx)
+                self.alt_flag = not self.alt_flag
 
             # Create tetrahedra for hexahedra beyond center of plasma
             for s_idx in range(self.num_s - 2):
                 for theta_idx in range(1, self.num_theta):
                     self._create_tets_from_hex(s_idx, theta_idx, phi_idx)
+                    self.alt_flag = not self.alt_flag
 
     def export_mesh(self, filename="source_mesh", export_dir=""):
         """Use PyMOAB interface to write source mesh with source strengths
