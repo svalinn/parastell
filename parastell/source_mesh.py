@@ -388,19 +388,19 @@ class SourceMesh(object):
         # avoid gaps and overlaps between non-planar hexahedron faces
         if alternate_scheme:
             hex_canon_ids = [
-                [idx_list[0], idx_list[2], idx_list[1], idx_list[5]],
-                [idx_list[0], idx_list[3], idx_list[2], idx_list[7]],
-                [idx_list[0], idx_list[7], idx_list[5], idx_list[4]],
-                [idx_list[7], idx_list[2], idx_list[5], idx_list[6]],
-                [idx_list[0], idx_list[2], idx_list[5], idx_list[7]],
-            ]
-        else:
-            hex_canon_ids = [
                 [idx_list[0], idx_list[3], idx_list[1], idx_list[4]],
                 [idx_list[1], idx_list[3], idx_list[2], idx_list[6]],
                 [idx_list[1], idx_list[4], idx_list[6], idx_list[5]],
                 [idx_list[3], idx_list[6], idx_list[4], idx_list[7]],
                 [idx_list[1], idx_list[3], idx_list[6], idx_list[4]],
+            ]
+        else:
+            hex_canon_ids = [
+                [idx_list[0], idx_list[2], idx_list[1], idx_list[5]],
+                [idx_list[0], idx_list[3], idx_list[2], idx_list[7]],
+                [idx_list[0], idx_list[7], idx_list[5], idx_list[4]],
+                [idx_list[7], idx_list[2], idx_list[5], idx_list[6]],
+                [idx_list[0], idx_list[2], idx_list[5], idx_list[7]],
             ]
 
         for vertex_ids in hex_canon_ids:
