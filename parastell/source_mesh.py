@@ -475,25 +475,37 @@ class SourceMesh(object):
         self.mesh_set = self.mbc.create_meshset()
         self.mbc.add_entity(self.mesh_set, self.verts)
 
+        # Initialize alternate scheme flag for adjacent toroidal blocks
+        toroidal_alt_scheme = False
+
         for phi_idx in range(self.num_phi - 1):
             # Initialize alternate scheme flag at beginning of each toroidal
             # block
-            alternate_scheme = False
+            alternate_scheme = toroidal_alt_scheme
+
             # Create tetrahedra for wedges at center of plasma
             for theta_idx in range(1, self.num_theta):
                 alternate_scheme = self._create_tets_from_wedge(
                     theta_idx, phi_idx, alternate_scheme
                 )
 
+            # Initialize alternate scheme flag for adjacent CFS blocks
+            cfs_alt_scheme = not toroidal_alt_scheme
+
             # Create tetrahedra for hexahedra beyond center of plasma
             for s_idx in range(self.num_s - 2):
                 # Initialize alternate scheme flag at beginning of each
                 # CFS block
-                alternate_scheme = False
+                alternate_scheme = cfs_alt_scheme
+
                 for theta_idx in range(1, self.num_theta):
                     alternate_scheme = self._create_tets_from_hex(
                         s_idx, theta_idx, phi_idx, alternate_scheme
                     )
+
+                cfs_alt_scheme = not cfs_alt_scheme
+
+            toroidal_alt_scheme = not toroidal_alt_scheme
 
     def export_mesh(self, filename="source_mesh", export_dir=""):
         """Use PyMOAB interface to write source mesh with source strengths
