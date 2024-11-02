@@ -337,12 +337,21 @@ class SourceMesh(object):
 
         return id
 
-    def _create_tets_from_hex(self, s_idx, theta_idx, phi_idx):
+    def _create_tets_from_hex(
+        self, s_idx, theta_idx, phi_idx, alternate_scheme
+    ):
         """Creates five tetrahedra from defined hexahedron.
         (Internal function not intended to be called externally)
 
         Arguments:
-            idx_list (list of int): list of hexahedron vertex indices.
+            s_idx (int): index defining location along CFS axis.
+            theta_idx (int): index defining location along poloidal angle axis.
+            phi_idx (int): index defining location along toroidal angle axis.
+            alternate_scheme (bool): flag indicating whether alternate
+                hexahedron division scheme should be used.
+
+        Returns:
+            alternate_scheme (bool): switched flag.
         """
 
         # relative offsets of vertices in a 3-D index space
@@ -375,10 +384,9 @@ class SourceMesh(object):
         # first, ordered clockwise relative to the thumb, followed by the
         # remaining vertex at the end of the thumb.
         # See Moreno, Bader, Wilson 2024 for hexahedron splitting
-        # Conditionally alternate ordering of vertices defining hexahedron
-        # splitting to avoid gaps and overlaps between non-planar hexahedron
-        # faces
-        if self.alt_flag:
+        # Conditionally use alternate scheme defining hexahedron splitting to
+        # avoid gaps and overlaps between non-planar hexahedron faces
+        if alternate_scheme:
             hex_canon_ids = [
                 [idx_list[0], idx_list[2], idx_list[1], idx_list[5]],
                 [idx_list[0], idx_list[3], idx_list[2], idx_list[7]],
@@ -398,12 +406,20 @@ class SourceMesh(object):
         for vertex_ids in hex_canon_ids:
             self._create_tet(vertex_ids)
 
-    def _create_tets_from_wedge(self, theta_idx, phi_idx):
+        return not alternate_scheme
+
+    def _create_tets_from_wedge(self, theta_idx, phi_idx, alternate_scheme):
         """Creates three tetrahedra from defined wedge.
         (Internal function not intended to be called externally)
 
         Arguments:
-            idx_list (list of int): list of wedge vertex indices.
+            theta_idx (int): index defining location along poloidal angle axis.
+            phi_idx (int): index defining location along toroidal angle axis.
+            alternate_scheme (bool): flag indicating whether alternate
+                hexahedron division scheme should be used.
+
+        Returns:
+            alternate_scheme (bool): switched flag.
         """
 
         # relative offsets of wedge vertices in a 3-D index space
@@ -434,7 +450,7 @@ class SourceMesh(object):
         # See Moreno, Bader, Wilson 2024 for wedge splitting
         # Conditionally alternate ordering of vertices defining wedge splitting
         # to avoid gaps and overlaps between non-planar wedge faces
-        if self.alt_flag:
+        if alternate_scheme:
             wedge_canon_ids = [
                 [idx_list[0], idx_list[2], idx_list[1], idx_list[3]],
                 [idx_list[1], idx_list[3], idx_list[5], idx_list[4]],
@@ -450,6 +466,8 @@ class SourceMesh(object):
         for vertex_ids in wedge_canon_ids:
             self._create_tet(vertex_ids)
 
+        return not alternate_scheme
+
     def create_mesh(self):
         """Creates volumetric source mesh in real space."""
         self._logger.info("Constructing source mesh...")
@@ -458,18 +476,24 @@ class SourceMesh(object):
         self.mbc.add_entity(self.mesh_set, self.verts)
 
         for phi_idx in range(self.num_phi - 1):
-            # Set alternation flag to true at beginning of each toroidal block
-            self.alt_flag = True
+            # Initialize alternate scheme flag at beginning of each toroidal
+            # block
+            alternate_scheme = False
             # Create tetrahedra for wedges at center of plasma
             for theta_idx in range(1, self.num_theta):
-                self._create_tets_from_wedge(theta_idx, phi_idx)
-                self.alt_flag = not self.alt_flag
+                alternate_scheme = self._create_tets_from_wedge(
+                    theta_idx, phi_idx, alternate_scheme
+                )
 
             # Create tetrahedra for hexahedra beyond center of plasma
             for s_idx in range(self.num_s - 2):
+                # Initialize alternate scheme flag at beginning of each
+                # CFS block
+                alternate_scheme = False
                 for theta_idx in range(1, self.num_theta):
-                    self._create_tets_from_hex(s_idx, theta_idx, phi_idx)
-                    self.alt_flag = not self.alt_flag
+                    alternate_scheme = self._create_tets_from_hex(
+                        s_idx, theta_idx, phi_idx, alternate_scheme
+                    )
 
     def export_mesh(self, filename="source_mesh", export_dir=""):
         """Use PyMOAB interface to write source mesh with source strengths
