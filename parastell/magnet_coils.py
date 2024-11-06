@@ -14,7 +14,81 @@ export_allowed_kwargs = ["step_filename", "export_mesh", "mesh_filename"]
 
 
 class MagnetSet(object):
-    """An object representing a set of modular stellarator magnet coils.
+    """A minimum viable class which can be used to build a DAGMC model with
+    parastell utilizing pre-defined geometry
+
+    Arguments:
+        geom_filename (path): Path to the predefined magnet geometry
+
+    Optional Attributes
+    mat_tag (str): DAGMC material tag to use for magnets in DAGMC
+        neutronics model (defaults to 'magnets').
+    """
+
+    def __init__(self, geom_filename, **kwargs):
+        geom_path = Path(geom_filename).resolve()
+        self.geom_filename = geom_path.name
+        self.export_dir = geom_path.parent
+        self.mat_tag = "magnets"
+        for name in kwargs.keys() & ("mat_tag"):
+            self.__setattr__(name, kwargs[name])
+
+    def import_step_cubit(self):
+        """Import STEP file for magnet set into Coreform Cubit."""
+        first_vol_id = 1
+        if cubit_io.initialized:
+            first_vol_id += cubit.get_last_id("volume")
+
+        # TODO cubit importer
+        last_vol_id = cubit_io.import_step_cubit(
+            self.geom_filename, self.export_dir
+        )
+
+        self.volume_ids = list(range(first_vol_id, last_vol_id + 1))
+
+    def mesh_magnets(self, min_size=20.0, max_size=50.0, max_gradient=1.5):
+        """Creates tetrahedral mesh of magnet volumes via Coreform Cubit.
+
+        Arguments:
+            min_size (float): minimum size of mesh elements (defaults to 20.0).
+            max_size (float): maximum size of mesh elements (defaults to 50.0).
+            max_gradient (float): maximum transition in mesh element size
+                (defaults to 1.5).
+        """
+        self._logger.info("Generating tetrahedral mesh of magnet coils...")
+
+        if not hasattr(self, "volume_ids"):
+            self.import_step_cubit()
+
+        volume_ids_str = " ".join(str(id) for id in self.volume_ids)
+        cubit.cmd(f"volume {volume_ids_str} scheme tetmesh")
+        cubit.cmd(
+            f"volume {volume_ids_str} sizing function type skeleton min_size "
+            f"{min_size} max_size {max_size} max_gradient {max_gradient} "
+            "min_num_layers_3d 1 min_num_layers_2d 1 min_num_layers_1d 1"
+        )
+        cubit.cmd(f"mesh volume {volume_ids_str}")
+
+    def export_mesh(self, mesh_filename="magnet_mesh", export_dir=""):
+        """Creates tetrahedral mesh of magnet volumes and exports H5M format
+        via Coreform Cubit and  MOAB.
+
+        Arguments:
+            mesh_filename (str): name of H5M output file, excluding '.h5m'
+                extension (optional, defaults to 'magnet_mesh').
+            export_dir (str): directory to which to export the H5M output file
+                (optional, defaults to empty string).
+        """
+        self._logger.info("Exporting mesh H5M file for magnet coils...")
+
+        cubit_io.export_mesh_cubit(
+            filename=mesh_filename, export_dir=export_dir
+        )
+
+
+class BuildableMagnetSet(MagnetSet):
+    """An object representing a set of modular stellarator magnet coils, and
+    can use filament data to build 3D step files with cadquery.
 
     Arguments:
         coils_file (str): path to coil filament data file.
@@ -238,18 +312,6 @@ class MagnetSet(object):
 
         self._cut_magnets()
 
-    def import_step_cubit(self):
-        """Import STEP file for magnet set into Coreform Cubit."""
-        first_vol_id = 1
-        if cubit_io.initialized:
-            first_vol_id += cubit.get_last_id("volume")
-
-        last_vol_id = cubit_io.import_step_cubit(
-            self.step_filename, self.export_dir
-        )
-
-        self.volume_ids = list(range(first_vol_id, last_vol_id + 1))
-
     def export_step(self, step_filename="magnet_set", export_dir=""):
         """Export CAD solids as a STEP file via CadQuery.
 
@@ -262,55 +324,16 @@ class MagnetSet(object):
         self._logger.info("Exporting STEP file for magnet coils...")
 
         self.export_dir = export_dir
-        self.step_filename = step_filename
+        self.geom_filename = step_filename
 
         export_path = Path(self.export_dir) / Path(
-            self.step_filename
+            self.geom_filename
         ).with_suffix(".step")
 
         coil_set = cq.Compound.makeCompound(
             [coil.solid for coil in self.magnet_coils]
         )
         cq.exporters.export(coil_set, str(export_path))
-
-    def mesh_magnets(self, min_size=20.0, max_size=50.0, max_gradient=1.5):
-        """Creates tetrahedral mesh of magnet volumes via Coreform Cubit.
-
-        Arguments:
-            min_size (float): minimum size of mesh elements (defaults to 20.0).
-            max_size (float): maximum size of mesh elements (defaults to 50.0).
-            max_gradient (float): maximum transition in mesh element size
-                (defaults to 1.5).
-        """
-        self._logger.info("Generating tetrahedral mesh of magnet coils...")
-
-        if not hasattr(self, "volume_ids"):
-            self.import_step_cubit()
-
-        volume_ids_str = " ".join(str(id) for id in self.volume_ids)
-        cubit.cmd(f"volume {volume_ids_str} scheme tetmesh")
-        cubit.cmd(
-            f"volume {volume_ids_str} sizing function type skeleton min_size "
-            f"{min_size} max_size {max_size} max_gradient {max_gradient} "
-            "min_num_layers_3d 1 min_num_layers_2d 1 min_num_layers_1d 1"
-        )
-        cubit.cmd(f"mesh volume {volume_ids_str}")
-
-    def export_mesh(self, mesh_filename="magnet_mesh", export_dir=""):
-        """Creates tetrahedral mesh of magnet volumes and exports H5M format
-        via Coreform Cubit and  MOAB.
-
-        Arguments:
-            mesh_filename (str): name of H5M output file, excluding '.h5m'
-                extension (optional, defaults to 'magnet_mesh').
-            export_dir (str): directory to which to export the H5M output file
-                (optional, defaults to empty string).
-        """
-        self._logger.info("Exporting mesh H5M file for magnet coils...")
-
-        cubit_io.export_mesh_cubit(
-            filename=mesh_filename, export_dir=export_dir
-        )
 
     def sort_coils_toroidally(self):
         """Reorders list of coils by toroidal angle on range [-pi, pi].

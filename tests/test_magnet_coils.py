@@ -4,6 +4,7 @@ import pytest
 import numpy as np
 
 import parastell.magnet_coils as magnet_coils
+import cubit
 
 
 def remove_files():
@@ -29,11 +30,20 @@ def coil_set():
     toroidal_extent = 90.0
     sample_mod = 10
 
-    coil_set_obj = magnet_coils.MagnetSet(
+    coil_set_obj = magnet_coils.BuildableMagnetSet(
         coils_file, width, thickness, toroidal_extent, sample_mod=sample_mod
     )
 
     return coil_set_obj
+
+
+@pytest.fixture
+def coil_set_from_geom():
+
+    geom_file = Path("files_for_tests") / "magnet_set.step"
+    coil_set_from_geom_obj = magnet_coils.MagnetSet(geom_file)
+
+    return coil_set_from_geom_obj
 
 
 def test_magnet_construction(coil_set):
@@ -67,6 +77,8 @@ def test_magnet_construction(coil_set):
 
 def test_magnet_exports(coil_set):
 
+    cubit.cmd("reset")
+
     volume_ids_exp = list(range(1, 2))
 
     remove_files()
@@ -83,3 +95,14 @@ def test_magnet_exports(coil_set):
     assert Path("magnet_mesh.h5m").exists()
 
     remove_files()
+
+
+def test_magnets_from_geom_cubit_import(coil_set_from_geom):
+
+    cubit.cmd("reset")
+
+    volume_ids_exp = list(range(1, 2))
+
+    coil_set_from_geom.import_step_cubit()
+
+    assert coil_set_from_geom.volume_ids == volume_ids_exp

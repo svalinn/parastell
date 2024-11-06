@@ -214,7 +214,7 @@ class Stellarator(object):
             mat_tag (str): DAGMC material tag to use for magnets in DAGMC
                 neutronics model (defaults to 'magnets').
         """
-        self.magnet_set = mc.MagnetSet(
+        self.magnet_set = mc.BuildableMagnetSet(
             coils_file,
             width,
             thickness,
@@ -225,6 +225,14 @@ class Stellarator(object):
 
         self.magnet_set.populate_magnet_coils()
         self.magnet_set.build_magnet_coils()
+
+    def load_magnets_from_geometry(self, geom_filename):
+        """Load predefined magnet geometry for use when building dagmc model
+
+        Arguments:
+            geom_filename (path): Path to the predefined magnet geometry
+        """
+        self.magnet_set = mc.MagnetSet(geom_filename)
 
     def export_magnets(
         self,
