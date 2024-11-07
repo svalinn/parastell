@@ -5,6 +5,7 @@ import numpy as np
 
 import parastell.magnet_coils as magnet_coils
 import cubit
+from parastell import cubit_io
 
 
 def remove_files():
@@ -77,7 +78,10 @@ def test_magnet_construction(coil_set):
 
 def test_magnet_exports(coil_set):
 
-    cubit.cmd("reset")
+    if cubit_io.initialized:
+        cubit.cmd("new")
+    else:
+        cubit_io.init_cubit()
 
     volume_ids_exp = list(range(1, 2))
 
@@ -99,7 +103,10 @@ def test_magnet_exports(coil_set):
 
 def test_magnets_from_geom_cubit_import(coil_set_from_geom):
 
-    cubit.cmd("reset")
+    if cubit_io.initialized:
+        cubit.cmd("new")
+    else:
+        cubit_io.init_cubit()
 
     volume_ids_exp = list(range(1, 2))
 
