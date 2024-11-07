@@ -139,7 +139,7 @@ class SourceMesh(object):
 
     @num_theta.setter
     def num_theta(self, value):
-        if value % 2 != 1.0:
+        if value % 2 != 1:
             e = AttributeError(
                 "To ensure that tetrahedral faces are coincident at the end of "
                 "the closed poloidal loop, the number of poloidal intervals "
@@ -169,7 +169,7 @@ class SourceMesh(object):
             self._logger.error(e.args[0])
             raise e
 
-        if angle == 360.0 and self._num_phi % 2 != 1.0:
+        if angle == 360.0 and self._num_phi % 2 != 1:
             e = AttributeError(
                 "To ensure that tetrahedral faces are coincident at the end of "
                 "the closed toroidal loop, the number of toroidal intervals "
