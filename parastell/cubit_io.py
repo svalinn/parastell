@@ -36,7 +36,7 @@ def import_step_cubit(filename, import_dir):
     """Imports STEP file into Coreform Cubit.
 
     Arguments:
-        filename (str): name of STEP input file, excluding '.step' extension.
+        filename (str): name of STEP input file.
         import_dir (str): directory from which to import STEP file.
 
     Returns:
@@ -55,7 +55,7 @@ def export_step_cubit(filename, export_dir=""):
     """Export CAD solid as a STEP file via Coreform Cubit.
 
     Arguments:
-        filename (str): name of STEP output file, excluding '.step' extension.
+        filename (str): name of STEP output file.
         export_dir (str): directory to which to export the STEP output file
             (defaults to empty string).
     """
@@ -68,7 +68,7 @@ def export_step_cubit(filename, export_dir=""):
 def import_cub5_cubit(filename, import_dir):
     """Imports cub5 file with Coreform Cubit with default import settings.
     Arguments:
-        filename (str): name of cub5 input file, excluding '.cub5' extension.
+        filename (str): name of cub5 input file.
         import_dir (str): directory from which to import cub5 file.
     Returns:
         vol_id (int): Cubit volume ID of imported CAD solid.
@@ -86,7 +86,7 @@ def export_cub5(filename, export_dir=""):
     """Export cub5 representation of model (native Cubit format).
 
     Arguments:
-        filename (str): name of cub5 output file, excluding '.cub5' extension.
+        filename (str): name of cub5 output file.
         export_dir (str): directory to which to export the cub5 output file
             (defaults to empty string).
     """
