@@ -19,13 +19,16 @@ class MagnetSet(object):
 
     Arguments:
         geom_filename (path): Path to the predefined magnet geometry
+        logger (object): logger object (optional, defaults to None). If no
+            logger is supplied, a default logger will be instantiated.
 
     Optional Attributes
-    mat_tag (str): DAGMC material tag to use for magnets in DAGMC
-        neutronics model (defaults to 'magnets').
+        mat_tag (str): DAGMC material tag to use for magnets in DAGMC
+            neutronics model (defaults to 'magnets').
     """
 
-    def __init__(self, geom_filename, **kwargs):
+    def __init__(self, geom_filename, logger=None, **kwargs):
+        self.logger = logger
         geom_path = Path(geom_filename).resolve()
         self.geom_filename = geom_path.name
         self.export_dir = geom_path.parent
@@ -33,14 +36,22 @@ class MagnetSet(object):
         for name in kwargs.keys() & ("mat_tag"):
             self.__setattr__(name, kwargs[name])
 
-    def import_step_cubit(self):
-        """Import STEP file for magnet set into Coreform Cubit."""
+    @property
+    def logger(self):
+        return self._logger
+
+    @logger.setter
+    def logger(self, logger_object):
+        self._logger = log.check_init(logger_object)
+
+    def import_geom_cubit(self):
+        """Import geom file for magnet set into Coreform Cubit."""
         first_vol_id = 1
         if cubit_io.initialized:
             first_vol_id += cubit.get_last_id("volume")
 
         # TODO cubit importer
-        last_vol_id = cubit_io.import_step_cubit(
+        last_vol_id = cubit_io.cubit_importer(
             self.geom_filename, self.export_dir
         )
 
@@ -58,7 +69,7 @@ class MagnetSet(object):
         self._logger.info("Generating tetrahedral mesh of magnet coils...")
 
         if not hasattr(self, "volume_ids"):
-            self.import_step_cubit()
+            self.import_geom_cubit()
 
         volume_ids_str = " ".join(str(id) for id in self.volume_ids)
         cubit.cmd(f"volume {volume_ids_str} scheme tetmesh")
@@ -177,14 +188,6 @@ class BuildableMagnetSet(MagnetSet):
             e = ValueError("Toroidal extent cannot exceed 360.0 degrees.")
             self._logger.error(e.args[0])
             raise e
-
-    @property
-    def logger(self):
-        return self._logger
-
-    @logger.setter
-    def logger(self, logger_object):
-        self._logger = log.check_init(logger_object)
 
     def _instantiate_coils(self):
         """Extracts filament coordinate data from input data file and
@@ -324,11 +327,9 @@ class BuildableMagnetSet(MagnetSet):
         self._logger.info("Exporting STEP file for magnet coils...")
 
         self.export_dir = export_dir
-        self.geom_filename = step_filename
+        self.geom_filename = Path(step_filename).with_suffix(".step")
 
-        export_path = Path(self.export_dir) / Path(
-            self.geom_filename
-        ).with_suffix(".step")
+        export_path = Path(self.export_dir) / self.geom_filename
 
         coil_set = cq.Compound.makeCompound(
             [coil.solid for coil in self.magnet_coils]

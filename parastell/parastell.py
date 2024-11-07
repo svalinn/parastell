@@ -385,7 +385,7 @@ class Stellarator(object):
             self.invessel_build.import_step_cubit()
 
         if self.magnet_set:
-            self.magnet_set.import_step_cubit()
+            self.magnet_set.import_geom_cubit()
 
         if skip_imprint:
             self.invessel_build.merge_layer_surfaces()

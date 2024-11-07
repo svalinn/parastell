@@ -17,6 +17,7 @@
 *.yaml
 !config.yaml
 *.lic
+!tests/files_for_tests/magnet_set.cub5
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

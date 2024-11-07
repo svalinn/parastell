@@ -110,6 +110,27 @@ def test_magnets_from_geom_cubit_import(coil_set_from_geom):
 
     volume_ids_exp = list(range(1, 2))
 
-    coil_set_from_geom.import_step_cubit()
+    coil_set_from_geom.import_geom_cubit()
 
     assert coil_set_from_geom.volume_ids == volume_ids_exp
+
+    cubit.cmd("new")
+
+    coil_set_from_geom.geom_filename = "magnet_set.cub5"
+
+    coil_set_from_geom.import_geom_cubit()
+
+    assert coil_set_from_geom.volume_ids == volume_ids_exp
+
+
+def test_magnets_from_geom_exports(coil_set_from_geom):
+
+    if cubit_io.initialized:
+        cubit.cmd("new")
+    else:
+        cubit_io.init_cubit()
+
+    coil_set_from_geom.mesh_magnets()
+
+    coil_set_from_geom.export_mesh()
+    assert Path("magnet_mesh.h5m").exists()

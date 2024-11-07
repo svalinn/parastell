@@ -225,6 +225,7 @@ def cubit_importer(filename, import_dir=""):
         ".stp": import_step_cubit,
         ".cub5": import_cub5_cubit,
     }
+    print(filename)
     filename = Path(filename)
     vol_id = importers[filename.suffix](filename, import_dir)
     return vol_id
