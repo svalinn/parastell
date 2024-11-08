@@ -34,17 +34,17 @@ def source_mesh():
 
 def test_mesh_basics(source_mesh):
 
-    num_s_exp = 6
-    num_theta_exp = 41
-    num_phi_exp = 9
+    num_cfs_exp = 6
+    num_poloidal_pts_exp = 41
+    num_toroidal_pts_exp = 9
     tor_ext_exp = 15.0
     scale_exp = 100
 
     remove_files()
 
-    assert source_mesh.num_s == num_s_exp
-    assert source_mesh.num_theta == num_theta_exp
-    assert source_mesh.num_phi == num_phi_exp
+    assert source_mesh.num_cfs_pts == num_cfs_exp
+    assert source_mesh.num_poloidal_pts == num_poloidal_pts_exp
+    assert source_mesh.num_toroidal_pts == num_toroidal_pts_exp
     assert source_mesh.toroidal_extent == np.deg2rad(tor_ext_exp)
     assert source_mesh.scale == scale_exp
 
@@ -53,18 +53,20 @@ def test_mesh_basics(source_mesh):
 
 def test_vertices(source_mesh):
 
-    num_s = 6
-    num_theta = 41
-    num_phi = 9
+    num_cfs_exp = 6
+    num_poloidal_pts_exp = 41
+    num_toroidal_pts_exp = 9
 
-    num_verts_exp = num_phi * ((num_s - 1) * (num_theta - 1) + 1)
+    num_verts_exp = num_toroidal_pts_exp * (
+        (num_cfs_exp - 1) * (num_poloidal_pts_exp - 1) + 1
+    )
 
     remove_files()
 
     source_mesh.create_vertices()
 
     assert source_mesh.coords.shape == (num_verts_exp, 3)
-    assert source_mesh.coords_s.shape == (num_verts_exp,)
+    assert source_mesh.coords_cfs.shape == (num_verts_exp,)
     assert len(source_mesh.verts) == num_verts_exp
 
     remove_files()
