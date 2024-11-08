@@ -153,6 +153,19 @@ def tag_surface_legacy(surface_id, tag):
     cubit.cmd(f'group "boundary:{tag}" add surf {surface_id}')
 
 
+def tag_surface_native(surface_id, tag):
+    """Applies a boundary condition to a surface in cubit following the
+        native coreform syntax
+
+    Arguments:
+        surface_id (int): Surface to tag
+        tag (str): boundary type
+    """
+    cubit.cmd(f"create sideset {surface_id}")
+    cubit.cmd(f"sideset {surface_id} name 'boundary:{tag}'")
+    cubit.cmd(f"sideset {surface_id} add surface {surface_id}")
+
+
 def export_dagmc_cubit_native(
     anisotropic_ratio=100.0,
     deviation_angle=5.0,
