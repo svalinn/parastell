@@ -170,12 +170,14 @@ class Stellarator(object):
         self.invessel_build.generate_components()
 
     def export_invessel_build(
-        self, export_cad_to_dagmc=False, dagmc_filename="dagmc", export_dir=""
+        self, export_to_stl=False, export_cad_to_dagmc=False, dagmc_filename="dagmc", export_dir=""
     ):
-        """Exports InVesselBuild component STEP files and, optionally, a DAGMC
+        """Exports InVesselBuild component STEP files and, optionally, to STL files and a DAGMC
         neutronics H5M file of in-vessel components via CAD-to-DAGMC.
 
         Arguments:
+            export_to_stl (bool): export in-vessel components to STL format 
+                (optional, defaults to False)
             export_cad_to_dagmc (bool): export DAGMC neutronics H5M file of
                 in-vessel components via CAD-to-DAGMC (optional, defaults to
                 False).
@@ -185,6 +187,9 @@ class Stellarator(object):
                 (optional, defaults to empty string).
         """
         self.invessel_build.export_step(export_dir=export_dir)
+
+        if export_to_stl:
+            self.invessel_build.export_stl(export_dir=export_dir)
 
         if export_cad_to_dagmc:
             self.invessel_build.export_cad_to_dagmc(
@@ -229,6 +234,7 @@ class Stellarator(object):
     def export_magnets(
         self,
         step_filename="magnet_set",
+        export_stl=False,
         export_mesh=False,
         mesh_filename="magnet_mesh",
         export_dir="",
@@ -240,6 +246,8 @@ class Stellarator(object):
             step_filename (str): name of STEP export output file, excluding
                 '.step' extension (optional, optional, defaults to
                 'magnet_set').
+            export_stl (bool): export magnet components in STL format. File name
+                is the same as step_filename (optional, defaults to False)
             export_mesh (bool): flag to indicate tetrahedral mesh generation
                 for magnet volumes (optional, defaults to False).
             mesh_filename (str): name of tetrahedral mesh H5M file, excluding
@@ -258,6 +266,11 @@ class Stellarator(object):
         self.magnet_set.export_step(
             step_filename=step_filename, export_dir=export_dir
         )
+
+        if export_stl:
+            self.magnet_set.export_stl(
+                stl_filename=step_filename, export_dir=export_dir
+            )
 
         if export_mesh:
             self.magnet_set.mesh_magnets(**kwargs)

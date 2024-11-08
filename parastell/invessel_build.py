@@ -316,6 +316,23 @@ class InVesselBuild(object):
             )
             cq.exporters.export(component, str(export_path))
 
+    def export_stl(self, export_dir=""):
+        """Export CAD solids as STL files via CadQuery.
+
+        Arguments:
+            export_dir (str): directory to which to export the STL output files
+                (optional, defaults to empty string).
+        """
+        self._logger.info("Exporting STL files for in-vessel components...")
+
+        self.export_dir = export_dir
+
+        for name, component in self.Components.items():
+            export_path = Path(self.export_dir) / Path(name).with_suffix(
+                ".stl"
+            )
+            cq.exporters.export(component, str(export_path))
+
     def export_cad_to_dagmc(self, dagmc_filename="dagmc", export_dir=""):
         """Exports DAGMC neutronics H5M file of ParaStell in-vessel components
         via CAD-to-DAGMC.
