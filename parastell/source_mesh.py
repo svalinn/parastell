@@ -66,30 +66,31 @@ class SourceMesh(object):
     neutrons in a magnetically confined plasma described by a VMEC plasma
     equilibrium.
 
-    The mesh will be defined on a regular grid in the plasma coordinates of s,
-    theta, phi.  Mesh vertices will be defined on circular grid at each toroidal
-    plane, and connected between toroidal planes. This results in wedge elements
-    along the magnetic axis and hexagonal elements throughout the remainder of
-    the mesh.  Each of these elements will be subdivided into tetrahedra (4 for
-    the wedges and 5 for the hexahedra) to result in a mesh that is simpler to
-    use.
+    The mesh will be defined on a regular grid in the flux coordinates of
+    (CFS value, poloidal angle, toroidal angle).  Mesh vertices will be defined
+    on circular grid at each toroidal plane, and connected between toroidal
+    planes. This results in wedge elements along the magnetic axis and
+    hexagonal elements throughout the remainder of the mesh. Each of these
+    elements will be subdivided into tetrahedra (3 for the wedges and 5 for the
+    hexahedra) to result in a mesh that is simpler to use.
 
-    Each tetrahedron will be tagged with the volumetric neutron source intensity
-    in n/cm3/s, using on a finite-element based quadrature of the source
-    intensity evaluated at each vertex.
+    Each tetrahedron will be tagged with the volumetric neutron source
+    intensity in n/cm3/s, using on a finite-element based quadrature of the
+    source intensity evaluated at each vertex.
 
     Arguments:
         vmec_obj (object): plasma equilibrium VMEC object as defined by the
             PyStell-UW VMEC reader. Must have a method
-            'vmec2xyz(s, theta, phi)' that returns an (x,y,z) coordinate for
-            any closed flux surface label, s, poloidal angle, theta, and
-            toroidal angle, phi.
+            'vmec2xyz(cfs, poloidal_ang, toroidal_ang)' that returns
+            a (x,y,z) coordinate for any closed flux surface value, cfs,
+            poloidal angle, poloidal_ang, and toroidal angle, toroidal_ang.
         mesh_size (tuple of int): number of grid points along each axis of
-            flux-coordinate space, in the order (num_cfs_pts, num_poloidal_pts, num_toroidal_pts).
-            'num_cfs_pts' is the number of closed flux surfaces for vertex locations
-            in each toroidal plane. 'num_poloidal_pts' is the number of poloidal
-            angles for vertex locations in each toroidal plane. 'num_toroidal_pts' is
-            the number of toroidal angles for planes of vertices.
+            flux-coordinate space, in the order (num_cfs_pts, num_poloidal_pts,
+            num_toroidal_pts). 'num_cfs_pts' is the number of closed flux
+            surfaces for vertex locations in each toroidal plane.
+            'num_poloidal_pts' is the number of poloidal angles for vertex
+            locations in each toroidal plane. 'num_toroidal_pts' is the number
+            of toroidal angles for planes of vertices.
         toroidal_extent (float): extent of source mesh in toroidal direction
             [deg].
         logger (object): logger object (optional, defaults to None). If no
@@ -248,7 +249,7 @@ class SourceMesh(object):
 
         num_verts = toroidal_grid_pts.shape[0] * self.verts_per_plane
         self.coords = np.zeros((num_verts, 3))
-        self.coords_s = np.zeros(num_verts)
+        self.coords_cfs = np.zeros(num_verts)
 
         # Initialize vertex index
         vert_idx = 0
@@ -259,7 +260,7 @@ class SourceMesh(object):
                 np.array(self.vmec_obj.vmec2xyz(0, 0, toroidal_ang))
                 * self.scale
             )
-            self.coords_s[vert_idx] = 0
+            self.coords_cfs[vert_idx] = 0
 
             vert_idx += 1
 
@@ -268,11 +269,13 @@ class SourceMesh(object):
                 for poloidal_ang in poloidal_grid_pts:
                     self.coords[vert_idx, :] = (
                         np.array(
-                            self.vmec_obj.vmec2xyz(cfs, poloidal_ang, phi)
+                            self.vmec_obj.vmec2xyz(
+                                cfs, poloidal_ang, toroidal_ang
+                            )
                         )
                         * self.scale
                     )
-                    self.coords_s[vert_idx] = cfs
+                    self.coords_cfs[vert_idx] = cfs
 
                     vert_idx += 1
 
@@ -295,7 +298,7 @@ class SourceMesh(object):
 
         # Initialize list of source strengths for each tetrahedron vertex
         vertex_strengths = [
-            self.reaction_rate(*self.plasma_conditions(self.coords_s[id]))
+            self.reaction_rate(*self.plasma_conditions(self.coords_cfs[id]))
             for id in tet_ids
         ]
 
@@ -371,15 +374,15 @@ class SourceMesh(object):
             ma_offset = 0
 
         # Compute index offset from closed flux surface
-        s_offset = cfs_idx * self.verts_per_ring
+        cfs_offset = cfs_idx * self.verts_per_ring
 
-        theta_offset = poloidal_idx
+        poloidal_offset = poloidal_idx
 
-        # Wrap around if theta is 2*pi
+        # Wrap around if poloidal angle is 2*pi
         if poloidal_idx == self._num_poloidal_pts:
-            theta_offset = 1
+            poloidal_offset = 1
 
-        id = ma_offset + s_offset + theta_offset
+        id = ma_offset + cfs_offset + poloidal_offset
 
         return id
 
