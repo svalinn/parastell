@@ -229,17 +229,18 @@ class SourceMesh(object):
         """
         self._logger.info("Computing source mesh point cloud...")
 
-        toroidal_grid_pts = np.linspace(
-            0, self._toroidal_extent, num=self._num_toroidal_pts
-        )
-        # don't include magnetic axis in list of s values
+        # Exclude entry at magnetic axis
         cfs_grid_pts = np.linspace(0.0, 1.0, num=self.num_cfs_pts)[1:]
-        # don't include repeated entry at 0 == 2*pi
+
+        # Exclude repeated entry at 0 == 2*pi
         poloidal_grid_pts = np.linspace(
             0, 2 * np.pi, num=self._num_poloidal_pts
         )[:-1]
 
-        # don't include repeated entry at 0 == 2*pi
+        toroidal_grid_pts = np.linspace(
+            0, self._toroidal_extent, num=self._num_toroidal_pts
+        )
+        # Conditionally exclude repeated entry at 0 == 2*pi
         if self._toroidal_extent == 2 * np.pi:
             toroidal_grid_pts = toroidal_grid_pts[:-1]
 
@@ -292,7 +293,6 @@ class SourceMesh(object):
         Returns:
             ss (float): integrated source strength for tetrahedron.
         """
-
         # Initialize list of vertex coordinates for each tetrahedron vertex
         tet_coords = [self.coords[id] for id in tet_ids]
 
@@ -335,7 +335,6 @@ class SourceMesh(object):
         Arguments:
             tet_ids (list of int): tetrahedron vertex indices.
         """
-
         tet_verts = [self.verts[int(id)] for id in tet_ids]
         tet = self.mbc.create_element(types.MBTET, tet_verts)
         self.mbc.add_entity(self.mesh_set, tet)
@@ -361,7 +360,6 @@ class SourceMesh(object):
         Returns:
             id (int): vertex index in row-major order as stored by MOAB
         """
-
         cfs_idx, poloidal_idx, toroidal_idx = vertex_idx
 
         ma_offset = toroidal_idx * self.verts_per_plane
@@ -373,14 +371,17 @@ class SourceMesh(object):
         ):
             ma_offset = 0
 
-        # Compute index offset from closed flux surface
-        cfs_offset = cfs_idx * self.verts_per_ring
+        # Compute index offset from closed flux surface, taking single vertex
+        # at magnetic axis into account
+        if cfs_idx == 0:
+            cfs_offset = cfs_idx
+        else:
+            cfs_offset = (cfs_idx - 1) * self.verts_per_ring + 1
 
         poloidal_offset = poloidal_idx
-
         # Wrap around if poloidal angle is 2*pi
-        if poloidal_idx == self._num_poloidal_pts:
-            poloidal_offset = 1
+        if poloidal_idx == self._num_poloidal_pts - 1:
+            poloidal_offset = 0
 
         id = ma_offset + cfs_offset + poloidal_offset
 
@@ -395,7 +396,6 @@ class SourceMesh(object):
             poloidal_idx (int): index defining location along poloidal angle axis.
             toroidal_idx (int): index defining location along toroidal angle axis.
         """
-
         # relative offsets of vertices in a 3-D index space
         hex_vertex_stencil = np.array(
             [
@@ -446,8 +446,7 @@ class SourceMesh(object):
 
         # Alternate canonical ordering schemes defining hexahedron splitting to
         # avoid gaps and overlaps between non-planar hexahedron faces
-        # cfs_idx begins at 0 and poloidal_idx begins at 1
-        scheme_idx = ((cfs_idx + 1) + (poloidal_idx - 1) + toroidal_idx) % 2
+        scheme_idx = (cfs_idx + poloidal_idx + toroidal_idx) % 2
 
         for vertex_ids in canonical_ordering_schemes[scheme_idx]:
             self._create_tet(vertex_ids)
@@ -460,16 +459,15 @@ class SourceMesh(object):
             poloidal_idx (int): index defining location along poloidal angle axis.
             toroidal_idx (int): index defining location along toroidal angle axis.
         """
-
         # relative offsets of wedge vertices in a 3-D index space
         wedge_vertex_stencil = np.array(
             [
                 [0, 0, 0],
-                [0, poloidal_idx, 0],
-                [0, poloidal_idx + 1, 0],
+                [1, poloidal_idx, 0],
+                [1, poloidal_idx + 1, 0],
                 [0, 0, 1],
-                [0, poloidal_idx, 1],
-                [0, poloidal_idx + 1, 1],
+                [1, poloidal_idx, 1],
+                [1, poloidal_idx + 1, 1],
             ]
         )
 
@@ -502,8 +500,7 @@ class SourceMesh(object):
 
         # Alternate canonical ordering schemes defining wedge splitting to
         # avoid gaps and overlaps between non-planar wedge faces
-        # cfs_idx begins at 0 and poloidal_idx begins at 1
-        scheme_idx = ((poloidal_idx - 1) + toroidal_idx) % 2
+        scheme_idx = (poloidal_idx + toroidal_idx) % 2
 
         for vertex_ids in canonical_ordering_schemes[scheme_idx]:
             self._create_tet(vertex_ids)
@@ -517,12 +514,12 @@ class SourceMesh(object):
 
         for toroidal_idx in range(self._num_toroidal_pts - 1):
             # Create tetrahedra for wedges at center of plasma
-            for poloidal_idx in range(1, self._num_poloidal_pts):
+            for poloidal_idx in range(self._num_poloidal_pts - 1):
                 self._create_tets_from_wedge(poloidal_idx, toroidal_idx)
 
             # Create tetrahedra for hexahedra beyond center of plasma
-            for cfs_idx in range(self.num_cfs_pts - 2):
-                for poloidal_idx in range(1, self._num_poloidal_pts):
+            for cfs_idx in range(1, self.num_cfs_pts - 1):
+                for poloidal_idx in range(self._num_poloidal_pts - 1):
                     self._create_tets_from_hex(
                         cfs_idx, poloidal_idx, toroidal_idx
                     )
