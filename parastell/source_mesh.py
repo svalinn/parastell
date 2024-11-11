@@ -165,12 +165,14 @@ class SourceMesh(object):
 
     @toroidal_extent.setter
     def toroidal_extent(self, angle):
-        if angle > 360.0:
+        angle = np.deg2rad(angle)
+
+        if angle > 2 * np.pi:
             e = AttributeError("Toroidal extent cannot exceed 360.0 degrees.")
             self._logger.error(e.args[0])
             raise e
 
-        if angle == 360.0 and self._num_toroidal_pts % 2 != 1:
+        if angle == 2 * np.pi and self._num_toroidal_pts % 2 != 1:
             e = AttributeError(
                 "To ensure that tetrahedral faces are coincident at the end of "
                 "the closed toroidal loop, the number of toroidal intervals "
@@ -180,7 +182,7 @@ class SourceMesh(object):
             self._logger.error(e.args[0])
             raise e
 
-        self._toroidal_extent = np.deg2rad(angle)
+        self._toroidal_extent = angle
 
     @property
     def logger(self):
