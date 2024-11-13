@@ -238,6 +238,7 @@ class MagnetSet(object):
 
         self._cut_magnets()
 
+<<<<<<< HEAD
     def import_step_cubit(self):
         """Import STEP file for magnet set into Coreform Cubit."""
         first_vol_id = 1
@@ -252,6 +253,10 @@ class MagnetSet(object):
 
     def export_step(self, step_filename="magnet_set", export_dir=""):
         """Export CAD solids as a STEP file via CadQuery.
+=======
+    def export_components(self, filetype="step", filename="magnet_set", export_dir=""):
+        """Export CAD solids as a STEP or STL file via CadQuery.
+>>>>>>> 666c81c (export_step and export_stl merged into a single function)
 
         Arguments:
             step_filename (str): name of STEP output file, excluding '.step'
@@ -259,12 +264,13 @@ class MagnetSet(object):
             export_dir (str): directory to which to export the STEP output file
                 (optional, defaults to empty string).
         """
-        self._logger.info("Exporting STEP file for magnet coils...")
+        self._logger.info(f"Exporting {filetype.upper()} file for magnet coils...")
 
         self.export_dir = export_dir
-        self.step_filename = step_filename
+        self.filename = filename
 
         export_path = Path(self.export_dir) / Path(
+<<<<<<< HEAD
             self.step_filename
         ).with_suffix(".step")
 
@@ -294,6 +300,10 @@ class MagnetSet(object):
         export_path = Path(self.export_dir) / Path(
             self.stl_filename
         ).with_suffix(".stl")
+=======
+            self.filename
+        ).with_suffix(f".{filetype}")
+>>>>>>> 666c81c (export_step and export_stl merged into a single function)
 
         coil_set = cq.Compound.makeCompound(
             [coil.solid for coil in self.magnet_coils]

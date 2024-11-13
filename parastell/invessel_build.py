@@ -293,6 +293,7 @@ class InVesselBuild(object):
                 )
                 prev_outer_surface_id = outer_surface_id
 
+<<<<<<< HEAD
     def import_step_cubit(self):
         """Imports STEP files from in-vessel build into Coreform Cubit."""
         for name, data in self.radial_build.radial_build.items():
@@ -301,35 +302,24 @@ class InVesselBuild(object):
 
     def export_step(self, export_dir=""):
         """Export CAD solids as STEP files via CadQuery.
+=======
+    def export_components(self, filetype ="step", export_dir=""):
+        """Export CAD solids as STEP or STL files via CadQuery.
+>>>>>>> 666c81c (export_step and export_stl merged into a single function)
 
         Arguments:
+            filetype (str): file extension to which solids are exported 
+                (defaults to STEP).
             export_dir (str): directory to which to export the STEP output files
                 (optional, defaults to empty string).
         """
-        self._logger.info("Exporting STEP files for in-vessel components...")
+        self._logger.info(f"Exporting {filetype.upper()} files for in-vessel components...")
 
         self.export_dir = export_dir
 
         for name, component in self.Components.items():
             export_path = Path(self.export_dir) / Path(name).with_suffix(
-                ".step"
-            )
-            cq.exporters.export(component, str(export_path))
-
-    def export_stl(self, export_dir=""):
-        """Export CAD solids as STL files via CadQuery.
-
-        Arguments:
-            export_dir (str): directory to which to export the STL output files
-                (optional, defaults to empty string).
-        """
-        self._logger.info("Exporting STL files for in-vessel components...")
-
-        self.export_dir = export_dir
-
-        for name, component in self.Components.items():
-            export_path = Path(self.export_dir) / Path(name).with_suffix(
-                ".stl"
+                f".{filetype}"
             )
             cq.exporters.export(component, str(export_path))
 
