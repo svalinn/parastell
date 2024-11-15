@@ -177,8 +177,8 @@ class Stellarator(object):
         neutronics H5M file of in-vessel components via CAD-to-DAGMC.
 
         Arguments:
-            filetype (str): file extension to which solids are exported 
-                (defaults to STEP).
+            filetype (str): file extension, excluding '.', to which solids are
+                exported (defaults to STEP).
             export_cad_to_dagmc (bool): export DAGMC neutronics H5M file of
                 in-vessel components via CAD-to-DAGMC (optional, defaults to
                 False).
@@ -241,9 +241,9 @@ class Stellarator(object):
         """Export magnet components.
 
         Arguments:
-            filetype (str): filetype (str): file extension to which solids are 
+            filetype (str): file extension, excluding '.', to which solids are 
                 exported (defaults to STEP).
-            filename (str): name of export output file, excluding extension 
+            filename (str): name of output file, excluding extension 
                 (optional, defaults to 'magnet_set').
             export_mesh (bool): flag to indicate tetrahedral mesh generation
                 for magnet volumes (optional, defaults to False).

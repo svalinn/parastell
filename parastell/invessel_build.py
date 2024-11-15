@@ -293,24 +293,19 @@ class InVesselBuild(object):
                 )
                 prev_outer_surface_id = outer_surface_id
 
-<<<<<<< HEAD
     def import_step_cubit(self):
         """Imports STEP files from in-vessel build into Coreform Cubit."""
         for name, data in self.radial_build.radial_build.items():
             vol_id = cubit_io.import_step_cubit(name, self.export_dir)
             data["vol_id"] = vol_id
 
-    def export_step(self, export_dir=""):
-        """Export CAD solids as STEP files via CadQuery.
-=======
-    def export_components(self, filetype ="step", export_dir=""):
+    def export_components(self, filetype="step", export_dir=""):
         """Export CAD solids as STEP or STL files via CadQuery.
->>>>>>> 666c81c (export_step and export_stl merged into a single function)
 
         Arguments:
-            filetype (str): file extension to which solids are exported 
+            filetype (str): file extension, excluding '.', to which solids are exported 
                 (defaults to STEP).
-            export_dir (str): directory to which to export the STEP output files
+            export_dir (str): directory to which to export the output files
                 (optional, defaults to empty string).
         """
         self._logger.info(f"Exporting {filetype.upper()} files for in-vessel components...")

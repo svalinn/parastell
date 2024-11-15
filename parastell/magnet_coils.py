@@ -238,7 +238,6 @@ class MagnetSet(object):
 
         self._cut_magnets()
 
-<<<<<<< HEAD
     def import_step_cubit(self):
         """Import STEP file for magnet set into Coreform Cubit."""
         first_vol_id = 1
@@ -251,69 +250,33 @@ class MagnetSet(object):
 
         self.volume_ids = list(range(first_vol_id, last_vol_id + 1))
 
-    def export_step(self, step_filename="magnet_set", export_dir=""):
-        """Export CAD solids as a STEP file via CadQuery.
-=======
     def export_components(self, filetype="step", filename="magnet_set", export_dir=""):
         """Export CAD solids as a STEP or STL file via CadQuery.
->>>>>>> 666c81c (export_step and export_stl merged into a single function)
 
         Arguments:
-            step_filename (str): name of STEP output file, excluding '.step'
-                extension (optional, defaults to 'magnet_set').
-            export_dir (str): directory to which to export the STEP output file
+            filetype (str): extension, excluding '.', to which to export the output file
+                (defaults to STEP).
+            filename (str): name of output file, excluding extension
+                (optional, defaults to 'magnet_set').
+            export_dir (str): directory to which to export the output file
                 (optional, defaults to empty string).
         """
         self._logger.info(f"Exporting {filetype.upper()} file for magnet coils...")
 
         self.export_dir = export_dir
-        self.filename = filename
+        self.filename =filename
 
         export_path = Path(self.export_dir) / Path(
-<<<<<<< HEAD
-            self.step_filename
-        ).with_suffix(".step")
-
-        coil_set = cq.Compound.makeCompound(
-            [coil.solid for coil in self.magnet_coils]
-        )
-        cq.exporters.export(coil_set, str(export_path))
-
-<<<<<<< HEAD
-    def mesh_magnets(self, min_size=20.0, max_size=50.0, max_gradient=1.5):
-        """Creates tetrahedral mesh of magnet volumes via Coreform Cubit.
-=======
-    def export_stl(self, stl_filename="magnet_set", export_dir=""):
-        """Export CAD solids as a STL file via CadQuery.
-
-        Arguments:
-            stl_filename (str): name of STL output file, excluding '.stl'
-                extension (optional, defaults to 'magnet_set').
-            export_dir (str): directory to which to export the STL output file
-                (optional, defaults to empty string).
-        """
-        self._logger.info("Exporting STL file for magnet coils...")
-
-        self.export_dir = export_dir
-        self.stl_filename = stl_filename
-
-        export_path = Path(self.export_dir) / Path(
-            self.stl_filename
-        ).with_suffix(".stl")
-=======
             self.filename
         ).with_suffix(f".{filetype}")
->>>>>>> 666c81c (export_step and export_stl merged into a single function)
 
         coil_set = cq.Compound.makeCompound(
             [coil.solid for coil in self.magnet_coils]
         )
         cq.exporters.export(coil_set, str(export_path))
 
-    def mesh_magnets(self):
-        """Creates tetrahedral mesh of magnet volumes via Coreform Cubit."""
-        self._logger.info("Generating tetrahedral mesh of magnet coils...")
->>>>>>> b8d21a2 (export to STL format capability added)
+    def mesh_magnets(self, min_size=20.0, max_size=50.0, max_gradient=1.5):
+        """Creates tetrahedral mesh of magnet volumes via Coreform Cubit.
 
         Arguments:
             min_size (float): minimum size of mesh elements (defaults to 20.0).
