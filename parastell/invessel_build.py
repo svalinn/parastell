@@ -303,12 +303,14 @@ class InVesselBuild(object):
         """Export CAD solids as STEP or STL files via CadQuery.
 
         Arguments:
-            filetype (str): file extension, excluding '.', to which solids are exported 
+            filetype (str): file extension, excluding '.', to which solids are exported
                 (defaults to STEP).
             export_dir (str): directory to which to export the output files
                 (optional, defaults to empty string).
         """
-        self._logger.info(f"Exporting {filetype.upper()} files for in-vessel components...")
+        self._logger.info(
+            f"Exporting {filetype.upper()} files for in-vessel components..."
+        )
 
         self.export_dir = export_dir
 
