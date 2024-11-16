@@ -346,6 +346,51 @@ class InVesselBuild(object):
 
         model.export_dagmc_h5m_file(filename=str(export_path))
 
+    def build_volumes_cubit(self):
+        cubit_io.init_cubit()
+        for surface_name, surface in self.Surfaces.items():
+            print(surface)
+            vertex_ids = []
+            for loop in surface.get_loci():
+                loop_vert_ids = []
+                for point in loop:
+                    cubit.cmd(
+                        f"create vertex {point[0]} {point[1]} {point[2]}"
+                    )
+                    vertex_id = cubit.get_last_id("vertex")
+                    loop_vert_ids.append(vertex_id)
+                vertex_ids.append(loop_vert_ids)
+            surface_ids = []
+            vertex_ids = np.array(vertex_ids)
+            for loop_index, loop in enumerate(vertex_ids[0:-1, :]):
+                for point_index, point in enumerate(loop[0:-1]):
+                    ul = vertex_ids[loop_index, point_index]
+                    ll = vertex_ids[loop_index + 1, point_index]
+                    ur = vertex_ids[loop_index, point_index + 1]
+                    lr = vertex_ids[loop_index + 1, point_index + 1]
+                    cubit.cmd(f"create surface vertex {ul} {ll} {ur}")
+                    surface_ids.append(cubit.get_last_id("surface"))
+                    cubit.cmd(f"create surface vertex {lr} {ll} {ur}")
+                    surface_ids.append(cubit.get_last_id("surface"))
+            start_cap_ids = " ".join(
+                [str(vertex) for vertex in vertex_ids[0][0:-1]]
+            )
+            print(start_cap_ids)
+            end_cap_ids = " ".join(
+                [str(vertex) for vertex in vertex_ids[-1][0:-1]]
+            )
+            cubit.cmd(f"create surface vertex {start_cap_ids}")
+            surface_ids.append(cubit.get_last_id("surface"))
+            cubit.cmd(f"create surface vertex {end_cap_ids}")
+            surface_ids.append(cubit.get_last_id("surface"))
+
+            surface_id_str = " ".join(
+                [str(surf_id) for surf_id in surface_ids]
+            )
+            cubit.cmd(f"create volume surface {surface_id_str}")
+
+        cubit.cmd('save cub5 "all_surfaces_faceted.cub5" overwrite')
+
 
 class Surface(object):
     """An object representing a surface formed by lofting across a set of
