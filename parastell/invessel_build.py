@@ -349,7 +349,7 @@ class InVesselBuild(object):
     def build_volumes_cubit(self):
         cubit_io.init_cubit()
         for surface_name, surface in self.Surfaces.items():
-            print(surface)
+            print(surface_name)
             vertex_ids = []
             for loop in surface.get_loci():
                 loop_vert_ids = []
@@ -379,17 +379,48 @@ class InVesselBuild(object):
             end_cap_ids = " ".join(
                 [str(vertex) for vertex in vertex_ids[-1][0:-1]]
             )
+            surface_id_str = " ".join(
+                [str(surf_id) for surf_id in surface_ids]
+            )
+            surface_ids = []
+            # for whatever reason, uniting this surface first makes the volume
+            # creation go much faster (~10x)
+            cubit.cmd(f"unite surface {surface_id_str}")
+            surface_ids.append(cubit.get_last_id("surface"))
             cubit.cmd(f"create surface vertex {start_cap_ids}")
             surface_ids.append(cubit.get_last_id("surface"))
             cubit.cmd(f"create surface vertex {end_cap_ids}")
             surface_ids.append(cubit.get_last_id("surface"))
-
             surface_id_str = " ".join(
                 [str(surf_id) for surf_id in surface_ids]
             )
             cubit.cmd(f"create volume surface {surface_id_str}")
-
+            cubit.cmd("compress")
+            volume_id = cubit.get_last_id("volume")
+            self.radial_build.radial_build[surface_name]["vol_id"] = volume_id
         cubit.cmd('save cub5 "all_surfaces_faceted.cub5" overwrite')
+        # remove overlap
+        print("removing overlap")
+        layers = list(self.radial_build.radial_build.values())
+        for layer, next_layer in zip(
+            reversed(layers[0:-1]), reversed(layers[1:])
+        ):
+            cubit.cmd(
+                "remove overlap volume "
+                f"{layer['vol_id']} {next_layer['vol_id']} modify larger"
+            )
+        cubit.cmd('save cub5 "overlap_removed.cub5" overwrite')
+        # merge layers
+        for layer, next_layer in zip(
+            reversed(layers[0:-1]), reversed(layers[1:])
+        ):
+            print(layer)
+            cubit.cmd(
+                f"imprint volume {layer['vol_id']} {next_layer['vol_id']}"
+            )
+            cubit.cmd(f"merge volume {layer['vol_id']} {next_layer['vol_id']}")
+
+        cubit.cmd('save cub5 "merged.cub5" overwrite')
 
 
 class Surface(object):
