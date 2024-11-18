@@ -211,7 +211,7 @@ def export_dagmc_cubit_native(
         cubit.cmd(f"delete mesh volume all propagate")
 
 
-def cubit_importer(filename, import_dir=""):
+def import_geom_to_cubit(filename, import_dir=""):
     """Attempts to open a geometry file with the appropriate cubit_io function,
         based on file extension
     Arguments:

@@ -50,8 +50,7 @@ class MagnetSet(object):
         if cubit_io.initialized:
             first_vol_id += cubit.get_last_id("volume")
 
-        # TODO cubit importer
-        last_vol_id = cubit_io.cubit_importer(
+        last_vol_id = cubit_io.import_geom_to_cubit(
             self.geom_filename, self.export_dir
         )
 
