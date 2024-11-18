@@ -190,7 +190,10 @@ class Stellarator(object):
             export_dir (str): directory to which to export the output files
                 (optional, defaults to empty string).
         """
-        self.invessel_build.export_step(export_dir=export_dir)
+        if not self.invessel_build.cubit_volumes:
+            self.invessel_build.export_step(export_dir=export_dir)
+        else:
+            self.invessel_build.save_cub5(export_dir=export_dir)
 
         if export_cad_to_dagmc:
             self.invessel_build.export_cad_to_dagmc(
@@ -379,8 +382,8 @@ class Stellarator(object):
         else:
             cubit_io.init_cubit()
 
-        if self.invessel_build and not self.invessel_build.cubit_volumes:
-            self.invessel_build.import_step_cubit()
+        if self.invessel_build:
+            self.invessel_build.import_geom_cubit()
 
         if self.magnet_set:
             self.magnet_set.import_step_cubit()

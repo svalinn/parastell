@@ -307,6 +307,16 @@ class InVesselBuild(object):
                     )
                     prev_outer_surface_id = outer_surface_id
 
+    def import_geom_cubit(self):
+        if self.cubit_volumes:
+            self.import_cub5_cubit()
+        else:
+            self.import_step_cubit()
+
+    def import_cub5_cubit(self):
+        """Import cub5 files from in-vessel build into Coreform Cubit"""
+        cubit_io.import_cub5_cubit("invessel_build.cub5", self.export_dir)
+
     def import_step_cubit(self):
         """Imports STEP files from in-vessel build into Coreform Cubit."""
         for name, data in self.radial_build.radial_build.items():
@@ -329,6 +339,18 @@ class InVesselBuild(object):
                 ".step"
             )
             cq.exporters.export(component, str(export_path))
+
+    def save_cub5(self, filename="invessel_build.cub5", export_dir=""):
+        """Save current state of cubit model.
+
+        Arguments:
+            filename (str): name to save file as.
+            export_dir (str): directory in which to save the cub5 file.
+        """
+        self.export_dir = export_dir
+        cubit.cmd(
+            f'save cub5 "{Path(self.export_dir) / Path(filename).with_suffix(".cub5")}" overwrite'
+        )
 
     def export_cad_to_dagmc(self, dagmc_filename="dagmc", export_dir=""):
         """Exports DAGMC neutronics H5M file of ParaStell in-vessel components
