@@ -41,7 +41,7 @@ def coil_set():
 @pytest.fixture
 def coil_set_from_geom():
 
-    geom_file = Path("files_for_tests") / "magnet_set.step"
+    geom_file = Path("files_for_tests") / "magnet_set.cub5"
     coil_set_from_geom_obj = magnet_coils.MagnetSet(geom_file)
 
     return coil_set_from_geom_obj
@@ -112,9 +112,13 @@ def test_magnets_from_geom_cubit_import(coil_set_from_geom):
 
     volume_ids_exp = list(range(1, 2))
 
+    # test cub5 import
+
     coil_set_from_geom.import_geom_cubit()
 
     assert coil_set_from_geom.volume_ids == volume_ids_exp
+
+    # test step import
 
     cubit.cmd("new")
 
