@@ -91,6 +91,7 @@ class Stellarator(object):
         wall_s,
         radial_build,
         split_chamber=False,
+        cadquery_geometry=True,
         **kwargs,
     ):
         """Construct InVesselBuild class object.
@@ -129,7 +130,9 @@ class Stellarator(object):
                 scrape-off layer definition for 'chamber', add an item with a
                 'chamber' key and desired 'thickness_matrix' value to the
                 radial_build dictionary.
-
+            cadquery_geometry (bool): If True, use CadQuery to build spline
+                based geometry. If False, use Coreform Cubit to build facet
+                based geometry.
         Optional attributes:
             plasma_mat_tag (str): alternate DAGMC material tag to use for
                 plasma. If none is supplied, 'Vacuum' will be used (defaults to
@@ -167,7 +170,10 @@ class Stellarator(object):
 
         self.invessel_build.populate_surfaces()
         self.invessel_build.calculate_loci()
-        self.invessel_build.generate_components()
+        if cadquery_geometry:
+            self.invessel_build.generate_components()
+        else:
+            self.invessel_build.build_cubit_volumes()
 
     def export_invessel_build(
         self, export_cad_to_dagmc=False, dagmc_filename="dagmc", export_dir=""
@@ -373,7 +379,7 @@ class Stellarator(object):
         else:
             cubit_io.init_cubit()
 
-        if self.invessel_build:
+        if self.invessel_build and not self.invessel_build.cubit_volumes:
             self.invessel_build.import_step_cubit()
 
         if self.magnet_set:
@@ -679,7 +685,7 @@ def parastell():
         nwl_required_keys = ["toroidal_angles", "poloidal_angles", "wall_s"]
 
         nwl_build = {}
-        for key in nwl_keys:
+        for key in nwl_required_keys:
             nwl_build[key] = invessel_build[key]
         nwl_build["radial_build"] = {}
 
