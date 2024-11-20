@@ -346,6 +346,33 @@ class InVesselBuild(object):
 
         model.export_dagmc_h5m_file(filename=str(export_path))
 
+    def export_invessel_component_mesh(
+        self, components, mesh_size=5, import_dir="", export_dir=""
+    ):
+        """Creates a tetrahedral mesh of an in-vessel component volume
+        via Coreform Cubit and exports it as H5M file.
+
+        Arguments:
+            components (array of strings): array containing the name
+                of the in-vessel components to be meshed.
+            mesh_size (int): controls the size of the mesh. Takes values
+                between 1 (finer) and 10 (coarser) (optional, defaults to 5).
+            import_dir (str): directory containing the STEP file of
+                the in-vessel component (optional, defaults to empty string).
+            export_dir (str): directory to which to export the h5m
+                output file (optional, defaults to empty string).
+        """
+        for component in components:
+            vol_id = cubit_io.import_step_cubit(component, import_dir)
+            cubit.cmd(f"volume {vol_id} scheme tetmesh")
+            cubit.cmd(f"volume {vol_id} size auto factor {mesh_size}")
+            cubit.cmd(f"mesh volume {vol_id}")
+            cubit_io.export_mesh_cubit(
+                filename=component,
+                export_dir=export_dir,
+                delete_upon_export=False,
+            )
+
 
 class Surface(object):
     """An object representing a surface formed by lofting across a set of
