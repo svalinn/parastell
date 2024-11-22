@@ -32,6 +32,17 @@ def init_cubit():
         initialized = True
 
 
+def create_new_cubit_instance():
+    """Creates new cubit instance checking if Cubit has been already
+    initialized.
+
+    """
+    if initialized:
+        cubit.cmd("new")
+    else:
+        init_cubit()
+
+
 def import_step_cubit(filename, import_dir):
     """Imports STEP file into Coreform Cubit.
 
@@ -205,14 +216,3 @@ def export_dagmc_cubit_native(
     # exports
     if delete_upon_export:
         cubit.cmd(f"delete mesh volume all propagate")
-
-
-def create_new_cubit_instance():
-    """Creates new cubit instance checking if Cubit has been already
-    initialized.
-
-    """
-    if initialized:
-        cubit.cmd("new")
-    else:
-        init_cubit()
