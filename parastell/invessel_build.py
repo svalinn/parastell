@@ -346,7 +346,7 @@ class InVesselBuild(object):
 
         model.export_dagmc_h5m_file(filename=str(export_path))
 
-    def export_invessel_component_mesh(
+    def export_component_mesh(
         self, components, mesh_size=5, import_dir="", export_dir=""
     ):
         """Creates a tetrahedral mesh of an in-vessel component volume

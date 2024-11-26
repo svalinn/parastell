@@ -125,7 +125,7 @@ def test_ivb_exports(invessel_build):
     invessel_build.generate_components()
     invessel_build.export_step()
     invessel_build.export_cad_to_dagmc()
-    invessel_build.export_invessel_component_mesh(components=["component"])
+    invessel_build.export_component_mesh(components=["component"])
 
     assert Path("chamber.step").exists()
     assert Path("component.step").exists()

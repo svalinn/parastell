@@ -208,7 +208,7 @@ class Stellarator(object):
                 output file (optional, defaults to empty string).
         """
         self._logger.info("Exporting in-vessel components mesh...")
-        self.invessel_build.export_invessel_component_mesh(
+        self.invessel_build.export_component_mesh(
             components, mesh_size, import_dir, export_dir
         )
 
