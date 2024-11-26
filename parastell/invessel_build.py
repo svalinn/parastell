@@ -370,7 +370,7 @@ class InVesselBuild(object):
             cubit_io.export_mesh_cubit(
                 filename=component,
                 export_dir=export_dir,
-                delete_upon_export=False,
+                delete_upon_export=True,
             )
 
 
