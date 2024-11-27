@@ -4,6 +4,7 @@ import pytest
 import numpy as np
 
 import parastell.magnet_coils as magnet_coils
+from parastell.cubit_io import create_new_cubit_instance
 
 
 def remove_files():
@@ -70,7 +71,7 @@ def test_magnet_exports(coil_set):
     volume_ids_exp = list(range(1, 2))
 
     remove_files()
-
+    create_new_cubit_instance()
     coil_set.populate_magnet_coils()
     coil_set.build_magnet_coils()
     coil_set.export_step()

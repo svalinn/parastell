@@ -191,6 +191,27 @@ class Stellarator(object):
                 dagmc_filename=dagmc_filename, export_dir=export_dir
             )
 
+    def export_invessel_component_mesh(
+        self, components, mesh_size=5, import_dir="", export_dir=""
+    ):
+        """Creates a tetrahedral mesh of an in-vessel component volume
+        via Coreform Cubit and exports it as H5M file.
+
+        Arguments:
+            components (array of strings): array containing the name
+                of the in-vessel components to be meshed.
+            mesh_size (int): controls the size of the mesh. Takes values
+                between 1 (finer) and 10 (coarser) (optional, defaults to 5).
+            import_dir (str): directory containing the STEP file of
+                the in-vessel component (optional, defaults to empty string).
+            export_dir (str): directory to which to export the h5m
+                output file (optional, defaults to empty string).
+        """
+        self._logger.info("Exporting in-vessel components mesh...")
+        self.invessel_build.export_component_mesh(
+            components, mesh_size, import_dir, export_dir
+        )
+
     def construct_magnets(
         self, coils_file, width, thickness, toroidal_extent, **kwargs
     ):

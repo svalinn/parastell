@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 import parastell.parastell as ps
+from parastell.cubit_io import create_new_cubit_instance
 
 
 def remove_files():
@@ -45,7 +46,7 @@ def stellarator():
 def test_parastell(stellarator):
 
     remove_files()
-
+    create_new_cubit_instance()
     # In-Vessel Build
 
     toroidal_angles = [0.0, 5.0, 10.0, 15.0]

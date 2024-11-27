@@ -32,6 +32,17 @@ def init_cubit():
         initialized = True
 
 
+def create_new_cubit_instance():
+    """Creates new cubit instance checking if Cubit has been already
+    initialized.
+
+    """
+    if initialized:
+        cubit.cmd("new")
+    else:
+        init_cubit()
+
+
 def import_step_cubit(filename, import_dir):
     """Imports STEP file into Coreform Cubit.
 
