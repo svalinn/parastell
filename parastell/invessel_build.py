@@ -299,20 +299,24 @@ class InVesselBuild(object):
             vol_id = cubit_io.import_step_cubit(name, self.export_dir)
             data["vol_id"] = vol_id
 
-    def export_step(self, export_dir=""):
-        """Export CAD solids as STEP files via CadQuery.
+    def export_components(self, filetype="step", export_dir=""):
+        """Export CAD solids as STEP or STL files via CadQuery.
 
         Arguments:
-            export_dir (str): directory to which to export the STEP output files
+            filetype (str): file extension, excluding '.', to which solids are exported
+                (defaults to STEP).
+            export_dir (str): directory to which to export the output files
                 (optional, defaults to empty string).
         """
-        self._logger.info("Exporting STEP files for in-vessel components...")
+        self._logger.info(
+            f"Exporting {filetype.upper()} files for in-vessel components..."
+        )
 
         self.export_dir = export_dir
 
         for name, component in self.Components.items():
             export_path = Path(self.export_dir) / Path(name).with_suffix(
-                ".step"
+                f".{filetype}"
             )
             cq.exporters.export(component, str(export_path))
 

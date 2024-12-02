@@ -250,23 +250,29 @@ class MagnetSet(object):
 
         self.volume_ids = list(range(first_vol_id, last_vol_id + 1))
 
-    def export_step(self, step_filename="magnet_set", export_dir=""):
-        """Export CAD solids as a STEP file via CadQuery.
+    def export_components(
+        self, filetype="step", filename="magnet_set", export_dir=""
+    ):
+        """Export CAD solids as a STEP or STL file via CadQuery.
 
         Arguments:
-            step_filename (str): name of STEP output file, excluding '.step'
-                extension (optional, defaults to 'magnet_set').
-            export_dir (str): directory to which to export the STEP output file
+            filetype (str): extension, excluding '.', to which to export the output file
+                (defaults to STEP).
+            filename (str): name of output file, excluding extension
+                (optional, defaults to 'magnet_set').
+            export_dir (str): directory to which to export the output file
                 (optional, defaults to empty string).
         """
-        self._logger.info("Exporting STEP file for magnet coils...")
+        self._logger.info(
+            f"Exporting {filetype.upper()} file for magnet coils..."
+        )
 
         self.export_dir = export_dir
-        self.step_filename = step_filename
+        self.filename = filename
 
-        export_path = Path(self.export_dir) / Path(
-            self.step_filename
-        ).with_suffix(".step")
+        export_path = Path(self.export_dir) / Path(self.filename).with_suffix(
+            f".{filetype}"
+        )
 
         coil_set = cq.Compound.makeCompound(
             [coil.solid for coil in self.magnet_coils]
