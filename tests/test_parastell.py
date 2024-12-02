@@ -143,3 +143,8 @@ def test_parastell(stellarator):
     assert Path(filename_exp).with_suffix(".cub5").exists()
 
     remove_files()
+
+    stellarator.build_stellarmesh_model(
+        min_mesh_size=50, max_mesh_size=100, num_threads=0
+    )
+    stellarator.export_dagmc_stellarmesh()

@@ -17,8 +17,6 @@ def remove_files():
         Path.unlink("chamber.step")
     if Path("component.step").exists():
         Path.unlink("component.step")
-    if Path("dagmc.h5m").exists():
-        Path.unlink("dagmc.h5m")
     if Path("stellarator.log").exists():
         Path.unlink("stellarator.log")
 
@@ -124,12 +122,10 @@ def test_ivb_exports(invessel_build):
     invessel_build.calculate_loci()
     invessel_build.generate_components()
     invessel_build.export_step()
-    invessel_build.export_cad_to_dagmc()
     invessel_build.export_component_mesh(components=["component"])
 
     assert Path("chamber.step").exists()
     assert Path("component.step").exists()
-    assert Path("dagmc.h5m").exists()
     assert Path("component.h5m").exists()
 
     remove_files()
