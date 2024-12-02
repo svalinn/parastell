@@ -316,35 +316,29 @@ class InVesselBuild(object):
             )
             cq.exporters.export(component, str(export_path))
 
-    def export_cad_to_dagmc(self, dagmc_filename="dagmc", export_dir=""):
-        """Exports DAGMC neutronics H5M file of ParaStell in-vessel components
-        via CAD-to-DAGMC.
+    def extract_solids_and_material_names(self, solids, material_names):
+        """Appends in-vessel component CadQuery solid objects and material
+        names to corresponding input lists.
 
         Arguments:
-            dagmc_filename (str): name of DAGMC output file, excluding '.h5m'
-                extension (optional, defaults to 'dagmc').
-            export_dir (str): directory to which to export the DAGMC output file
-                (optional, defaults to empty string).
+            solids (list): list to which in-vessel component CadQuery solid
+                objects will be appended.
+            material_names (list): list to which in-vessel component material
+                names will be appended.
+
+        Returns:
+            solids (list): updated list including in-vessel component CadQuery
+                solid objects.
+            material_names (list): updated list including in-vessel component
+                material names.
         """
-        self._logger.info(
-            "Exporting DAGMC neutronics model of in-vessel components..."
-        )
-
-        model = cad_to_dagmc.CadToDagmc()
-
-        for name, component in self.Components.items():
-            model.add_cadquery_object(
-                component,
-                material_tags=[
-                    self.radial_build.radial_build[name]["mat_tag"]
-                ],
+        for name, solid in self.Components.items():
+            solids.append(solid)
+            material_names.append(
+                self.radial_build.radial_build[name]["mat_tag"]
             )
 
-        export_path = Path(export_dir) / Path(dagmc_filename).with_suffix(
-            ".h5m"
-        )
-
-        model.export_dagmc_h5m_file(filename=str(export_path))
+        return solids, material_names
 
     def export_component_mesh(
         self, components, mesh_size=5, import_dir="", export_dir=""
