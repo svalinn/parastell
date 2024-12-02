@@ -273,27 +273,26 @@ class MagnetSet(object):
         coil_set = cq.Compound.makeCompound(self.coil_solids)
         cq.exporters.export(coil_set, str(export_path))
 
-    def extract_solids_and_material_name(self, solids, material_names):
-        """Appends magnet set CadQuery solid objects and material name to
+    def extract_solids_and_mat_tag(self, solids, mat_tags):
+        """Appends magnet set CadQuery solid objects and material tag to
         corresponding input lists.
 
         Arguments:
             solids (list): list to which magnet set CadQuery solid objects will
                 be appended.
-            material_names (list): list to which magnet set material name will
-                be appended. Note that the material name will be appended once
-                for each magnet solid.
+            mat_tags (list): list to which magnet set material tag will be
+                appended. Note that the material tag will be appended once for
+                each magnet solid.
 
         Returns:
             solids (list): updated list including magnet set CadQuery solid
                 objects.
-            material_names (list): updated list including magnet set material
-                names.
+            mat_tags (list): updated list including magnet set material tags.
         """
-        solids.append(self.coil_solids)
-        [material_names.append(self.mat_tag) for _ in self.coil_solids]
+        solids.extend(self.coil_solids)
+        [mat_tags.append(self.mat_tag) for _ in self.coil_solids]
 
-        return solids, material_names
+        return solids, mat_tags
 
     def mesh_magnets(self, min_size=20.0, max_size=50.0, max_gradient=1.5):
         """Creates tetrahedral mesh of magnet volumes via Coreform Cubit.

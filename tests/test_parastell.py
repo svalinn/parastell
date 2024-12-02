@@ -148,3 +148,6 @@ def test_parastell(stellarator):
         min_mesh_size=50, max_mesh_size=100, num_threads=0
     )
     stellarator.export_dagmc_stellarmesh()
+    print([volume.global_id for volume in stellarator.dagmc_model.volumes])
+
+    remove_files()
