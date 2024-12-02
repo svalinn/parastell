@@ -12,16 +12,14 @@ conda install -c conda-forge mamba
 
 The subsequent mamba and pip install commands should be run with this environment activated.
 
-Mamba install ParaStell and PyStell-UW Python dependencies available on `conda-forge`:
+Mamba install ParaStell Python dependencies available on `conda-forge`:
 
 ```
-mamba install -c conda-forge numpy scipy scikit-learn cadquery cad_to_dagmc matplotlib
-mamba install -c conda-forge moab=5.5.0=nompi_tempest_*
+mamba install -c conda-forge pip numpy=1.26.4 scipy scikit-learn cadquery moab=5.5.1=nompi_tempest_* ca-certificates certifi openssl openmc=0.15.0=dagmc_nompi_* matplotlib
 ```
 
-Pip install the remaining ParaStell and PyStell-UW Python dependencies:
+Pip install the remaining ParaStell Python dependencies:
 
 ```
-pip install netCDF4
-pip install pyyaml
+pip install netCDF4 pyyaml pytest git+https://github.com/aaroncbader/pystell_uw.git stellarmesh
 ```
