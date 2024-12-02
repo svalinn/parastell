@@ -14,7 +14,7 @@ from . import cubit_io
 from .utils import read_yaml_config, filter_kwargs, m2cm
 
 build_cubit_model_allowed_kwargs = ["skip_imprint"]
-export_dagmc_allowed_kwargs = ["anisotropic_ratio", "deviation_angle"]
+export_dagmc_cubit_allowed_kwargs = ["anisotropic_ratio", "deviation_angle"]
 
 
 def make_material_block(mat_tag, block_id, vol_id_str):
@@ -378,7 +378,7 @@ class Stellarator(object):
 
         self._tag_materials()
 
-    def export_dagmc(self, filename="dagmc", export_dir="", **kwargs):
+    def export_dagmc_cubit(self, filename="dagmc", export_dir="", **kwargs):
         """Exports DAGMC neutronics H5M file of ParaStell components via
         Coreform Cubit.
 
@@ -628,9 +628,9 @@ def parastell():
         stellarator.build_cubit_model(
             **(filter_kwargs(dagmc_export, build_cubit_model_allowed_kwargs))
         )
-        stellarator.export_dagmc(
+        stellarator.export_dagmc_cubit(
             export_dir=args.export_dir,
-            **(filter_kwargs(dagmc_export, export_dagmc_allowed_kwargs)),
+            **(filter_kwargs(dagmc_export, export_dagmc_cubit_allowed_kwargs)),
         )
 
         if all_data["cub5_export"]:
@@ -662,7 +662,7 @@ def parastell():
         nwl_geom.construct_invessel_build(**nwl_build)
         nwl_geom.export_invessel_build(export_dir=args.export_dir)
 
-        nwl_geom.export_dagmc(
+        nwl_geom.export_dagmc_cubit(
             skip_imprint=True, filename="nwl_geom", export_dir=args.export_dir
         )
 

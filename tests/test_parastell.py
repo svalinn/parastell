@@ -136,7 +136,7 @@ def test_parastell(stellarator):
     )
     assert stellarator.magnet_set.volume_ids == magnet_volume_ids_exp
 
-    stellarator.export_dagmc(filename=filename_exp)
+    stellarator.export_dagmc_cubit(filename=filename_exp)
     stellarator.export_cub5(filename=filename_exp)
 
     assert Path(filename_exp).with_suffix(".h5m").exists()
