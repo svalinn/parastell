@@ -441,20 +441,18 @@ class Stellarator(object):
         material_names = []
 
         if self.invessel_build:
-            for name, solid in self.invessel_build.Components.items():
-                solids.append(solid)
-                material_names.append(
-                    self.invessel_build.radial_build.radial_build[name][
-                        "mat_tag"
-                    ]
+            solids, material_names = (
+                self.invessel_build.extract_solids_and_material_names(
+                    solids, material_names
                 )
+            )
 
         if self.magnet_set:
-            solids.append(self.magnet_set.coil_solids)
-            [
-                material_names.append(self.magnet_set.mat_tag)
-                for _ in self.magnet_set.coil_solids
-            ]
+            solids, material_names = (
+                self.magnet_set.extract_solids_and_material_name(
+                    solids, material_names
+                )
+            )
 
         geometry = stellarmesh.Geometry(solids, material_names)
         self.full_mesh = stellarmesh.Mesh.from_geometry(
@@ -477,6 +475,7 @@ class Stellarator(object):
         export_path = Path(export_dir) / Path(filename).with_suffix(".h5m")
 
         dagmc_model = stellarmesh.DAGMCModel.from_mesh(self.full_mesh)
+
         dagmc_model.write(export_path)
 
 
