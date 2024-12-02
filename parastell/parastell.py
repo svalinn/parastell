@@ -442,14 +442,14 @@ class Stellarator(object):
 
         if self.invessel_build:
             solids, material_names = (
-                self.invessel_build.extract_solids_and_material_names(
+                self.invessel_build.extract_solids_and_mat_tags(
                     solids, material_names
                 )
             )
 
         if self.magnet_set:
             solids, material_names = (
-                self.magnet_set.extract_solids_and_material_name(
+                self.magnet_set.extract_solids_and_mat_tag(
                     solids, material_names
                 )
             )
@@ -474,9 +474,8 @@ class Stellarator(object):
         """
         export_path = Path(export_dir) / Path(filename).with_suffix(".h5m")
 
-        dagmc_model = stellarmesh.DAGMCModel.from_mesh(self.full_mesh)
-
-        dagmc_model.write(export_path)
+        self.dagmc_model = stellarmesh.DAGMCModel.from_mesh(self.full_mesh)
+        self.dagmc_model.write(export_path)
 
 
 def parse_args():

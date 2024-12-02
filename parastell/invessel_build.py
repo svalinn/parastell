@@ -6,7 +6,6 @@ from scipy.interpolate import RegularGridInterpolator
 
 import cubit
 import cadquery as cq
-import cad_to_dagmc
 import pystell.read_vmec as read_vmec
 
 from . import log
@@ -316,29 +315,27 @@ class InVesselBuild(object):
             )
             cq.exporters.export(component, str(export_path))
 
-    def extract_solids_and_material_names(self, solids, material_names):
+    def extract_solids_and_mat_tags(self, solids, mat_tags):
         """Appends in-vessel component CadQuery solid objects and material
-        names to corresponding input lists.
+        tags to corresponding input lists.
 
         Arguments:
             solids (list): list to which in-vessel component CadQuery solid
                 objects will be appended.
-            material_names (list): list to which in-vessel component material
-                names will be appended.
+            mat_tags (list): list to which in-vessel component material tags
+                will be appended.
 
         Returns:
             solids (list): updated list including in-vessel component CadQuery
                 solid objects.
-            material_names (list): updated list including in-vessel component
-                material names.
+            mat_tags (list): updated list including in-vessel component
+                material tags.
         """
         for name, solid in self.Components.items():
             solids.append(solid)
-            material_names.append(
-                self.radial_build.radial_build[name]["mat_tag"]
-            )
+            mat_tags.append(self.radial_build.radial_build[name]["mat_tag"])
 
-        return solids, material_names
+        return solids, mat_tags
 
     def export_component_mesh(
         self, components, mesh_size=5, import_dir="", export_dir=""
