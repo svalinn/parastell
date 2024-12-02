@@ -5,6 +5,7 @@ from pathlib import Path
 import cubit
 import numpy as np
 import pystell.read_vmec as read_vmec
+import stellarmesh
 
 from . import log
 from . import invessel_build as ivb
@@ -417,6 +418,66 @@ class Stellarator(object):
         self._logger.info("Exporting cub5 model...")
 
         cubit_io.export_cub5(filename=filename, export_dir=export_dir)
+
+    def build_stellarmesh_model(
+        self, min_mesh_size=20, max_mesh_size=50, **kwargs
+    ):
+        """Build model for DAGMC neutronics H5M file of Parastell components via
+        Stellarmesh.
+
+        Arguments:
+            min_mesh_size (float): minimum size of mesh elements (defaults to
+                20).
+            max_mesh_size (float): maximum size of mesh elements (defaults to
+                50).
+
+        Optional arguments:
+            num_threads (int): maximum number of threads to use for geometry
+                meshing (defaults to None). Only valid when Gmsh is compiled
+                with OpenMP support. An input value of 0 equates to the system
+                default (i.e. OMP_NUM_THREADS).
+        """
+        solids = []
+        material_names = []
+
+        if self.invessel_build:
+            for name, solid in self.invessel_build.Components.items():
+                solids.append(solid)
+                material_names.append(
+                    self.invessel_build.radial_build.radial_build[name][
+                        "mat_tag"
+                    ]
+                )
+
+        if self.magnet_set:
+            solids.append(self.magnet_set.coil_solids)
+            [
+                material_names.append(self.magnet_set.mat_tag)
+                for _ in self.magnet_set.coil_solids
+            ]
+
+        geometry = stellarmesh.Geometry(solids, material_names)
+        self.full_mesh = stellarmesh.Mesh.from_geometry(
+            geometry,
+            min_mesh_size=min_mesh_size,
+            max_mesh_size=max_mesh_size,
+            **kwargs,
+        )
+
+    def export_dagmc_stellarmesh(self, filename="dagmc", export_dir=""):
+        """Exports DAGMC neutronics H5M file of ParaStell components via
+        Stellarmesh.
+
+        Arguments:
+            filename (str): name of DAGMC output file, excluding '.h5m'
+                extension (optional, defaults to 'dagmc').
+            export_dir (str): directory to which to export DAGMC output file
+                (optional, defaults to empty string).
+        """
+        export_path = Path(export_dir) / Path(filename).with_suffix(".h5m")
+
+        dagmc_model = stellarmesh.DAGMCModel.from_mesh(self.full_mesh)
+        dagmc_model.write(export_path)
 
 
 def parse_args():
