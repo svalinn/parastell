@@ -14,11 +14,8 @@ from .utils import (
     normalize,
     expand_list,
     read_yaml_config,
-    filter_kwargs,
     m2cm,
 )
-
-export_allowed_kwargs = ["export_cad_to_dagmc", "dagmc_filename"]
 
 
 def orient_spline_surfaces(volume_id):
@@ -865,13 +862,6 @@ def generate_invessel_build():
     invessel_build.generate_components()
 
     invessel_build.export_step(export_dir=args.export_dir)
-
-    if invessel_build_dict["export_cad_to_dagmc"]:
-
-        invessel_build.export_cad_to_dagmc(
-            export_dir=args.export_dir,
-            **(filter_kwargs(invessel_build_dict, ["dagmc_filename"])),
-        )
 
 
 if __name__ == "__main__":

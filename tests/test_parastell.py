@@ -136,7 +136,7 @@ def test_parastell(stellarator):
     )
     assert stellarator.magnet_set.volume_ids == magnet_volume_ids_exp
 
-    stellarator.export_dagmc_cubit(filename=filename_exp)
+    stellarator.export_cf_dagmc(filename=filename_exp)
     stellarator.export_cub5(filename=filename_exp)
 
     assert Path(filename_exp).with_suffix(".h5m").exists()
@@ -144,10 +144,9 @@ def test_parastell(stellarator):
 
     remove_files()
 
-    stellarator.build_stellarmesh_model(
-        min_mesh_size=50, max_mesh_size=100, num_threads=0
-    )
-    stellarator.export_dagmc_stellarmesh()
-    print([volume.global_id for volume in stellarator.dagmc_model.volumes])
+    stellarator.build_cad_to_dagmc_model()
+    stellarator.export_cad_to_dagmc(min_mesh_size=50, max_mesh_size=100)
+
+    assert Path(filename_exp).with_suffix(".h5m").exists()
 
     remove_files()
