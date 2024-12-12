@@ -538,9 +538,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def check_inputs(
-    invessel_build, magnet_coils, source_mesh, dagmc_export, logger
-):
+def check_inputs(invessel_build, magnet_coils, source_mesh, logger):
     """Checks inputs for consistency across ParaStell classes.
 
     Arguments:
@@ -548,7 +546,6 @@ def check_inputs(
             parameters.
         magnet_coils (dict): dictionary of MagnetSet parameters.
         source_mesh (dict): dictionary of SourceMesh parameters.
-        dagmc_export (dict): dictionary of DAGMC export parameters.
         logger (object): logger object.
     """
     if "repeat" in invessel_build:
@@ -651,7 +648,7 @@ def parastell():
         stellarator.build_cubit_model(
             **(filter_kwargs(dagmc_export, build_cubit_model_allowed_kwargs))
         )
-        stellarator.export_dagmc_cubit(
+        stellarator.export_cf_dagmc(
             export_dir=args.export_dir,
             **(filter_kwargs(dagmc_export, export_cf_dagmc_allowed_kwargs)),
         )
