@@ -366,8 +366,10 @@ class MagnetSetFromGeometry(MagnetSet):
 
     Arguments:
         coils_file (str): path to coil filament data file.
-        geometry_file (str): path to existing coil geometry. Can be of the
-            types supported by cubit_io.import_geom_to_cubit()
+        geometry_file (str): filename of the existing coil geometry. Can be of
+            the types supported by cubit_io.import_geom_to_cubit()
+        working_dir (str): path to directory in which existing geometry
+            is saved.
         logger (object): logger object (optional, defaults to None). If no
             logger is supplied, a default logger will be instantiated.
 
