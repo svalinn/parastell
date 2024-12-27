@@ -17,6 +17,7 @@
 *.yaml
 !config.yaml
 *.lic
+!magnet_geom.step
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
