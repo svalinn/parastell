@@ -87,11 +87,11 @@ def test_parastell(stellarator):
     toroidal_extent = 90.0
     sample_mod = 6
 
-    stellarator.construct_magnets(
+    stellarator.construct_magnets_from_filaments(
         coils_file, width, thickness, toroidal_extent, sample_mod=sample_mod
     )
 
-    step_filename_exp = "magnet_set"
+    step_filename_exp = "magnet_set.step"
     export_mesh = True
     mesh_filename_exp = "magnet_mesh"
 
@@ -148,5 +148,48 @@ def test_parastell(stellarator):
     stellarator.export_cad_to_dagmc(min_mesh_size=50, max_mesh_size=100)
 
     assert Path(filename_exp).with_suffix(".h5m").exists()
+    # Test with custom magnet geometry
+
+    create_new_cubit_instance()
+
+    geometry_file = Path("files_for_tests") / "magnet_geom.step"
+
+    stellarator.construct_invessel_build(
+        toroidal_angles,
+        poloidal_angles,
+        wall_s,
+        radial_build_dict,
+        num_ribs=num_ribs,
+    )
+
+    stellarator.export_invessel_build()
+
+    stellarator.add_magnets_from_geometry(coils_file, geometry_file)
+
+    stellarator.build_cubit_model()
+
+    import cubit
+
+    cubit.cmd('save cub5 "test.cub5"')
+
+    assert (
+        stellarator.invessel_build.radial_build.radial_build["chamber"][
+            "vol_id"
+        ]
+        == chamber_volume_id_exp
+    )
+    assert (
+        stellarator.invessel_build.radial_build.radial_build[
+            component_name_exp
+        ]["vol_id"]
+        == component_volume_id_exp
+    )
+    assert stellarator.magnet_set.volume_ids == magnet_volume_ids_exp
+
+    stellarator.export_dagmc(filename=filename_exp)
+    stellarator.export_cub5(filename=filename_exp)
+
+    assert Path(filename_exp).with_suffix(".h5m").exists()
+    assert Path(filename_exp).with_suffix(".cub5").exists()
 
     remove_files()

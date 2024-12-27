@@ -193,7 +193,7 @@ class Stellarator(object):
             components, mesh_size, import_dir, export_dir
         )
 
-    def construct_magnets(
+    def construct_magnets_from_filaments(
         self, coils_file, width, thickness, toroidal_extent, **kwargs
     ):
         """Constructs MagnetSet class object.
@@ -216,7 +216,7 @@ class Stellarator(object):
             mat_tag (str): DAGMC material tag to use for magnets in DAGMC
                 neutronics model (defaults to 'magnets').
         """
-        self.magnet_set = mc.MagnetSet(
+        self.magnet_set = mc.MagnetSetFromFilaments(
             coils_file,
             width,
             thickness,
@@ -227,6 +227,17 @@ class Stellarator(object):
 
         self.magnet_set.populate_magnet_coils()
         self.magnet_set.build_magnet_coils()
+
+    def add_magnets_from_geometry(
+        self, coils_file, geometry_file, working_dir=".", **kwargs
+    ):
+        self.magnet_set = mc.MagnetSetFromGeometry(
+            coils_file,
+            geometry_file,
+            working_dir,
+            logger=self._logger,
+            **kwargs,
+        )
 
     def export_magnets(
         self,
@@ -356,7 +367,7 @@ class Stellarator(object):
             self.invessel_build.import_step_cubit()
 
         if self.magnet_set:
-            self.magnet_set.import_step_cubit()
+            self.magnet_set.import_geom_cubit()
 
         if skip_imprint:
             self.invessel_build.merge_layer_surfaces()
