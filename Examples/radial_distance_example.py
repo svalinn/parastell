@@ -93,7 +93,7 @@ stellarator.construct_invessel_build(
 stellarator.export_invessel_build()
 
 # Construct magnets
-stellarator.construct_magnets(
+stellarator.construct_magnets_from_filaments(
     coils_file, width, thickness, toroidal_extent, sample_mod=6
 )
 # Export magnet files
@@ -108,7 +108,7 @@ stellarator.construct_source_mesh(mesh_size, toroidal_extent)
 stellarator.export_source_mesh(filename="source_mesh", export_dir=export_dir)
 
 # Build Cubit model of Parastell Components
-stellarator.build_cubit_model(skip_imprint=False, legacy_faceting=True)
+stellarator.build_cubit_model(skip_imprint=True, legacy_faceting=False)
 
 # Export DAGMC neutronics H5M file
 stellarator.export_dagmc(filename="dagmc", export_dir=export_dir)
