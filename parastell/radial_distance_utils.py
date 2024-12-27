@@ -70,8 +70,8 @@ def build_magnet_surface(filaments, sample_mod=1):
     """Builds a surface in Coreform Cubit spanning a list of coil filaments.
 
     Arguments:
-        filaments (list of object): list of MagnetCoil class objects,
-            ordered toroidally. Each MagnetCoil object must also have its
+        filaments (list of object): list of Filament class objects,
+            ordered toroidally. Each Filament object must also have its
             filament coordinates ordered poloidally (see reorder_coils
             function).
         sample_mod (int): sampling modifier for filament points (defaults to
@@ -234,9 +234,5 @@ def measure_fw_coils_separation(
     build_magnet_surface(reordered_filaments, sample_mod=sample_mod)
 
     radial_distance_matrix = measure_surface_coils_separation(surface)
-
-    import cubit
-
-    cubit.cmd('save cub5 "magnet_surface_test.cub5" overwrite')
 
     return radial_distance_matrix
