@@ -65,7 +65,7 @@ class MagnetSet(object):
 
     def _instantiate_filaments(self):
         """Extracts filament coordinate data from input data file and
-        instantiates MagnetCoil class objects.
+        instantiates Filament class objects.
         (Internal function not intended to be called externally)
         """
         with open(self.coils_file, "r") as file:
@@ -118,7 +118,7 @@ class MagnetSet(object):
         self.filaments = self.sort_filaments_toroidally()
 
     def import_geom_cubit(self):
-        """Import STEP file for magnet set into Coreform Cubit."""
+        """Import geometry file for magnet set into Coreform Cubit."""
         first_vol_id = 1
         if cubit_io.initialized:
             first_vol_id += cubit.get_last_id("volume")
@@ -168,7 +168,7 @@ class MagnetSet(object):
         )
 
     def sort_filaments_toroidally(self):
-        """Reorders list of coils by toroidal angle on range [-pi, pi].
+        """Reorders list of filaments by toroidal angle on range [-pi, pi].
 
         Returns:
             (list of object): sorted list of Filament class objects.
@@ -255,6 +255,9 @@ class MagnetSetFromFilaments(MagnetSet):
             raise e
 
     def _instantiate_coils(self):
+        """Instantiates MagnetCoil class objects using filament data.
+        (Internal function not intended to be called externally)
+        """
         self.magnet_coils = []
         for filament in self.filaments:
             self.magnet_coils.append(
@@ -317,9 +320,7 @@ class MagnetSetFromFilaments(MagnetSet):
         self.working_dir = export_dir
         self.geometry_file = Path(step_filename).with_suffix(".step")
 
-        export_path = Path(self.working_dir) / Path(
-            self.geometry_file
-        ).with_suffix(".step")
+        export_path = Path(self.working_dir) / self.geometry_file
 
         coil_set = cq.Compound.makeCompound(
             [coil.solid for coil in self.magnet_coils]
@@ -360,12 +361,13 @@ class MagnetSetFromFilaments(MagnetSet):
             first_vol_id += cubit.get_last_id("volume")
 
 class MagnetSetFromGeometry(MagnetSet):
-    """An object representing a set of modular stellarator magnet coils.
+    """An object representing a set of modular stellarator magnet coils
+    with previously defined geometry files.
 
     Arguments:
         coils_file (str): path to coil filament data file.
         geometry_file (str): path to existing coil geometry. Can be of the
-            types supported by
+            types supported by cubit_io.import_geom_to_cubit()
         logger (object): logger object (optional, defaults to None). If no
             logger is supplied, a default logger will be instantiated.
 
@@ -420,7 +422,8 @@ class MagnetSetFromGeometry(MagnetSet):
     def mesh_magnets(self, min_size=20.0, max_size=50.0, max_gradient=1.5):
         """Creates tetrahedral mesh of magnet volumes via Coreform Cubit.
 class Filament(object):
-    """Object containing basic data defining a Filament.
+    """Object containing basic data defining a Filament, and necessary
+    functions for working with that data.
 
     Arguments:
         coords (2-D array of float): set of Cartesian coordinates defining
@@ -605,36 +608,6 @@ class MagnetCoil(object):
 
         shell = cq.Shell.makeShell(face_list)
         self.solid = cq.Solid.makeSolid(shell)
-
-    def in_toroidal_extent(self, lower_bound, upper_bound):
-        """Determines if the coil lies within a given toroidal angular extent,
-        based on filament coordinates.
-
-        Arguments:
-            lower_bound (float): lower bound of toroidal extent [rad].
-            upper_bound (float): upper bound of toroidal extent [rad].
-
-        Returns:
-            in_toroidal_extent (bool): flag to indicate whether coil lies
-                within toroidal bounds.
-        """
-        # Compute toroidal angle of each point in filament
-        toroidal_angles = np.arctan2(self.coords[:, 1], self.coords[:, 0])
-        # Ensure angles are positive
-        toroidal_angles = (toroidal_angles + 2 * np.pi) % (2 * np.pi)
-        # Compute bounds of toroidal extent of filament
-        min_tor_ang = np.min(toroidal_angles)
-        max_tor_ang = np.max(toroidal_angles)
-
-        # Determine if filament toroidal extent overlaps with that of model
-        if (min_tor_ang >= lower_bound or min_tor_ang <= upper_bound) or (
-            max_tor_ang >= lower_bound or max_tor_ang <= upper_bound
-        ):
-            in_toroidal_extent = True
-        else:
-            in_toroidal_extent = False
-
-        return in_toroidal_extent
 
 
 def parse_args():
