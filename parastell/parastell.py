@@ -465,6 +465,7 @@ class Stellarator(object):
             filename=str(export_path),
             min_mesh_size=min_mesh_size,
             max_mesh_size=max_mesh_size,
+            imprint=False,
         )
 
 
