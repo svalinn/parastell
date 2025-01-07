@@ -9,7 +9,7 @@ dependencies:
   - scikit-learn
   - cadquery
   - moab=5.5.1[build=nompi_tempest_*]
-  - cad_to_dagmc
+  - cad_to_dagmc >=0.7.5
   - ca-certificates
   - certifi
   - openssl
