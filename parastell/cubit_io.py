@@ -111,7 +111,7 @@ def export_mesh_cubit(filename, export_dir="", delete_upon_export=True):
 
 def tag_surface(surface_id, tag):
     """Applies a boundary condition to a surface in cubit following the
-        native coreform syntax
+    Coreform syntax.
 
     Arguments:
         surface_id (int): Surface to tag
@@ -129,8 +129,8 @@ def export_dagmc_cubit(
     export_dir="",
     delete_upon_export=True,
 ):
-    """Exports DAGMC neutronics H5M file of ParaStell components via native
-    faceting method for Coreform Cubit.
+    """Exports DAGMC neutronics H5M file of ParaStell components via Coreform
+    Cubit.
 
     Arguments:
         anisotropic_ratio (float): controls edge length ratio of elements

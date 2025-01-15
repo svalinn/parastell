@@ -14,18 +14,11 @@ from . import cubit_io
 from .utils import read_yaml_config, filter_kwargs, m2cm
 
 build_cubit_model_allowed_kwargs = ["skip_imprint"]
-export_dagmc_allowed_kwargs = [
-    "faceting_tolerance",
-    "length_tolerance",
-    "normal_tolerance",
-    "anisotropic_ratio",
-    "deviation_angle",
-]
+export_dagmc_allowed_kwargs = ["anisotropic_ratio", "deviation_angle"]
 
 
 def make_material_block(mat_tag, block_id, vol_id_str):
-    """Issue commands to make a material block using Cubit's
-    native capabilities.
+    """Issue commands to make a material block in Cubit.
 
     Arguments:
        mat_tag (str) : name of material block
@@ -334,8 +327,8 @@ class Stellarator(object):
         self.source_mesh.export_mesh(filename=filename, export_dir=export_dir)
 
     def _tag_materials(self):
-        """Applies material tags to corresponding CAD volumes for native DAGMC
-        neutronics model export.
+        """Applies material tags to corresponding CAD volumes for DAGMC
+        neutronics model export via Coreform Cubit.
         (Internal function not intended to be called externally)
         """
         cubit.cmd("set duplicate block elements off")
@@ -396,23 +389,11 @@ class Stellarator(object):
                 (optional, defaults to empty string).
 
         Optional arguments:
-            faceting_tolerance (float): maximum distance a facet may be from
-                surface of CAD representation for DAGMC export (defaults to
-                None). This attribute is used only for the legacy faceting
-                method.
-            length_tolerance (float): maximum length of facet edge for DAGMC
-                export (defaults to None). This attribute is used only for the
-                legacy faceting method.
-            normal_tolerance (float): maximum change in angle between normal
-                vector of adjacent facets (defaults to None). This attribute is
-                used only for the legacy faceting method.
             anisotropic_ratio (float): controls edge length ratio of elements
-                (defaults to 100.0). This attribute is used only for the native
-                faceting method.
+                (defaults to 100.0).
             deviation_angle (float): controls deviation angle of facet from
                 surface (i.e., lesser deviation angle results in more elements
-                in areas with higher curvature) (defaults to 5.0). This
-                attribute is used only for the native faceting method.
+                in areas with higher curvature) (defaults to 5.0).
         """
         cubit_io.init_cubit()
 
