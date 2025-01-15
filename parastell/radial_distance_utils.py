@@ -21,11 +21,11 @@ def reorder_filament(coil):
             coordinates defining a MagnetCoil filament.
     """
     # Start the filament at the outboard midplane
-    outboard_index = coil.get_ob_mp_index()
+    outboard_index = coil.filament.get_ob_mp_index()
     if outboard_index != 0:
-        coil.reorder_coords(outboard_index)
+        coil.filament.reorder_coords(outboard_index)
     # Ensure points initially progress in positive z-direction
-    coil.orient_coords()
+    coil.filament.orient_coords()
 
 
 def reorder_coils(magnet_set):
@@ -66,12 +66,12 @@ def build_line(point_1, point_2):
     return curve_id
 
 
-def build_magnet_surface(magnet_coils, sample_mod=1):
+def build_magnet_surface(filaments, sample_mod=1):
     """Builds a surface in Coreform Cubit spanning a list of coil filaments.
 
     Arguments:
-        magnet_coils (list of object): list of MagnetCoil class objects,
-            ordered toroidally. Each MagnetCoil object must also have its
+        filaments (list of object): list of Filament class objects,
+            ordered toroidally. Each Filament object must also have its
             filament coordinates ordered poloidally (see reorder_coils
             function).
         sample_mod (int): sampling modifier for filament points (defaults to
@@ -83,19 +83,19 @@ def build_magnet_surface(magnet_coils, sample_mod=1):
         [
             build_line(coord, next_coord)
             for coord, next_coord in zip(
-                downsample_loop(coil.coords, sample_mod),
-                downsample_loop(next_coil.coords, sample_mod),
+                downsample_loop(filament.coords, sample_mod),
+                downsample_loop(next_filament.coords, sample_mod),
             )
         ]
-        for coil, next_coil in zip(magnet_coils[:-1], magnet_coils[1:])
+        for filament, next_filament in zip(filaments[:-1], filaments[1:])
     ]
     surface_lines = np.array(surface_lines)
 
     surface_sections = np.reshape(
         surface_lines,
         (
-            len(magnet_coils) - 1,
-            len(downsample_loop(magnet_coils[0].coords, sample_mod)),
+            len(filaments) - 1,
+            len(downsample_loop(filaments[0].coords, sample_mod)),
         ),
     )
 
@@ -225,12 +225,13 @@ def measure_fw_coils_separation(
     invessel_build.calculate_loci()
     surface = invessel_build.Surfaces["chamber"]
 
-    magnet_set = magnet_coils.MagnetSet(
+    magnet_set = magnet_coils.MagnetSetFromFilaments(
         coils_file, width, thickness, toroidal_angles[-1] - toroidal_angles[0]
     )
 
     reordered_coils = reorder_coils(magnet_set)
-    build_magnet_surface(reordered_coils, sample_mod=sample_mod)
+    reordered_filaments = [coil.filament for coil in reordered_coils]
+    build_magnet_surface(reordered_filaments, sample_mod=sample_mod)
 
     radial_distance_matrix = measure_surface_coils_separation(surface)
 
