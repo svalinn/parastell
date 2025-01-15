@@ -333,26 +333,7 @@ class Stellarator(object):
         """
         self.source_mesh.export_mesh(filename=filename, export_dir=export_dir)
 
-    def _tag_materials_legacy(self):
-        """Applies material tags to corresponding CAD volumes for legacy DAGMC
-        neutronics model export.
-        (Internal function not intended to be called externally)
-        """
-        if self.magnet_set:
-            vol_id_str = " ".join(
-                str(i) for i in list(self.magnet_set.volume_ids)
-            )
-            cubit.cmd(
-                f'group "mat:{self.magnet_set.mat_tag}" add volume {vol_id_str}'
-            )
-
-        if self.invessel_build:
-            for data in self.invessel_build.radial_build.radial_build.values():
-                cubit.cmd(
-                    f'group "mat:{data["mat_tag"]}" add volume {data["vol_id"]}'
-                )
-
-    def _tag_materials_native(self):
+    def _tag_materials(self):
         """Applies material tags to corresponding CAD volumes for native DAGMC
         neutronics model export.
         (Internal function not intended to be called externally)
@@ -371,7 +352,7 @@ class Stellarator(object):
                 vol_id_str = str(block_id)
                 make_material_block(data["mat_tag"], block_id, vol_id_str)
 
-    def build_cubit_model(self, skip_imprint=False, legacy_faceting=True):
+    def build_cubit_model(self, skip_imprint=False):
         """Build model for DAGMC neutronics H5M file of Parastell components via
         Coreform Cubit
 
@@ -379,11 +360,7 @@ class Stellarator(object):
             skip_imprint (bool): choose whether to imprint and merge all in
                 Coreform Cubit or to merge surfaces based on import order and
                 geometry information (optional, defaults to False).
-            legacy_faceting (bool): choose legacy or native faceting for DAGMC
-                export (optional, defaults to True).
         """
-        self.legacy_faceting = legacy_faceting
-
         self._logger.info(
             "Building DAGMC neutronics model via Coreform Cubit..."
         )
@@ -406,10 +383,7 @@ class Stellarator(object):
             cubit.cmd("imprint volume all")
             cubit.cmd("merge volume all")
 
-        if legacy_faceting:
-            self._tag_materials_legacy()
-        else:
-            self._tag_materials_native()
+        self._tag_materials()
 
     def export_dagmc(self, filename="dagmc", export_dir="", **kwargs):
         """Exports DAGMC neutronics H5M file of ParaStell components via
@@ -444,14 +418,9 @@ class Stellarator(object):
 
         self._logger.info("Exporting DAGMC neutronics model...")
 
-        if self.legacy_faceting:
-            cubit_io.export_dagmc_cubit_legacy(
-                filename=filename, export_dir=export_dir, **kwargs
-            )
-        else:
-            cubit_io.export_dagmc_cubit_native(
-                filename=filename, export_dir=export_dir, **kwargs
-            )
+        cubit_io.export_dagmc_cubit(
+            filename=filename, export_dir=export_dir, **kwargs
+        )
 
     def export_cub5(self, filename="stellarator", export_dir=""):
         """Export native Coreform Cubit format (cub5) of Parastell model.

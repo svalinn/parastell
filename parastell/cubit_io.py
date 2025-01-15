@@ -1,6 +1,4 @@
 from pathlib import Path
-import os
-import inspect
 import subprocess
 
 import cubit
@@ -111,55 +109,7 @@ def export_mesh_cubit(filename, export_dir="", delete_upon_export=True):
         cubit.cmd(f"delete mesh volume all propagate")
 
 
-def export_dagmc_cubit_legacy(
-    faceting_tolerance=None,
-    length_tolerance=None,
-    normal_tolerance=None,
-    filename="dagmc",
-    export_dir="",
-):
-    """Exports DAGMC neutronics H5M file of ParaStell components via legacy
-    plug-in faceting method for Coreform Cubit.
-
-    Arguments:
-        faceting_tolerance (float): maximum distance a facet may be from
-            surface of CAD representation for DAGMC export (defaults to None).
-        length_tolerance (float): maximum length of facet edge for DAGMC export
-            (defaults to None).
-        normal_tolerance (float): maximum change in angle between normal vector
-            of adjacent facets (defaults to None).
-        filename (str): name of DAGMC output file, excluding '.h5m' extension
-            (defaults to 'dagmc').
-        export_dir (str): directory to which to export the DAGMC output file
-            (defaults to empty string).
-    """
-    init_cubit()
-
-    tol_str = ""
-
-    if faceting_tolerance is not None:
-        tol_str += f"faceting_tolerance {faceting_tolerance}"
-    if length_tolerance is not None:
-        tol_str += f"length_tolerance {length_tolerance}"
-    if normal_tolerance is not None:
-        tol_str += f"normal_tolerance {normal_tolerance}"
-
-    export_path = Path(export_dir) / Path(filename).with_suffix(".h5m")
-    cubit.cmd(f'export dagmc "{export_path}" {tol_str} make_watertight')
-
-
-def tag_surface_legacy(surface_id, tag):
-    """Applies a boundary condition to a surface in cubit following UWUW
-    syntax.
-
-    Arguments:
-        surface_id (int): Surface to tag
-        tag (str): boundary type
-    """
-    cubit.cmd(f'group "boundary:{tag}" add surf {surface_id}')
-
-
-def tag_surface_native(surface_id, tag):
+def tag_surface(surface_id, tag):
     """Applies a boundary condition to a surface in cubit following the
         native coreform syntax
 
@@ -172,7 +122,7 @@ def tag_surface_native(surface_id, tag):
     cubit.cmd(f"sideset {surface_id} add surface {surface_id}")
 
 
-def export_dagmc_cubit_native(
+def export_dagmc_cubit(
     anisotropic_ratio=100.0,
     deviation_angle=5.0,
     filename="dagmc",
