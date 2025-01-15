@@ -69,7 +69,7 @@ jobs:
       - name: Populate environment and run tests
         run: |
           . /opt/etc/bashrc
-          sed -e "s/@SERVER@/${rlmSERVER}/" -e "s/@PASSWORD@/${rlmPASSWD}/" /opt/Coreform-Cubit-2023.11/bin/licenses/rlmcloud.in > /opt/Coreform-Cubit-2023.11/bin/licenses/rlmcloud.lic
+          sed -e "s/@SERVER@/${rlmSERVER}/" -e "s/@PASSWORD@/${rlmPASSWD}/" /opt/Coreform-Cubit-2024.8/bin/licenses/rlmcloud.in > /opt/Coreform-Cubit-2024.8/bin/licenses/rlmcloud.lic
           export PYTHONPATH=${PYTHONPATH}:`pwd`
           cd tests
           pytest -v .
