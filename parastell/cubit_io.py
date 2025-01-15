@@ -205,7 +205,7 @@ def export_dagmc_cubit_native(
     cubit.cmd("mesh surface all")
 
     export_path = Path(export_dir) / Path(filename).with_suffix(".h5m")
-    cubit.cmd(f'export cf_dagmc "{export_path}" overwrite')
+    cubit.cmd(f'export dagmc "{export_path}" overwrite')
 
     # Delete any meshes present to prevent inclusion in future Cubit mesh
     # exports
