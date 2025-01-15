@@ -13,9 +13,6 @@ def init_cubit():
     global initialized
 
     if not initialized:
-        cubit_plugin_dir = Path(
-            os.path.dirname(inspect.getfile(cubit))
-        ) / Path("plugins")
         cubit.init(
             [
                 "cubit",
@@ -25,8 +22,6 @@ def init_cubit():
                 "off",
                 "-warning",
                 "off",
-                "-commandplugindir",
-                str(cubit_plugin_dir),
             ]
         )
         initialized = True
