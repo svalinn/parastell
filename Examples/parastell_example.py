@@ -78,7 +78,7 @@ stellarator.construct_source_mesh(mesh_size, toroidal_extent)
 stellarator.export_source_mesh(filename="source_mesh", export_dir=export_dir)
 
 # Build Cubit model of Parastell Components
-stellarator.build_cubit_model(skip_imprint=False, legacy_faceting=True)
+stellarator.build_cubit_model(skip_imprint=False)
 
 # Export DAGMC neutronics H5M file
 stellarator.export_dagmc(filename="dagmc", export_dir=export_dir)

@@ -13,7 +13,7 @@ from . import source_mesh as sm
 from . import cubit_io
 from .utils import read_yaml_config, filter_kwargs, m2cm
 
-build_cubit_model_allowed_kwargs = ["skip_imprint", "legacy_faceting"]
+build_cubit_model_allowed_kwargs = ["skip_imprint"]
 export_dagmc_allowed_kwargs = [
     "faceting_tolerance",
     "length_tolerance",
@@ -669,7 +669,7 @@ def parastell():
         nwl_required_keys = ["toroidal_angles", "poloidal_angles", "wall_s"]
 
         nwl_build = {}
-        for key in nwl_keys:
+        for key in nwl_required_keys:
             nwl_build[key] = invessel_build[key]
         nwl_build["radial_build"] = {}
 
