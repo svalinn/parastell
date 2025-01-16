@@ -46,4 +46,4 @@ for tet in strengths:
 # Export DAGMC neutronics H5M file
 stellarator.build_cubit_model(skip_imprint=True)
 tag_surface(1, "vacuum")
-stellarator.export_cf_dagmc(filename="nwl_geom", export_dir=export_dir)
+stellarator.export_cubit_dagmc(filename="nwl_geom", export_dir=export_dir)
