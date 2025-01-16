@@ -290,7 +290,7 @@ class MagnetSet(object):
             mat_tags (list): updated list including magnet set material tags.
         """
         solids.extend(self.coil_solids)
-        [mat_tags.append(self.mat_tag) for _ in self.coil_solids]
+        mat_tags.extend([self.mat_tag] * len(self.coil_solids))
 
         return solids, mat_tags
 
