@@ -83,7 +83,6 @@ source_mesh:
 
 dagmc_export:
   skip_imprint: False
-  legacy_faceting: True
   filename: dagmc
 
 cub5_export: False

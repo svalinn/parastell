@@ -9,7 +9,7 @@ ParaStell depends on:
 - [CadQuery](https://cadquery.readthedocs.io/en/latest/installation.html)
 - [PyStell](https://github.com/aaroncbader/pystell_uw)
 - [MOAB](https://bitbucket.org/fathomteam/moab/src/master/)
-- [Coreform Cubit](https://coreform.com/products/downloads/), version 2023.11
+- [Coreform Cubit](https://coreform.com/products/downloads/)
 - [CAD-to-DAGMC](https://github.com/fusion-energy/cad_to_dagmc)
 - [OpenMC](https://github.com/openmc-dev/openmc)
 - [NumPy](https://numpy.org/install/)
@@ -45,10 +45,10 @@ conda activate parastell_env
 Alternatively, view `INSTALL.md` for instructions on manually installing these Python dependencies using mamba.
 
 ### Install Coreform Cubit
-Download and install version 2023.11 from [Coreform's Website](https://coreform.com/products/downloads/), then add the `/Coreform-Cubit-2023.11/bin/` directory to your `PYTHONPATH` by adding a line similar to the following to your `.bashrc` file:
+Download and install the latest version from [Coreform's Website](https://coreform.com/products/downloads/), then add the `/Coreform-Cubit-[version]/bin/` directory to your `PYTHONPATH` by adding a line similar to the following to your `.bashrc` file:
 
 ```bash
-export PYTHONPATH=$PYTHONPATH:$HOME/Coreform-Cubit-2023.11/bin/
+export PYTHONPATH=$PYTHONPATH:$HOME/Coreform-Cubit-[version]/bin/
 ```
 
 Replace `$HOME` with the path to the Coreform Cubit directory on your system. Additional information about adding modules to your `PYTHONPATH` can be found [here](https://www.tutorialspoint.com/How-to-set-python-environment-variable-PYTHONPATH-on-Linux).
