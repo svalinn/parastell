@@ -111,4 +111,4 @@ stellarator.export_source_mesh(filename="source_mesh", export_dir=export_dir)
 stellarator.build_cubit_model(skip_imprint=False)
 
 # Export DAGMC neutronics H5M file
-stellarator.export_cf_dagmc(filename="dagmc", export_dir=export_dir)
+stellarator.export_cubit_dagmc(filename="dagmc", export_dir=export_dir)
