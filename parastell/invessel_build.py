@@ -7,6 +7,8 @@ from scipy.interpolate import RegularGridInterpolator
 import cubit
 import cadquery as cq
 import pystell.read_vmec as read_vmec
+import dagmc
+from pymoab import core, types
 
 from . import log
 from . import cubit_io
@@ -87,6 +89,8 @@ class InVesselBuild(object):
 
     def __init__(self, vmec_obj, radial_build, logger=None, **kwargs):
 
+        self.mbc = core.Core()
+        self.dag_model = dagmc.DAGModel(self.mbc)
         self.logger = logger
         self.vmec_obj = vmec_obj
         self.radial_build = radial_build
@@ -256,6 +260,102 @@ class InVesselBuild(object):
             self.Components[name] = component
             interior_surface = outer_surface
 
+    def generate_components_pydagmc(self):
+
+        # generate the curved surfaces
+        for i, surface in enumerate(self.Surfaces.values()):
+            if i == 0:
+                surface.generate_pydagmc_surface(
+                    self.dag_model, self.mbc, reverse=True
+                )
+            else:
+                surface.generate_pydagmc_surface(
+                    self.dag_model,
+                    self.mbc,
+                )
+        curved_surface_ids = list(self.dag_model.surfaces_by_id.keys())
+
+        # generate the end cap surfaces
+        end_cap_surface_ids = []
+        for surface, next_surface in zip(
+            list(self.Surfaces.values())[0:-1],
+            list(self.Surfaces.values())[1:],
+        ):
+            mb_tris = self.connect_ribs_with_tris_moab(
+                surface.Ribs[0], next_surface.Ribs[0]
+            )
+            end_cap_start = dagmc.Surface.create(self.dag_model)
+            self.mbc.add_entities(end_cap_start.handle, mb_tris)
+
+            mb_tris = self.connect_ribs_with_tris_moab(
+                surface.Ribs[-1], next_surface.Ribs[-1], reverse=True
+            )
+            end_cap_end = dagmc.Surface.create(self.dag_model)
+            self.mbc.add_entities(end_cap_end.handle, mb_tris)
+            end_cap_surface_ids.append(
+                list(self.dag_model.surfaces_by_id.keys())[-2:]
+            )
+
+        # make the volumes and apply surface sense
+        for i in range(len(self.Surfaces) - 1):
+            dagmc.Volume.create(self.dag_model)
+
+        for i, surface_id in enumerate(curved_surface_ids):
+            # if it is the first surface, do volume 1, none
+            if i == 0:
+                self.dag_model.surfaces_by_id[surface_id].surf_sense = [
+                    self.dag_model.volumes_by_id[i + 1],
+                    None,
+                ]
+            elif i != len(curved_surface_ids) - 1:
+                self.dag_model.surfaces_by_id[surface_id].surf_sense = [
+                    self.dag_model.volumes_by_id[i],
+                    self.dag_model.volumes_by_id[i + 1],
+                ]
+            # if it the last surface do volume n, none
+            else:
+                self.dag_model.surfaces_by_id[surface_id].surf_sense = [
+                    self.dag_model.volumes_by_id[i],
+                    None,
+                ]
+
+        for i, end_cap_ids in enumerate(end_cap_surface_ids):
+            for id in end_cap_ids:
+                self.dag_model.surfaces_by_id[id].surf_sense = [
+                    self.dag_model.volumes_by_id[i + 1],
+                    None,
+                ]
+
+        # apply material definitions to volumes
+        for vol, (layer_name, layer_data) in zip(
+            self.dag_model.volumes,
+            list(self.radial_build.radial_build.items())[1:],
+        ):
+            print(vol)
+            print(layer_data)
+            mat = layer_data.get("mat_tag", layer_name)
+            group = dagmc.Group.create(self.dag_model, name="mat:" + mat)
+            group.add_set(vol)
+
+        self.dag_model.write_file("all_surfaces.vtk")
+        self.dag_model.write_file("dagmc.h5m")
+
+    def connect_ribs_with_tris_moab(self, rib1, rib2, reverse=False):
+        mb_tris = []
+        for rib_loci_index, _ in enumerate(rib1.rib_loci[0:-1]):
+            corner1 = rib1.rib_loci[rib_loci_index]
+            corner2 = rib1.rib_loci[rib_loci_index + 1]
+            corner3 = rib2.rib_loci[rib_loci_index + 1]
+            corner4 = rib2.rib_loci[rib_loci_index]
+            corners = [corner1, corner2, corner3, corner4]
+            if reverse:
+                mb_tris += create_moab_tris_from_corners(
+                    corners[-1::-1], self.mbc
+                )
+            else:
+                mb_tris += create_moab_tris_from_corners(corners, self.mbc)
+        return mb_tris
+
     def get_loci(self):
         """Returns the set of point-loci defining the outer surfaces of the
         components specified in the radial build.
@@ -423,6 +523,26 @@ class Surface(object):
     def get_loci(self):
         """Returns the set of point-loci defining the ribs in the surface."""
         return np.array([rib.rib_loci for rib in self.Ribs])
+
+    def generate_pydagmc_surface(self, dag_model, mbc, reverse=False):
+        """ """
+
+        mb_tris = []
+        for rib, next_rib in zip(self.Ribs[0:-1], self.Ribs[1:]):
+            for rib_pt_index, _ in enumerate(rib.rib_loci[0:-1]):
+                corner1 = rib.rib_loci[rib_pt_index]
+                corner2 = rib.rib_loci[rib_pt_index + 1]
+                corner3 = next_rib.rib_loci[rib_pt_index + 1]
+                corner4 = next_rib.rib_loci[rib_pt_index]
+                corners = [corner1, corner2, corner3, corner4]
+                if reverse:
+                    mb_tris += create_moab_tris_from_corners(
+                        corners[-1::-1], mbc
+                    )
+                else:
+                    mb_tris += create_moab_tris_from_corners(corners, mbc)
+        surface = dagmc.Surface.create(dag_model)
+        mbc.add_entities(surface.handle, mb_tris)
 
 
 class Rib(object):

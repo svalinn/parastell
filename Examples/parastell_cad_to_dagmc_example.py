@@ -1,5 +1,5 @@
 import numpy as np
-
+import openmc
 import parastell.parastell as ps
 
 
@@ -20,7 +20,10 @@ wall_s = 1.08
 uniform_unit_thickness = np.ones((len(toroidal_angles), len(poloidal_angles)))
 
 radial_build_dict = {
-    "first_wall": {"thickness_matrix": uniform_unit_thickness * 5},
+    "first_wall": {
+        "thickness_matrix": uniform_unit_thickness * 5,
+        "mat_tag": "iron",
+    },
     "breeder": {
         "thickness_matrix": (
             [
@@ -34,13 +37,20 @@ radial_build_dict = {
                 [75.0, 75.0, 75.0, 75.0, 25.0, 25.0, 75.0, 75.0, 75.0],
                 [75.0, 75.0, 75.0, 25.0, 25.0, 25.0, 75.0, 75.0, 75.0],
             ]
-        )
+        ),
+        "mat_tag": "iron",
     },
-    "back_wall": {"thickness_matrix": uniform_unit_thickness * 5},
-    "shield": {"thickness_matrix": uniform_unit_thickness * 50},
+    "back_wall": {
+        "thickness_matrix": uniform_unit_thickness * 5,
+        "mat_tag": "iron",
+    },
+    "shield": {
+        "thickness_matrix": uniform_unit_thickness * 50,
+        "mat_tag": "iron",
+    },
     "vacuum_vessel": {
         "thickness_matrix": uniform_unit_thickness * 10,
-        "mat_tag": "vac_vessel",
+        "mat_tag": "tungsten",
     },
 }
 # Construct in-vessel components
@@ -67,13 +77,9 @@ stellarator.export_magnets(
     export_dir=export_dir,
 )
 
-# Define source mesh parameters
-mesh_size = (11, 81, 61)
-toroidal_extent = 90.0
-# Construct source
-stellarator.construct_source_mesh(mesh_size, toroidal_extent)
-# Export source file
-stellarator.export_source_mesh(filename="source_mesh", export_dir=export_dir)
+for surf in stellarator.invessel_build.dag_model.surfaces:
+    print(surf)
+    print(surf.surf_sense)
 
 # Build Cubit model of Parastell Components
 stellarator.build_cad_to_dagmc_model()

@@ -160,7 +160,7 @@ class Stellarator(object):
 
         self.invessel_build.populate_surfaces()
         self.invessel_build.calculate_loci()
-        self.invessel_build.generate_components()
+        self.invessel_build.generate_components_pydagmc()
 
     def export_invessel_build(self, export_dir=""):
         """Exports InVesselBuild component STEP files.
