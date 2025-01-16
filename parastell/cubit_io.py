@@ -123,10 +123,10 @@ def tag_surface(surface_id, tag):
 
 
 def export_dagmc_cubit(
-    anisotropic_ratio=100.0,
-    deviation_angle=5.0,
     filename="dagmc",
     export_dir="",
+    anisotropic_ratio=100.0,
+    deviation_angle=5.0,
     delete_upon_export=True,
 ):
     """Exports DAGMC neutronics H5M file of ParaStell components via Coreform

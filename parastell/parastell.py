@@ -366,7 +366,13 @@ class Stellarator(object):
 
         self._tag_materials()
 
-    def export_cf_dagmc(self, filename="dagmc", export_dir="", **kwargs):
+    def export_cf_dagmc(
+        self,
+        filename="dagmc",
+        export_dir="",
+        anisotropic_ratio=100.0,
+        deviation_angle=5.0,
+    ):
         """Exports DAGMC neutronics H5M file of ParaStell components via
         Coreform Cubit.
 
@@ -375,20 +381,21 @@ class Stellarator(object):
                 extension (optional, defaults to 'dagmc').
             export_dir (str): directory to which to export DAGMC output file
                 (optional, defaults to empty string).
-
-        Optional arguments:
             anisotropic_ratio (float): controls edge length ratio of elements
-                (defaults to 100.0).
+                (optional, defaults to 100.0).
             deviation_angle (float): controls deviation angle of facet from
                 surface (i.e., lesser deviation angle results in more elements
-                in areas with higher curvature) (defaults to 5.0).
+                in areas with higher curvature) (optional, defaults to 5.0).
         """
         cubit_io.init_cubit()
 
         self._logger.info("Exporting DAGMC neutronics model...")
 
         cubit_io.export_dagmc_cubit(
-            filename=filename, export_dir=export_dir, **kwargs
+            filename=filename,
+            export_dir=export_dir,
+            anisotropic_ratio=anisotropic_ratio,
+            deviation_angle=deviation_angle,
         )
 
     def export_cub5(self, filename="stellarator", export_dir=""):
