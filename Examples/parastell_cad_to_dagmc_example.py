@@ -55,7 +55,11 @@ radial_build_dict = {
 }
 # Construct in-vessel components
 stellarator.construct_invessel_build(
-    toroidal_angles, poloidal_angles, wall_s, radial_build_dict
+    toroidal_angles,
+    poloidal_angles,
+    wall_s,
+    radial_build_dict,
+    use_pydagmc=True,
 )
 # Export in-vessel component files
 stellarator.export_invessel_build(export_dir=export_dir)

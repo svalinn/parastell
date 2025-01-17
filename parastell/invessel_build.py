@@ -20,6 +20,31 @@ from .utils import (
 )
 
 
+def create_moab_tris_from_verts(corners, mbc):
+    """Create 2 moab triangle elements from a list of 4 pymoab verts.
+
+    Arguments:
+        corners (4x3 numpy array): list of 4 (x,y,z) points. Connecting the
+            points in the order given should result in a polygon
+        mbc (pymoab core): pymoab core instance to create elements with.
+
+    Returns:
+        list of two pymoab MBTRI elements
+    """
+
+    tri_1 = mbc.create_element(
+        types.MBTRI, [corners[2], corners[1], corners[0]]
+    )
+    tri_2 = mbc.create_element(
+        types.MBTRI, [corners[3], corners[2], corners[0]]
+    )
+
+    return [tri_1, tri_2]
+
+
+export_allowed_kwargs = ["export_cad_to_dagmc", "dagmc_filename"]
+
+
 def orient_spline_surfaces(volume_id):
     """Extracts the inner and outer surface IDs for a given ParaStell in-vessel
     component volume in Coreform Cubit.
@@ -226,6 +251,15 @@ class InVesselBuild(object):
 
         [surface.calculate_loci() for surface in self.Surfaces.values()]
 
+    def generate_pymoab_verts(self):
+        self._logger.info(
+            "Generating pymoab vertices for in-vessel components..."
+        )
+        [
+            surface.generate_pymoab_verts(self.mbc)
+            for surface in self.Surfaces.values()
+        ]
+
     def generate_components(self):
         """Constructs a CAD solid for each component specified in the radial
         build by cutting the interior surface solid from the outer surface
@@ -261,9 +295,13 @@ class InVesselBuild(object):
             interior_surface = outer_surface
 
     def generate_components_pydagmc(self):
+        self.generate_pymoab_verts()
+        self._logger.info("Generating dagmc model with pydagmc...")
 
         # generate the curved surfaces
         for i, surface in enumerate(self.Surfaces.values()):
+            # this is only because of using the implicit complement for
+            # the plasma chamber
             if i == 0:
                 surface.generate_pydagmc_surface(
                     self.dag_model, self.mbc, reverse=True
@@ -343,17 +381,17 @@ class InVesselBuild(object):
     def connect_ribs_with_tris_moab(self, rib1, rib2, reverse=False):
         mb_tris = []
         for rib_loci_index, _ in enumerate(rib1.rib_loci[0:-1]):
-            corner1 = rib1.rib_loci[rib_loci_index]
-            corner2 = rib1.rib_loci[rib_loci_index + 1]
-            corner3 = rib2.rib_loci[rib_loci_index + 1]
-            corner4 = rib2.rib_loci[rib_loci_index]
+            corner1 = rib1.mb_verts[rib_loci_index]
+            corner2 = rib1.mb_verts[rib_loci_index + 1]
+            corner3 = rib2.mb_verts[rib_loci_index + 1]
+            corner4 = rib2.mb_verts[rib_loci_index]
             corners = [corner1, corner2, corner3, corner4]
             if reverse:
-                mb_tris += create_moab_tris_from_corners(
+                mb_tris += create_moab_tris_from_verts(
                     corners[-1::-1], self.mbc
                 )
             else:
-                mb_tris += create_moab_tris_from_corners(corners, self.mbc)
+                mb_tris += create_moab_tris_from_verts(corners, self.mbc)
         return mb_tris
 
     def get_loci(self):
@@ -511,6 +549,9 @@ class Surface(object):
         """Calls calculate_loci method in Rib class for each rib in the surface."""
         [rib.calculate_loci() for rib in self.Ribs]
 
+    def generate_pymoab_verts(self, mbc):
+        [rib.generate_pymoab_verts(mbc) for rib in self.Ribs]
+
     def generate_surface(self):
         """Constructs a surface by lofting across a set of rib splines."""
         if not self.surface:
@@ -530,17 +571,17 @@ class Surface(object):
         mb_tris = []
         for rib, next_rib in zip(self.Ribs[0:-1], self.Ribs[1:]):
             for rib_pt_index, _ in enumerate(rib.rib_loci[0:-1]):
-                corner1 = rib.rib_loci[rib_pt_index]
-                corner2 = rib.rib_loci[rib_pt_index + 1]
-                corner3 = next_rib.rib_loci[rib_pt_index + 1]
-                corner4 = next_rib.rib_loci[rib_pt_index]
+                corner1 = rib.mb_verts[rib_pt_index]
+                corner2 = rib.mb_verts[rib_pt_index + 1]
+                corner3 = next_rib.mb_verts[rib_pt_index + 1]
+                corner4 = next_rib.mb_verts[rib_pt_index]
                 corners = [corner1, corner2, corner3, corner4]
                 if reverse:
-                    mb_tris += create_moab_tris_from_corners(
+                    mb_tris += create_moab_tris_from_verts(
                         corners[-1::-1], mbc
                     )
                 else:
-                    mb_tris += create_moab_tris_from_corners(corners, mbc)
+                    mb_tris += create_moab_tris_from_verts(corners, mbc)
         surface = dagmc.Surface.create(dag_model)
         mbc.add_entities(surface.handle, mb_tris)
 
@@ -623,6 +664,13 @@ class Rib(object):
 
         if not np.all(self.offset_list == 0):
             self.rib_loci += self.offset_list[:, np.newaxis] * self._normals()
+
+    def generate_pymoab_verts(self, mbc):
+        """Converts point-loci to pymoab vertices"""
+        self.mb_verts = mbc.create_vertices(
+            self.rib_loci[0:-1].flatten()
+        ).to_array()
+        self.mb_verts = np.append(self.mb_verts, self.mb_verts[0])
 
     def generate_rib(self):
         """Constructs component rib by constructing a spline connecting all

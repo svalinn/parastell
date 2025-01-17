@@ -84,6 +84,7 @@ class Stellarator(object):
         wall_s,
         radial_build,
         split_chamber=False,
+        use_pydagmc=False,
         **kwargs,
     ):
         """Construct InVesselBuild class object.
@@ -122,6 +123,9 @@ class Stellarator(object):
                 scrape-off layer definition for 'chamber', add an item with a
                 'chamber' key and desired 'thickness_matrix' value to the
                 radial_build dictionary.
+            use_pydagmc (bool): if True, generate dagmc model directly with
+                pydagmc, bypassing CAD generation. Results in faceted geometry,
+                rather than smooth spline surfaces.
 
         Optional attributes:
             plasma_mat_tag (str): alternate DAGMC material tag to use for
@@ -160,7 +164,10 @@ class Stellarator(object):
 
         self.invessel_build.populate_surfaces()
         self.invessel_build.calculate_loci()
-        self.invessel_build.generate_components_pydagmc()
+        if use_pydagmc:
+            self.invessel_build.generate_components_pydagmc()
+        else:
+            self.invessel_build.generate_components()
 
     def export_invessel_build(self, export_dir=""):
         """Exports InVesselBuild component STEP files.
