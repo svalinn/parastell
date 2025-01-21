@@ -205,10 +205,10 @@ class Stellarator(object):
             components, mesh_size, import_dir, export_dir
         )
 
-    def construct_magnets(
+    def construct_magnets_from_filaments(
         self, coils_file, width, thickness, toroidal_extent, **kwargs
     ):
-        """Constructs MagnetSet class object.
+        """Constructs MagnetSetFromFilaments class object.
 
         Arguments:
             coils_file (str): path to coil filament data file.
@@ -228,7 +228,7 @@ class Stellarator(object):
             mat_tag (str): DAGMC material tag to use for magnets in DAGMC
                 neutronics model (defaults to 'magnets').
         """
-        self.magnet_set = mc.MagnetSet(
+        self.magnet_set = mc.MagnetSetFromFilaments(
             coils_file,
             width,
             thickness,
@@ -239,6 +239,24 @@ class Stellarator(object):
 
         self.magnet_set.populate_magnet_coils()
         self.magnet_set.build_magnet_coils()
+
+    def add_magnets_from_geometry(self, geometry_file, **kwargs):
+        """Adds custom geometry via the MagnetSetFromGeometry class
+        Arguments:
+            geometry_file (str): path to the existing coil geometry. Can be of
+                the types supported by cubit_io.import_geom_to_cubit()
+            logger (object): logger object (optional, defaults to None). If no
+                logger is supplied, a default logger will be instantiated.
+
+        Optional attributes:
+            mat_tag (str): DAGMC material tag to use for magnets in DAGMC
+                neutronics model (defaults to 'magnets').
+        """
+        self.magnet_set = mc.MagnetSetFromGeometry(
+            geometry_file,
+            logger=self._logger,
+            **kwargs,
+        )
 
     def export_magnets(
         self,
@@ -368,7 +386,7 @@ class Stellarator(object):
             self.invessel_build.import_step_cubit()
 
         if self.magnet_set:
-            self.magnet_set.import_step_cubit()
+            self.magnet_set.import_geom_cubit()
 
         if skip_imprint:
             self.invessel_build.merge_layer_surfaces()

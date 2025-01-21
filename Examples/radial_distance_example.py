@@ -93,7 +93,7 @@ stellarator.construct_invessel_build(
 stellarator.export_invessel_build()
 
 # Construct magnets
-stellarator.construct_magnets(
+stellarator.construct_magnets_from_filaments(
     coils_file, width, thickness, toroidal_extent, sample_mod=6
 )
 # Export magnet files
