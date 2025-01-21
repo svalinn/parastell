@@ -46,10 +46,9 @@ def coil_set_from_filaments():
 
 @pytest.fixture
 def coil_set_from_geometry():
-    coils_file = Path("files_for_tests") / "coils.example"
     geom_file = Path("files_for_tests") / "magnet_geom.step"
 
-    coil_set_obj = magnet_coils.MagnetSetFromGeometry(coils_file, geom_file)
+    coil_set_obj = magnet_coils.MagnetSetFromGeometry(geom_file)
 
     return coil_set_obj
 
