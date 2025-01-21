@@ -164,7 +164,7 @@ def test_parastell(stellarator):
 
     stellarator.export_invessel_build()
 
-    stellarator.add_magnets_from_geometry(coils_file, geometry_file)
+    stellarator.add_magnets_from_geometry(geometry_file)
 
     stellarator.build_cubit_model()
 

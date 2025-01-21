@@ -228,33 +228,20 @@ class Stellarator(object):
         self.magnet_set.populate_magnet_coils()
         self.magnet_set.build_magnet_coils()
 
-    def add_magnets_from_geometry(
-        self, coils_file, geometry_file, working_dir=".", **kwargs
-    ):
+    def add_magnets_from_geometry(self, geometry_file, **kwargs):
         """Adds custom geometry via the MagnetSetFromGeometry class
         Arguments:
-            coils_file (str): path to coil filament data file.
-            geometry_file (str): filename of the existing coil geometry. Can be of
+            geometry_file (str): path to the existing coil geometry. Can be of
                 the types supported by cubit_io.import_geom_to_cubit()
-            working_dir (str): path to directory in which existing geometry
-                is saved.
             logger (object): logger object (optional, defaults to None). If no
                 logger is supplied, a default logger will be instantiated.
 
         Optional attributes:
-            start_line (int): starting line index for data in filament data file
-                (defaults to 3).
-            sample_mod (int): sampling modifier for filament points (defaults to
-                1). For a user-defined value n, every nth point will be sampled.
-            scale (float): a scaling factor between the units of the point-locus
-                data and [cm] (defaults to m2cm = 100).
             mat_tag (str): DAGMC material tag to use for magnets in DAGMC
                 neutronics model (defaults to 'magnets').
         """
         self.magnet_set = mc.MagnetSetFromGeometry(
-            coils_file,
             geometry_file,
-            working_dir,
             logger=self._logger,
             **kwargs,
         )

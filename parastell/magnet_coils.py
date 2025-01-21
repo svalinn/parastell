@@ -17,42 +17,25 @@ class MagnetSet(object):
     """An object representing a set of modular stellarator magnet coils.
 
     Arguments:
-        coils_file (str): path to coil filament data file.
         logger (object): logger object (optional, defaults to None). If no
             logger is supplied, a default logger will be instantiated.
 
     Optional attributes:
-        start_line (int): starting line index for data in filament data file
-            (defaults to 3).
-        sample_mod (int): sampling modifier for filament points (defaults to
-            1). For a user-defined value n, every nth point will be sampled.
-        scale (float): a scaling factor between the units of the point-locus
-            data and [cm] (defaults to m2cm = 100).
         mat_tag (str): DAGMC material tag to use for magnets in DAGMC
             neutronics model (defaults to 'magnets').
     """
 
     def __init__(
         self,
-        coils_file,
         logger=None,
         **kwargs,
     ):
 
         self.logger = logger
-        self.coils_file = coils_file
 
-        self.start_line = 3
-        self.sample_mod = 1
-        self.scale = m2cm
         self.mat_tag = "magnets"
 
-        for name in kwargs.keys() & (
-            "start_line",
-            "sample_mod",
-            "scale",
-            "mat_tag",
-        ):
+        for name in kwargs.keys() & ("mat_tag",):
             self.__setattr__(name, kwargs[name])
 
     @property
@@ -62,60 +45,6 @@ class MagnetSet(object):
     @logger.setter
     def logger(self, logger_object):
         self._logger = log.check_init(logger_object)
-
-    def _instantiate_filaments(self):
-        """Extracts filament coordinate data from input data file and
-        instantiates Filament class objects.
-        (Internal function not intended to be called externally)
-        """
-        with open(self.coils_file, "r") as file:
-            data = file.readlines()[self.start_line :]
-
-        coords = []
-        self.filaments = []
-
-        for line in data:
-            columns = line.strip().split()
-
-            if columns[0] == "end":
-                break
-
-            # Coil current
-            s = float(columns[3])
-
-            # s = 0 signals end of filament
-            if s != 0:
-                coords.append(
-                    [float(ord) * self.scale for ord in columns[0:3]]
-                )
-
-            else:
-                coords.append(coords[0])
-                self.filaments.append(Filament(np.array(coords)))
-                coords.clear()
-
-    def _filter_filaments(self, tol=0):
-        """Filters list of Filament objects such that only those within the
-        toroidal extent of the model are included and filaments are sorted by
-        center-of-mass toroidal angle.
-        (Internal function not intended to be called externally)
-        """
-
-        # Compute lower and upper bounds of toroidal extent within tolerance
-        lower_bound = 2 * np.pi - tol
-        upper_bound = self._toroidal_extent + tol
-
-        # Create filter determining whether each coil lies within model's
-        # toroidal extent
-        filtered_filaments = [
-            filament
-            for filament in self.filaments
-            if filament.in_toroidal_extent(lower_bound, upper_bound)
-        ]
-        self.filaments = filtered_filaments
-
-        # Sort coils by center-of-mass toroidal angle and overwrite stored list
-        self.filaments = self.sort_filaments_toroidally()
 
     def import_geom_cubit(self):
         """Import geometry file for magnet set into Coreform Cubit."""
@@ -209,7 +138,13 @@ class MagnetSetFromFilaments(MagnetSet):
         logger=None,
         **kwargs,
     ):
-        super().__init__(coils_file, logger, **kwargs)
+        super().__init__(logger, **kwargs)
+
+        self.coils_file = coils_file
+
+        self.start_line = 3
+        self.sample_mod = 1
+        self.scale = m2cm
 
         self.width = width
         self.thickness = thickness
@@ -217,6 +152,14 @@ class MagnetSetFromFilaments(MagnetSet):
 
         # Define maximum length of coil cross-section
         self.max_cs_len = max(self._width, self._thickness)
+
+        for name in kwargs.keys() & (
+            "start_line",
+            "sample_mod",
+            "scale",
+            "mat_tag",
+        ):
+            self.__setattr__(name, kwargs[name])
 
     @property
     def width(self):
@@ -253,6 +196,60 @@ class MagnetSetFromFilaments(MagnetSet):
             e = ValueError("Toroidal extent cannot exceed 360.0 degrees.")
             self._logger.error(e.args[0])
             raise e
+
+    def _instantiate_filaments(self):
+        """Extracts filament coordinate data from input data file and
+        instantiates Filament class objects.
+        (Internal function not intended to be called externally)
+        """
+        with open(self.coils_file, "r") as file:
+            data = file.readlines()[self.start_line :]
+
+        coords = []
+        self.filaments = []
+
+        for line in data:
+            columns = line.strip().split()
+
+            if columns[0] == "end":
+                break
+
+            # Coil current
+            s = float(columns[3])
+
+            # s = 0 signals end of filament
+            if s != 0:
+                coords.append(
+                    [float(ord) * self.scale for ord in columns[0:3]]
+                )
+
+            else:
+                coords.append(coords[0])
+                self.filaments.append(Filament(np.array(coords)))
+                coords.clear()
+
+    def _filter_filaments(self, tol=0):
+        """Filters list of Filament objects such that only those within the
+        toroidal extent of the model are included and filaments are sorted by
+        center-of-mass toroidal angle.
+        (Internal function not intended to be called externally)
+        """
+
+        # Compute lower and upper bounds of toroidal extent within tolerance
+        lower_bound = 2 * np.pi - tol
+        upper_bound = self._toroidal_extent + tol
+
+        # Create filter determining whether each coil lies within model's
+        # toroidal extent
+        filtered_filaments = [
+            filament
+            for filament in self.filaments
+            if filament.in_toroidal_extent(lower_bound, upper_bound)
+        ]
+        self.filaments = filtered_filaments
+
+        # Sort coils by center-of-mass toroidal angle and overwrite stored list
+        self.filaments = self.sort_filaments_toroidally()
 
     def _instantiate_coils(self):
         """Instantiates MagnetCoil class objects using filament data.
@@ -365,36 +362,25 @@ class MagnetSetFromGeometry(MagnetSet):
     with previously defined geometry files.
 
     Arguments:
-        coils_file (str): path to coil filament data file.
-        geometry_file (str): filename of the existing coil geometry. Can be of
+        geometry_file (str): path to the existing coil geometry. Can be of
             the types supported by cubit_io.import_geom_to_cubit()
-        working_dir (str): path to directory in which existing geometry
-            is saved.
         logger (object): logger object (optional, defaults to None). If no
             logger is supplied, a default logger will be instantiated.
 
     Optional attributes:
-        start_line (int): starting line index for data in filament data file
-            (defaults to 3).
-        sample_mod (int): sampling modifier for filament points (defaults to
-            1). For a user-defined value n, every nth point will be sampled.
-        scale (float): a scaling factor between the units of the point-locus
-            data and [cm] (defaults to m2cm = 100).
         mat_tag (str): DAGMC material tag to use for magnets in DAGMC
             neutronics model (defaults to 'magnets').
     """
 
     def __init__(
         self,
-        coils_file,
         geometry_file,
-        working_dir=".",
         logger=None,
         **kwargs,
     ):
-        super().__init__(coils_file, logger, **kwargs)
-        self.geometry_file = geometry_file
-        self.working_dir = Path(working_dir)
+        super().__init__(logger, **kwargs)
+        self.geometry_file = Path(geometry_file).resolve()
+        self.working_dir = self.geometry_file.parent
 
         for name in kwargs.keys() & (
             "start_line",
