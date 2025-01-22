@@ -50,17 +50,17 @@ radial_build_dict = {
     },
 }
 
-# stellarator.construct_invessel_build(
-#     toroidal_angles,
-#     poloidal_angles,
-#     wall_s,
-#     radial_build_dict,
-#     use_pydagmc=True,
-#     num_ribs=ribs * 3,
-#     num_rib_pts=rib_pts * 3,
-# )
+stellarator.construct_invessel_build(
+    toroidal_angles,
+    poloidal_angles,
+    wall_s,
+    radial_build_dict,
+    use_pydagmc=True,
+    num_ribs=ribs * 3,
+    num_rib_pts=rib_pts * 3,
+)
 
-# stellarator.invessel_build.dag_model.write_file("dagmc.h5m")
+stellarator.invessel_build.dag_model.write_file("dagmc.h5m")
 
 stellarator.construct_magnets(
     "../tests/files_for_tests/coils.example", 10, 10, 90
