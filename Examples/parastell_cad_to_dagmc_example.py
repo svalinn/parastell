@@ -1,5 +1,5 @@
 import numpy as np
-import openmc
+
 import parastell.parastell as ps
 
 
@@ -20,10 +20,7 @@ wall_s = 1.08
 uniform_unit_thickness = np.ones((len(toroidal_angles), len(poloidal_angles)))
 
 radial_build_dict = {
-    "first_wall": {
-        "thickness_matrix": uniform_unit_thickness * 5,
-        "mat_tag": "iron",
-    },
+    "first_wall": {"thickness_matrix": uniform_unit_thickness * 5},
     "breeder": {
         "thickness_matrix": (
             [
@@ -37,29 +34,22 @@ radial_build_dict = {
                 [75.0, 75.0, 75.0, 75.0, 25.0, 25.0, 75.0, 75.0, 75.0],
                 [75.0, 75.0, 75.0, 25.0, 25.0, 25.0, 75.0, 75.0, 75.0],
             ]
-        ),
-        "mat_tag": "iron",
+        )
     },
-    "back_wall": {
-        "thickness_matrix": uniform_unit_thickness * 5,
-        "mat_tag": "iron",
-    },
-    "shield": {
-        "thickness_matrix": uniform_unit_thickness * 50,
-        "mat_tag": "iron",
-    },
+    "back_wall": {"thickness_matrix": uniform_unit_thickness * 5},
+    "shield": {"thickness_matrix": uniform_unit_thickness * 50},
     "vacuum_vessel": {
         "thickness_matrix": uniform_unit_thickness * 10,
-        "mat_tag": "tungsten",
+        "mat_tag": "vac_vessel",
     },
 }
 # Construct in-vessel components
 stellarator.construct_invessel_build(
-    toroidal_angles,
-    poloidal_angles,
-    wall_s,
-    radial_build_dict,
-    use_pydagmc=True,
+    toroidal_angles, poloidal_angles, wall_s, radial_build_dict
+)
+# Export in-vessel component files
+stellarator.export_invessel_build(
+    export_cad_to_dagmc=False, export_dir=export_dir
 )
 # Export in-vessel component files
 stellarator.export_invessel_build(export_dir=export_dir)
@@ -81,9 +71,22 @@ stellarator.export_magnets(
     export_dir=export_dir,
 )
 
-for surf in stellarator.invessel_build.dag_model.surfaces:
-    print(surf)
-    print(surf.surf_sense)
+# Define build parameters for magnet coils
+coils_file = "coils.example"
+width = 40.0
+thickness = 50.0
+toroidal_extent = 90.0
+# Construct magnets
+stellarator.construct_magnets(
+    coils_file, width, thickness, toroidal_extent, sample_mod=6
+)
+# Export magnet files
+stellarator.export_magnets(
+    step_filename="magnets",
+    export_mesh=True,
+    mesh_filename="magnet_mesh",
+    export_dir=export_dir,
+)
 
 # Build Cubit model of Parastell Components
 stellarator.build_cad_to_dagmc_model()
