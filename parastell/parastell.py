@@ -11,7 +11,7 @@ from . import invessel_build as ivb
 from . import magnet_coils as mc
 from . import source_mesh as sm
 from . import cubit_io
-from .utils import read_yaml_config, filter_kwargs, m2cm
+from .utils import read_yaml_config, filter_kwargs, m2cm, merge_dagmc_files
 
 build_cubit_model_allowed_kwargs = ["skip_imprint"]
 export_cubit_dagmc_allowed_kwargs = ["anisotropic_ratio", "deviation_angle"]
@@ -164,6 +164,7 @@ class Stellarator(object):
 
         self.invessel_build.populate_surfaces()
         self.invessel_build.calculate_loci()
+        self.use_pydagmc = use_pydagmc
         if use_pydagmc:
             self.invessel_build.generate_components_pydagmc()
         else:
@@ -376,7 +377,7 @@ class Stellarator(object):
         else:
             cubit_io.init_cubit()
 
-        if self.invessel_build:
+        if self.invessel_build and not self.use_pydagmc:
             self.invessel_build.import_step_cubit()
 
         if self.magnet_set:
