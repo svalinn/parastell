@@ -1,8 +1,12 @@
 import yaml
+import tempfile
+from pathlib import Path
 
 import numpy as np
 import math
 from scipy.ndimage import gaussian_filter
+from pymoab import core, types
+
 
 m2cm = 100
 m3tocm3 = m2cm * m2cm * m2cm
@@ -202,3 +206,97 @@ def smooth_matrix(matrix, steps, sigma):
         previous_matrix = smoothed_matrix
 
     return smoothed_matrix
+
+
+class DAGMCMerger:
+    """Class to facilitate renumbering of entities to merge dagmc models"""
+
+    def __init__(self):
+        self.mb = core.Core()
+        self.geom_dim_tag = self.mb.tag_get_handle(
+            "GEOM_DIMENSION", 1, types.MB_TYPE_INTEGER, types.MB_TAG_DENSE
+        )
+        self.global_id_tag = self.mb.tag_get_handle(
+            "GLOBAL_ID", 1, types.MB_TYPE_INTEGER, types.MB_TAG_DENSE
+        )
+
+    def load_file(self, filename):
+        self.mb.load_file(filename)
+
+    def get_max_ids(self):
+        """Get the maximum id in the dagmc model for each entity type
+
+        returns:
+            max_ids (dict): {entity dimension (int): max_id (int)}
+        """
+        # dim 0: vertex
+        # dim 1: edge
+        # dim 2: surface
+        # dim 3: volume
+        # dim 4: group
+        max_ids = {dim: 0 for dim in range(5)}
+        root_set = self.mb.get_root_set()
+        geom_sets = self.mb.get_entities_by_type_and_tag(
+            root_set, types.MBENTITYSET, self.geom_dim_tag, [None]
+        )
+
+        for entity_set in geom_sets:
+            dim = self.mb.tag_get_data(self.geom_dim_tag, entity_set)[0][0]
+            gid = self.mb.tag_get_data(self.global_id_tag, entity_set)[0][0]
+            max_ids[dim] = max(max_ids[dim], gid)
+
+        return max_ids
+
+    def reassign_global_ids(self, offsets):
+        """Renumber entities, starting from the offset value for that dimension"""
+        root_set = self.mb.get_root_set()
+        geom_sets = self.mb.get_entities_by_type_and_tag(
+            root_set, types.MBENTITYSET, self.geom_dim_tag, [None]
+        )
+
+        for entity_set in geom_sets:
+            dim = self.mb.tag_get_data(self.geom_dim_tag, entity_set)[0][0]
+            current_gid = self.mb.tag_get_data(self.global_id_tag, entity_set)[
+                0
+            ][0]
+            self.mb.tag_set_data(
+                self.global_id_tag,
+                entity_set,
+                current_gid + offsets.get(dim, 0),
+            )
+
+    def write_file(self, filename):
+        self.mb.write_file(filename)
+
+
+def merge_dagmc_files(files_to_merge, output_file):
+    """Takes a list of dagmc models, and renumbers entity ids such that they
+    will no longer clash, allowing the models to be loaded into the same
+    PyMOAB core instance, and saved to a single model.
+
+    Arguments:
+        files_to_merge (list of str): List of paths to dagmc models to be
+            merged.
+        output_file (str): path to which the merged model should be saved.
+    """
+    temp_files = []
+    max_ids = {dim: 0 for dim in range(5)}
+    for file in files_to_merge:
+        merger = DAGMCMerger()
+        merger.load_file(file)
+        merger.reassign_global_ids(max_ids)
+        max_ids = merger.get_max_ids()
+        with tempfile.NamedTemporaryFile(
+            delete=False, suffix=".h5m"
+        ) as temp_file:
+            temp_filename = temp_file.name
+        merger.write_file(temp_filename)
+        temp_files.append(temp_filename)
+
+    merged_mbc = core.Core()
+    for file in temp_files:
+        merged_mbc.load_file(file)
+    merged_mbc.write_file(output_file)
+
+    Path.unlink(temp_filename)
+    return True

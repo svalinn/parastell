@@ -376,14 +376,10 @@ class InVesselBuild(object):
             self.dag_model.volumes,
             list(self.radial_build.radial_build.items())[1:],
         ):
-            print(vol)
-            print(layer_data)
+
             mat = layer_data.get("mat_tag", layer_name)
             group = dagmc.Group.create(self.dag_model, name="mat:" + mat)
             group.add_set(vol)
-
-        self.dag_model.write_file("all_surfaces.vtk")
-        self.dag_model.write_file("dagmc.h5m")
 
     def connect_ribs_with_tris_moab(self, rib1, rib2, reverse=False):
         mb_tris = []
