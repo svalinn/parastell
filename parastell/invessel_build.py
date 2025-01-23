@@ -20,7 +20,7 @@ from .utils import (
 )
 
 
-def create_moab_tris_from_verts(corners, mbc):
+def create_moab_tris_from_verts(corners, mbc, reverse=False):
     """Create 2 moab triangle elements from a list of 4 pymoab verts.
 
     Arguments:
@@ -31,13 +31,20 @@ def create_moab_tris_from_verts(corners, mbc):
     Returns:
         list of two pymoab MBTRI elements
     """
-
-    tri_1 = mbc.create_element(
-        types.MBTRI, [corners[2], corners[1], corners[0]]
-    )
-    tri_2 = mbc.create_element(
-        types.MBTRI, [corners[3], corners[2], corners[0]]
-    )
+    if reverse:
+        tri_1 = mbc.create_element(
+            types.MBTRI, [corners[0], corners[1], corners[2]]
+        )
+        tri_2 = mbc.create_element(
+            types.MBTRI, [corners[0], corners[2], corners[3]]
+        )
+    else:
+        tri_1 = mbc.create_element(
+            types.MBTRI, [corners[2], corners[1], corners[0]]
+        )
+        tri_2 = mbc.create_element(
+            types.MBTRI, [corners[3], corners[2], corners[0]]
+        )
 
     return [tri_1, tri_2]
 
@@ -386,12 +393,9 @@ class InVesselBuild(object):
             corner3 = rib2.mb_verts[rib_loci_index + 1]
             corner4 = rib2.mb_verts[rib_loci_index]
             corners = [corner1, corner2, corner3, corner4]
-            if reverse:
-                mb_tris += create_moab_tris_from_verts(
-                    corners[-1::-1], self.mbc
-                )
-            else:
-                mb_tris += create_moab_tris_from_verts(corners, self.mbc)
+            mb_tris += create_moab_tris_from_verts(
+                corners, self.mbc, reverse=reverse
+            )
         return mb_tris
 
     def get_loci(self):
@@ -576,12 +580,9 @@ class Surface(object):
                 corner3 = next_rib.mb_verts[rib_pt_index + 1]
                 corner4 = next_rib.mb_verts[rib_pt_index]
                 corners = [corner1, corner2, corner3, corner4]
-                if reverse:
-                    mb_tris += create_moab_tris_from_verts(
-                        corners[-1::-1], mbc
-                    )
-                else:
-                    mb_tris += create_moab_tris_from_verts(corners, mbc)
+                mb_tris += create_moab_tris_from_verts(
+                    corners, mbc, reverse=reverse
+                )
         surface = dagmc.Surface.create(dag_model)
         mbc.add_entities(surface.handle, mb_tris)
 
