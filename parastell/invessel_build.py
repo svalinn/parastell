@@ -312,22 +312,17 @@ class InVesselBuild(object):
             )
             cq.exporters.export(component, str(export_path))
 
-    def extract_solids_and_mat_tags(self, solids, mat_tags):
+    def extract_solids_and_mat_tags(self, solids):
         """Appends in-vessel component CadQuery solid objects and material
         tags to corresponding input lists.
 
-        Arguments:
-            solids (list): list to which in-vessel component CadQuery solid
-                objects will be appended.
-            mat_tags (list): list to which in-vessel component material tags
-                will be appended.
-
         Returns:
-            solids (list): updated list including in-vessel component CadQuery
-                solid objects.
-            mat_tags (list): updated list including in-vessel component
-                material tags.
+            solids (list): list of in-vessel component CadQuery solid objects.
+            mat_tags (list): list of in-vessel component material tags.
         """
+        solids = []
+        mat_tags = []
+
         for name, solid in self.Components.items():
             solids.append(solid)
             mat_tags.append(self.radial_build.radial_build[name]["mat_tag"])

@@ -273,24 +273,16 @@ class MagnetSet(object):
         coil_set = cq.Compound.makeCompound(self.coil_solids)
         cq.exporters.export(coil_set, str(export_path))
 
-    def extract_solids_and_mat_tag(self, solids, mat_tags):
+    def extract_solids_and_mat_tag(self):
         """Appends magnet set CadQuery solid objects and material tag to
         corresponding input lists.
 
-        Arguments:
-            solids (list): list to which magnet set CadQuery solid objects will
-                be appended.
-            mat_tags (list): list to which magnet set material tag will be
-                appended. Note that the material tag will be appended once for
-                each magnet solid.
-
         Returns:
-            solids (list): updated list including magnet set CadQuery solid
-                objects.
-            mat_tags (list): updated list including magnet set material tags.
+            solids (list): list of magnet set CadQuery solid objects.
+            mat_tags (list): list of magnet set material tags.
         """
-        solids.extend(self.coil_solids)
-        mat_tags.extend([self.mat_tag] * len(self.coil_solids))
+        solids = self.coil_solids
+        mat_tags = [self.mat_tag] * len(self.coil_solids)
 
         return solids, mat_tags
 

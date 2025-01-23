@@ -421,22 +421,18 @@ class Stellarator(object):
             "Building DAGMC neutronics model via CAD-to-DAGMC..."
         )
 
-        solids = []
-        material_names = []
-
         if self.invessel_build:
-            solids, material_names = (
-                self.invessel_build.extract_solids_and_mat_tags(
-                    solids, material_names
-                )
+            ivb_solids, ivb_material_names = (
+                self.invessel_build.extract_solids_and_mat_tags()
             )
 
         if self.magnet_set:
-            solids, material_names = (
-                self.magnet_set.extract_solids_and_mat_tag(
-                    solids, material_names
-                )
+            ms_solids, ms_material_names = (
+                self.magnet_set.extract_solids_and_mat_tag()
             )
+
+        solids = ivb_solids.extend(ms_solids)
+        material_names = ivb_material_names.extend(ms_material_names)
 
         self.dagmc_model = cad_to_dagmc.CadToDagmc()
 
