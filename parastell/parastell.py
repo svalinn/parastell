@@ -431,8 +431,8 @@ class Stellarator(object):
                 self.magnet_set.extract_solids_and_mat_tag()
             )
 
-        solids = ivb_solids.extend(ms_solids)
-        material_names = ivb_material_names.extend(ms_material_names)
+        solids = ivb_solids + ms_solids
+        material_names = ivb_material_names + ms_material_names
 
         self.dagmc_model = cad_to_dagmc.CadToDagmc()
 
