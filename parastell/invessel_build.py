@@ -103,6 +103,8 @@ class InVesselBuild(object):
             defined.
         logger (object): logger object (optional, defaults to None). If no
             logger is supplied, a default logger will be instantiated.
+        use_pydagmc (bool): If True, generate components with pydagmc, rather
+            than CADQuery
 
     Optional attributes:
         repeat (int): number of times to repeat build segment for full model
@@ -119,13 +121,16 @@ class InVesselBuild(object):
             (defaults to m2cm = 100).
     """
 
-    def __init__(self, vmec_obj, radial_build, logger=None, **kwargs):
+    def __init__(
+        self, vmec_obj, radial_build, use_pydagmc, logger=None, **kwargs
+    ):
 
         self.mbc = core.Core()
         self.dag_model = dagmc.DAGModel(self.mbc)
         self.logger = logger
         self.vmec_obj = vmec_obj
         self.radial_build = radial_build
+        self.use_pydagmc = use_pydagmc
 
         self.repeat = 0
         self.num_ribs = 61
@@ -191,7 +196,7 @@ class InVesselBuild(object):
                 self.radial_build.poloidal_angles,
             ),
             offset_mat,
-            method="pchip",
+            method="linear" if self.use_pydagmc else "pchip",
         )
 
         interpolated_offset_mat = np.array(
