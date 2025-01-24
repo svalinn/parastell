@@ -1,14 +1,16 @@
 import numpy as np
 import parastell.parastell as ps
-from parastell.utils import merge_dagmc_files
+from parastell.utils import merge_dagmc_files, enforce_helical_symmetry
 
-ribs = 150
-rib_pts = 160
+ribs = 61
+rib_pts = 63
 
 toroidal_angles = np.linspace(0, 90, ribs)
 poloidal_angles = np.linspace(0, 360, rib_pts)
 
-challenge_thickness_matrix = np.random.rand(ribs, rib_pts) * 100
+challenge_thickness_matrix = enforce_helical_symmetry(
+    np.random.rand(ribs, rib_pts) * 100
+)
 wall_s = 1.08
 
 # Define plasma equilibrium VMEC file
@@ -21,7 +23,7 @@ ones = np.ones((ribs, rib_pts))
 
 radial_build_dict = {
     "first_wall": {
-        "thickness_matrix": ones * 5,
+        "thickness_matrix": ones * 0.2,
         "mat_tag": "iron",
     },
     "breeder": {
