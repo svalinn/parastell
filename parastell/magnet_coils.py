@@ -96,14 +96,6 @@ class MagnetSet(object):
             filename=mesh_filename, export_dir=export_dir
         )
 
-    def sort_filaments_toroidally(self):
-        """Reorders list of filaments by toroidal angle on range [-pi, pi].
-
-        Returns:
-            (list of object): sorted list of Filament class objects.
-        """
-        return sorted(self.filaments, key=lambda x: x.com_toroidal_angle)
-
 
 class MagnetSetFromFilaments(MagnetSet):
     """Inherits from MagnetSet. This subclass enables the construction of
@@ -227,6 +219,14 @@ class MagnetSetFromFilaments(MagnetSet):
                 coords.append(coords[0])
                 self.filaments.append(Filament(np.array(coords)))
                 coords.clear()
+
+    def sort_filaments_toroidally(self):
+        """Reorders list of filaments by toroidal angle on range [-pi, pi].
+
+        Returns:
+            (list of object): sorted list of Filament class objects.
+        """
+        return sorted(self.filaments, key=lambda x: x.com_toroidal_angle)
 
     def _filter_filaments(self, tol=0):
         """Filters list of Filament objects such that only those within the
