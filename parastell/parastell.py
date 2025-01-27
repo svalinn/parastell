@@ -389,7 +389,9 @@ class Stellarator(object):
         """
         cubit_io.init_cubit()
 
-        self._logger.info("Exporting DAGMC neutronics model using Coreform Cubit...")
+        self._logger.info(
+            "Exporting DAGMC neutronics model using Coreform Cubit..."
+        )
 
         cubit_io.export_dagmc_cubit(
             filename=filename,
@@ -461,7 +463,9 @@ class Stellarator(object):
             max_mesh_size (float): maximum size of mesh elements (defaults to
                 50).
         """
-        self._logger.info("Exporting DAGMC neutronics model with CAD-to-DAGMC ...")
+        self._logger.info(
+            "Exporting DAGMC neutronics model with CAD-to-DAGMC ..."
+        )
 
         export_path = Path(export_dir) / Path(filename).with_suffix(".h5m")
         self.dagmc_model.export_dagmc_h5m_file(
