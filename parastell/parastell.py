@@ -389,7 +389,7 @@ class Stellarator(object):
         """
         cubit_io.init_cubit()
 
-        self._logger.info("Exporting DAGMC neutronics model...")
+        self._logger.info("Exporting DAGMC neutronics model using Coreform Cubit...")
 
         cubit_io.export_dagmc_cubit(
             filename=filename,
