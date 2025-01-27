@@ -84,7 +84,6 @@ class Stellarator(object):
         wall_s,
         radial_build,
         split_chamber=False,
-        use_pydagmc=False,
         **kwargs,
     ):
         """Construct InVesselBuild class object.
@@ -123,9 +122,6 @@ class Stellarator(object):
                 scrape-off layer definition for 'chamber', add an item with a
                 'chamber' key and desired 'thickness_matrix' value to the
                 radial_build dictionary.
-            use_pydagmc (bool): if True, generate dagmc model directly with
-                pydagmc, bypassing CAD generation. Results in faceted geometry,
-                rather than smooth spline surfaces.
 
         Optional attributes:
             plasma_mat_tag (str): alternate DAGMC material tag to use for
@@ -147,6 +143,9 @@ class Stellarator(object):
                 greater than the number of entries in 'poloidal_angles'.
             scale (float): a scaling factor between the units of VMEC and [cm]
                 (defaults to m2cm = 100).
+            use_pydagmc (bool): if True, generate dagmc model directly with
+                pydagmc, bypassing CAD generation. Results in faceted geometry,
+                rather than smooth spline surfaces. Defaults to False.
         """
         self.radial_build = ivb.RadialBuild(
             toroidal_angles,
@@ -164,8 +163,8 @@ class Stellarator(object):
 
         self.invessel_build.populate_surfaces()
         self.invessel_build.calculate_loci()
-        self.use_pydagmc = use_pydagmc
-        if use_pydagmc:
+        self.use_pydagmc = self.invessel_build.use_pydagmc
+        if self.use_pydagmc:
             self.invessel_build.generate_components_pydagmc()
         else:
             self.invessel_build.generate_components()
@@ -352,7 +351,7 @@ class Stellarator(object):
             vol_id_str = " ".join(str(i) for i in vol_list)
             make_material_block(self.magnet_set.mat_tag, block_id, vol_id_str)
 
-        if self.invessel_build:
+        if self.invessel_build and not self.invessel_build.use_pydagmc:
             for data in self.invessel_build.radial_build.radial_build.values():
                 block_id = data["vol_id"]
                 vol_id_str = str(block_id)

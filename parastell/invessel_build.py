@@ -103,8 +103,6 @@ class InVesselBuild(object):
             defined.
         logger (object): logger object (optional, defaults to None). If no
             logger is supplied, a default logger will be instantiated.
-        use_pydagmc (bool): If True, generate components with pydagmc, rather
-            than CADQuery
 
     Optional attributes:
         repeat (int): number of times to repeat build segment for full model
@@ -119,29 +117,30 @@ class InVesselBuild(object):
             greater than the number of entries in 'poloidal_angles'.
         scale (float): a scaling factor between the units of VMEC and [cm]
             (defaults to m2cm = 100).
+        use_pydagmc (bool): If True, generate components with pydagmc, rather
+            than CADQuery. Defaults to False.
     """
 
-    def __init__(
-        self, vmec_obj, radial_build, use_pydagmc, logger=None, **kwargs
-    ):
+    def __init__(self, vmec_obj, radial_build, logger=None, **kwargs):
 
         self.mbc = core.Core()
         self.dag_model = dagmc.DAGModel(self.mbc)
         self.logger = logger
         self.vmec_obj = vmec_obj
         self.radial_build = radial_build
-        self.use_pydagmc = use_pydagmc
 
         self.repeat = 0
         self.num_ribs = 61
         self.num_rib_pts = 67
         self.scale = m2cm
+        self.use_pydagmc = False
 
         for name in kwargs.keys() & (
             "repeat",
             "num_ribs",
             "num_rib_pts",
             "scale",
+            "use_pydagmc",
         ):
             self.__setattr__(name, kwargs[name])
 
