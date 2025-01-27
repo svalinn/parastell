@@ -168,10 +168,6 @@ def test_parastell(stellarator):
 
     stellarator.build_cubit_model()
 
-    import cubit
-
-    cubit.cmd('save cub5 "test.cub5"')
-
     assert (
         stellarator.invessel_build.radial_build.radial_build["chamber"][
             "vol_id"
