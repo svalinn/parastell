@@ -5,6 +5,7 @@ from pathlib import Path
 import cubit
 import numpy as np
 import pystell.read_vmec as read_vmec
+import cad_to_dagmc
 
 from . import log
 from . import invessel_build as ivb
@@ -14,7 +15,7 @@ from . import cubit_io
 from .utils import read_yaml_config, filter_kwargs, m2cm
 
 build_cubit_model_allowed_kwargs = ["skip_imprint"]
-export_dagmc_allowed_kwargs = ["anisotropic_ratio", "deviation_angle"]
+export_cubit_dagmc_allowed_kwargs = ["anisotropic_ratio", "deviation_angle"]
 
 
 def make_material_block(mat_tag, block_id, vol_id_str):
@@ -162,27 +163,14 @@ class Stellarator(object):
         self.invessel_build.calculate_loci()
         self.invessel_build.generate_components()
 
-    def export_invessel_build(
-        self, export_cad_to_dagmc=False, dagmc_filename="dagmc", export_dir=""
-    ):
-        """Exports InVesselBuild component STEP files and, optionally, a DAGMC
-        neutronics H5M file of in-vessel components via CAD-to-DAGMC.
+    def export_invessel_build(self, export_dir=""):
+        """Exports InVesselBuild component STEP files.
 
         Arguments:
-            export_cad_to_dagmc (bool): export DAGMC neutronics H5M file of
-                in-vessel components via CAD-to-DAGMC (optional, defaults to
-                False).
-            dagmc_filename (str): name of DAGMC output file, excluding '.h5m'
-                extension (optional, defaults to 'dagmc').
             export_dir (str): directory to which to export the output files
                 (optional, defaults to empty string).
         """
         self.invessel_build.export_step(export_dir=export_dir)
-
-        if export_cad_to_dagmc:
-            self.invessel_build.export_cad_to_dagmc(
-                dagmc_filename=dagmc_filename, export_dir=export_dir
-            )
 
     def export_invessel_component_mesh(
         self, components, mesh_size=5, import_dir="", export_dir=""
@@ -378,7 +366,13 @@ class Stellarator(object):
 
         self._tag_materials()
 
-    def export_dagmc(self, filename="dagmc", export_dir="", **kwargs):
+    def export_cubit_dagmc(
+        self,
+        filename="dagmc",
+        export_dir="",
+        anisotropic_ratio=100.0,
+        deviation_angle=5.0,
+    ):
         """Exports DAGMC neutronics H5M file of ParaStell components via
         Coreform Cubit.
 
@@ -387,20 +381,23 @@ class Stellarator(object):
                 extension (optional, defaults to 'dagmc').
             export_dir (str): directory to which to export DAGMC output file
                 (optional, defaults to empty string).
-
-        Optional arguments:
             anisotropic_ratio (float): controls edge length ratio of elements
-                (defaults to 100.0).
+                (optional, defaults to 100.0).
             deviation_angle (float): controls deviation angle of facet from
                 surface (i.e., lesser deviation angle results in more elements
-                in areas with higher curvature) (defaults to 5.0).
+                in areas with higher curvature) (optional, defaults to 5.0).
         """
         cubit_io.init_cubit()
 
-        self._logger.info("Exporting DAGMC neutronics model...")
+        self._logger.info(
+            "Exporting DAGMC neutronics model using Coreform Cubit..."
+        )
 
         cubit_io.export_dagmc_cubit(
-            filename=filename, export_dir=export_dir, **kwargs
+            filename=filename,
+            export_dir=export_dir,
+            anisotropic_ratio=anisotropic_ratio,
+            deviation_angle=deviation_angle,
         )
 
     def export_cub5(self, filename="stellarator", export_dir=""):
@@ -417,6 +414,70 @@ class Stellarator(object):
         self._logger.info("Exporting cub5 model...")
 
         cubit_io.export_cub5(filename=filename, export_dir=export_dir)
+
+    def build_cad_to_dagmc_model(self):
+        """Build model for DAGMC neutronics H5M file of Parastell components via
+        CAD-to-DAGMC.
+        """
+        self._logger.info(
+            "Building DAGMC neutronics model via CAD-to-DAGMC..."
+        )
+
+        solids = []
+        material_names = []
+
+        if self.invessel_build:
+            ivb_solids, ivb_material_names = (
+                self.invessel_build.extract_solids_and_mat_tags()
+            )
+            solids.extend(ivb_solids)
+            material_names.extend(ivb_material_names)
+
+        if self.magnet_set:
+            ms_solids, ms_material_names = (
+                self.magnet_set.extract_solids_and_mat_tag()
+            )
+            solids.extend(ms_solids)
+            material_names.extend(ms_material_names)
+
+        self.dagmc_model = cad_to_dagmc.CadToDagmc()
+
+        for solid, mat_tag in zip(solids, material_names):
+            self.dagmc_model.add_cadquery_object(
+                solid, material_tags=[mat_tag]
+            )
+
+    def export_cad_to_dagmc(
+        self,
+        filename="dagmc",
+        export_dir="",
+        min_mesh_size=20,
+        max_mesh_size=50,
+    ):
+        """Exports DAGMC neutronics H5M file of ParaStell components via
+        CAD-to-DAGMC.
+
+        Arguments:
+            filename (str): name of DAGMC output file, excluding '.h5m'
+                extension (optional, defaults to 'dagmc').
+            export_dir (str): directory to which to export DAGMC output file
+                (optional, defaults to empty string).
+            min_mesh_size (float): minimum size of mesh elements (defaults to
+                20).
+            max_mesh_size (float): maximum size of mesh elements (defaults to
+                50).
+        """
+        self._logger.info(
+            "Exporting DAGMC neutronics model with CAD-to-DAGMC ..."
+        )
+
+        export_path = Path(export_dir) / Path(filename).with_suffix(".h5m")
+        self.dagmc_model.export_dagmc_h5m_file(
+            filename=str(export_path),
+            min_mesh_size=min_mesh_size,
+            max_mesh_size=max_mesh_size,
+            imprint=False,
+        )
 
 
 def parse_args():
@@ -489,9 +550,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def check_inputs(
-    invessel_build, magnet_coils, source_mesh, dagmc_export, logger
-):
+def check_inputs(invessel_build, magnet_coils, source_mesh, logger):
     """Checks inputs for consistency across ParaStell classes.
 
     Arguments:
@@ -499,7 +558,6 @@ def check_inputs(
             parameters.
         magnet_coils (dict): dictionary of MagnetSet parameters.
         source_mesh (dict): dictionary of SourceMesh parameters.
-        dagmc_export (dict): dictionary of DAGMC export parameters.
         logger (object): logger object.
     """
     if "repeat" in invessel_build:
@@ -552,29 +610,6 @@ def check_inputs(
         logger.error(e.args[0])
         raise e
 
-    if (
-        "export_cad_to_dagmc" in invessel_build
-        and invessel_build["export_cad_to_dagmc"]
-    ):
-        if "dagmc_filename" in invessel_build:
-            ivb_dagmc_filename = invessel_build["dagmc_filename"]
-        else:
-            ivb_dagmc_filename = "dagmc"
-
-        if "filename" in dagmc_export:
-            ps_dagmc_filename = dagmc_export["filename"]
-        else:
-            ps_dagmc_filename = "dagmc"
-
-        if ivb_dagmc_filename == ps_dagmc_filename:
-            e = ValueError(
-                "The DAGMC H5M filename for the CAD-to-DAGMC export matches "
-                "that of the Coreform Cubit DAGMC export. Please change one to "
-                "prevent overwriting files."
-            )
-            logger.error(e.args[0])
-            raise e
-
 
 def parastell():
     """Main method when run as a command line script."""
@@ -602,10 +637,7 @@ def parastell():
     if args.ivb:
         invessel_build = all_data["invessel_build"]
         stellarator.construct_invessel_build(**invessel_build)
-        stellarator.export_invessel_build(
-            export_dir=args.export_dir,
-            **(filter_kwargs(invessel_build, ivb.export_allowed_kwargs)),
-        )
+        stellarator.export_invessel_build(export_dir=args.export_dir)
 
     if args.magnets:
         magnet_coils = all_data["magnet_coils"]
@@ -628,9 +660,9 @@ def parastell():
         stellarator.build_cubit_model(
             **(filter_kwargs(dagmc_export, build_cubit_model_allowed_kwargs))
         )
-        stellarator.export_dagmc(
+        stellarator.export_cubit_dagmc(
             export_dir=args.export_dir,
-            **(filter_kwargs(dagmc_export, export_dagmc_allowed_kwargs)),
+            **(filter_kwargs(dagmc_export, export_cubit_dagmc_allowed_kwargs)),
         )
 
         if all_data["cub5_export"]:
@@ -662,7 +694,7 @@ def parastell():
         nwl_geom.construct_invessel_build(**nwl_build)
         nwl_geom.export_invessel_build(export_dir=args.export_dir)
 
-        nwl_geom.export_dagmc(
+        nwl_geom.export_cubit_dagmc(
             skip_imprint=True, filename="nwl_geom", export_dir=args.export_dir
         )
 

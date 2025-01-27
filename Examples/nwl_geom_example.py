@@ -25,9 +25,7 @@ stellarator.construct_invessel_build(
     split_chamber=False,
 )
 # Export in-vessel component files
-stellarator.export_invessel_build(
-    export_cad_to_dagmc=False, export_dir=export_dir
-)
+stellarator.export_invessel_build(export_dir=export_dir)
 
 # Define source mesh parameters
 mesh_size = (11, 81, 61)
@@ -48,4 +46,4 @@ for tet in strengths:
 # Export DAGMC neutronics H5M file
 stellarator.build_cubit_model(skip_imprint=True)
 tag_surface(1, "vacuum")
-stellarator.export_dagmc(filename="nwl_geom", export_dir=export_dir)
+stellarator.export_cubit_dagmc(filename="nwl_geom", export_dir=export_dir)

@@ -6,7 +6,6 @@ from scipy.interpolate import RegularGridInterpolator
 
 import cubit
 import cadquery as cq
-import cad_to_dagmc
 import pystell.read_vmec as read_vmec
 
 from . import log
@@ -15,11 +14,8 @@ from .utils import (
     normalize,
     expand_list,
     read_yaml_config,
-    filter_kwargs,
     m2cm,
 )
-
-export_allowed_kwargs = ["export_cad_to_dagmc", "dagmc_filename"]
 
 
 def orient_spline_surfaces(volume_id):
@@ -316,35 +312,22 @@ class InVesselBuild(object):
             )
             cq.exporters.export(component, str(export_path))
 
-    def export_cad_to_dagmc(self, dagmc_filename="dagmc", export_dir=""):
-        """Exports DAGMC neutronics H5M file of ParaStell in-vessel components
-        via CAD-to-DAGMC.
+    def extract_solids_and_mat_tags(self):
+        """Appends in-vessel component CadQuery solid objects and material
+        tags to corresponding input lists.
 
-        Arguments:
-            dagmc_filename (str): name of DAGMC output file, excluding '.h5m'
-                extension (optional, defaults to 'dagmc').
-            export_dir (str): directory to which to export the DAGMC output file
-                (optional, defaults to empty string).
+        Returns:
+            solids (list): list of in-vessel component CadQuery solid objects.
+            mat_tags (list): list of in-vessel component material tags.
         """
-        self._logger.info(
-            "Exporting DAGMC neutronics model of in-vessel components..."
-        )
+        solids = []
+        mat_tags = []
 
-        model = cad_to_dagmc.CadToDagmc()
+        for name, solid in self.Components.items():
+            solids.append(solid)
+            mat_tags.append(self.radial_build.radial_build[name]["mat_tag"])
 
-        for name, component in self.Components.items():
-            model.add_cadquery_object(
-                component,
-                material_tags=[
-                    self.radial_build.radial_build[name]["mat_tag"]
-                ],
-            )
-
-        export_path = Path(export_dir) / Path(dagmc_filename).with_suffix(
-            ".h5m"
-        )
-
-        model.export_dagmc_h5m_file(filename=str(export_path))
+        return solids, mat_tags
 
     def export_component_mesh(
         self, components, mesh_size=5, import_dir="", export_dir=""
@@ -874,13 +857,6 @@ def generate_invessel_build():
     invessel_build.generate_components()
 
     invessel_build.export_step(export_dir=args.export_dir)
-
-    if invessel_build_dict["export_cad_to_dagmc"]:
-
-        invessel_build.export_cad_to_dagmc(
-            export_dir=args.export_dir,
-            **(filter_kwargs(invessel_build_dict, ["dagmc_filename"])),
-        )
 
 
 if __name__ == "__main__":

@@ -48,9 +48,7 @@ stellarator.construct_invessel_build(
     toroidal_angles, poloidal_angles, wall_s, radial_build_dict
 )
 # Export in-vessel component files
-stellarator.export_invessel_build(
-    export_cad_to_dagmc=False, export_dir=export_dir
-)
+stellarator.export_invessel_build(export_dir=export_dir)
 
 # Define build parameters for magnet coils
 coils_file = "coils.example"
@@ -81,4 +79,4 @@ stellarator.export_source_mesh(filename="source_mesh", export_dir=export_dir)
 stellarator.build_cubit_model(skip_imprint=False)
 
 # Export DAGMC neutronics H5M file
-stellarator.export_dagmc(filename="dagmc", export_dir=export_dir)
+stellarator.export_cubit_dagmc(filename="dagmc", export_dir=export_dir)

@@ -238,6 +238,8 @@ class MagnetSet(object):
 
         self._cut_magnets()
 
+        self.coil_solids = [coil.solid for coil in self.magnet_coils]
+
     def import_step_cubit(self):
         """Import STEP file for magnet set into Coreform Cubit."""
         first_vol_id = 1
@@ -268,10 +270,21 @@ class MagnetSet(object):
             self.step_filename
         ).with_suffix(".step")
 
-        coil_set = cq.Compound.makeCompound(
-            [coil.solid for coil in self.magnet_coils]
-        )
+        coil_set = cq.Compound.makeCompound(self.coil_solids)
         cq.exporters.export(coil_set, str(export_path))
+
+    def extract_solids_and_mat_tag(self):
+        """Appends magnet set CadQuery solid objects and material tag to
+        corresponding input lists.
+
+        Returns:
+            solids (list): list of magnet set CadQuery solid objects.
+            mat_tags (list): list of magnet set material tags.
+        """
+        solids = self.coil_solids
+        mat_tags = [self.mat_tag] * len(self.coil_solids)
+
+        return solids, mat_tags
 
     def mesh_magnets(self, min_size=20.0, max_size=50.0, max_gradient=1.5):
         """Creates tetrahedral mesh of magnet volumes via Coreform Cubit.
