@@ -461,7 +461,7 @@ class Stellarator(object):
             max_mesh_size (float): maximum size of mesh elements (defaults to
                 50).
         """
-        self._logger.info("Exporting DAGMC neutronics model...")
+        self._logger.info("Exporting DAGMC neutronics model with CAD-to-DAGMC ...")
 
         export_path = Path(export_dir) / Path(filename).with_suffix(".h5m")
         self.dagmc_model.export_dagmc_h5m_file(
