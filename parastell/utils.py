@@ -209,10 +209,16 @@ def smooth_matrix(matrix, steps, sigma):
 
 
 class DAGMCMerger:
-    """Class to facilitate renumbering of entities to merge dagmc models"""
+    """Class to facilitate renumbering of entities to merge dagmc models
 
-    def __init__(self):
-        self.mb = core.Core()
+    Arguments:
+        mb (PyMOAB Core): PyMOAB core with a DAGMC model loaded. Optional.
+    """
+
+    def __init__(self, mb=None):
+        self.mb = mb
+        if mb is None:
+            self.mb = core.Core()
         self.geom_dim_tag = self.mb.tag_get_handle(
             "GEOM_DIMENSION", 1, types.MB_TYPE_INTEGER, types.MB_TAG_DENSE
         )
@@ -248,7 +254,11 @@ class DAGMCMerger:
         return max_ids
 
     def reassign_global_ids(self, offsets):
-        """Renumber entities, starting from the offset value for that dimension"""
+        """Renumber entities, starting from the offset value for that dimension
+
+        Arguments:
+            offsets (dict): {entity dimension (int): id_offset (int)}
+        """
         root_set = self.mb.get_root_set()
         geom_sets = self.mb.get_entities_by_type_and_tag(
             root_set, types.MBENTITYSET, self.geom_dim_tag, [None]
@@ -266,24 +276,31 @@ class DAGMCMerger:
             )
 
     def write_file(self, filename):
+        """Save to file
+
+        Arguments:
+            filename (str): Path to save the file to. All filetypes supported
+                by MOAB are available. Write to h5m for use with DAGMC.
+        """
         self.mb.write_file(filename)
 
 
-def merge_dagmc_files(files_to_merge, output_file):
+def merge_dagmc_files(models_to_merge):
     """Takes a list of dagmc models, and renumbers entity ids such that they
     will no longer clash, allowing the models to be loaded into the same
     PyMOAB core instance, and saved to a single model.
 
     Arguments:
-        files_to_merge (list of str): List of paths to dagmc models to be
+        models_to_merge (list of PyMOAB core): List of dagmc models to be
             merged.
-        output_file (str): path to which the merged model should be saved.
+    Returns:
+        merged_mbc (PyMOAB Core): PyMOAB core instance containing the merged
+            DAGMC models.
     """
     temp_files = []
     max_ids = {dim: 0 for dim in range(5)}
-    for file in files_to_merge:
-        merger = DAGMCMerger()
-        merger.load_file(file)
+    for model in models_to_merge:
+        merger = DAGMCMerger(model)
         merger.reassign_global_ids(max_ids)
         max_ids = merger.get_max_ids()
         with tempfile.NamedTemporaryFile(
@@ -296,7 +313,6 @@ def merge_dagmc_files(files_to_merge, output_file):
     merged_mbc = core.Core()
     for file in temp_files:
         merged_mbc.load_file(file)
-    merged_mbc.write_file(output_file)
 
     Path.unlink(temp_filename)
-    return True
+    return merged_mbc

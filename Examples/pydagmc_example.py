@@ -59,8 +59,6 @@ stellarator.construct_invessel_build(
     num_ribs=num_ribs,
     num_rib_pts=num_rib_pts,
 )
-# this file contains only the in vessel components
-stellarator.invessel_build.dag_model.write_file("dagmc.h5m")
 
 # Define build parameters for magnet coils
 coils_file = "coils.example"
@@ -78,10 +76,10 @@ stellarator.export_magnets(
     export_dir=export_dir,
 )
 
-stellarator.build_cubit_model(skip_imprint=False, legacy_faceting=False)
-stellarator.export_dagmc("magnets.h5m")
-merge_dagmc_files(["dagmc.h5m", "magnets.h5m"], "merged_dagmc.h5m")
-
+stellarator.build_cubit_model(skip_imprint=False)
+stellarator.export_cubit_dagmc("magnets.h5m")
+stellarator.merge_magnet_and_ivb_dagmc_models()
+stellarator.merged_model.write_file("dagmc.h5m")
 # it is recommended to use the DAGMC command line tool overlap_check
 # to verify that the geometry is valid, and that the magnets and ivb
 # components do not intersect.

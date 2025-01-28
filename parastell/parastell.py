@@ -5,6 +5,7 @@ import cubit
 import pystell.read_vmec as read_vmec
 import cadquery as cq
 import cad_to_dagmc
+from pymoab import core
 
 from . import log
 from . import invessel_build as ivb
@@ -417,12 +418,17 @@ class Stellarator(object):
             "Exporting DAGMC neutronics model using Coreform Cubit..."
         )
 
+        filename = Path(filename).with_suffix(".h5m")
+
         cubit_io.export_dagmc_cubit(
             filename=filename,
             export_dir=export_dir,
             anisotropic_ratio=anisotropic_ratio,
             deviation_angle=deviation_angle,
         )
+
+        if self.use_pydagmc:
+            self.magnet_model = Path(export_dir) / filename
 
     def export_cub5(self, filename="stellarator", export_dir=""):
         """Export native Coreform Cubit format (cub5) of Parastell model.
@@ -513,6 +519,16 @@ class Stellarator(object):
             self._material_tags,
             h5m_filename=export_path,
         )
+        if self.use_pydagmc:
+            self.magnet_model = export_path
+
+    def merge_magnet_and_ivb_dagmc_models(self):
+        magnet_mbc = core.Core()
+        magnet_mbc.load_file(str(self.magnet_model))
+        self.merged_model = merge_dagmc_files(
+            [magnet_mbc, self.invessel_build.dag_model.mb]
+        )
+        Path.unlink(self.magnet_model)
 
 
 def parse_args():
