@@ -1,5 +1,5 @@
 
-# PRoject specific
+# Project specific
 *.csv
 *.step
 *.h5m
@@ -12,12 +12,14 @@
 *.cub5
 *.h5
 *.exo
-!wout_vmec.nc
 .vscode
 *.yaml
-!config.yaml
 *.lic
+
+# Exceptions for tests
 !magnet_geom.step
+!config.yaml
+!wout_vmec.nc
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
