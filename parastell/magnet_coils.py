@@ -1,5 +1,6 @@
 import argparse
 from pathlib import Path
+from abc import ABC, abstractmethod
 
 import numpy as np
 
@@ -13,7 +14,7 @@ from .utils import read_yaml_config, filter_kwargs, reorder_loop, m2cm
 export_allowed_kwargs = ["step_filename", "export_mesh", "mesh_filename"]
 
 
-class MagnetSet(object):
+class MagnetSet(ABC):
     """An object representing a set of modular stellarator magnet coils.
 
     Arguments:
@@ -95,6 +96,12 @@ class MagnetSet(object):
         cubit_io.export_mesh_cubit(
             filename=mesh_filename, export_dir=export_dir
         )
+
+    def add_solids_to_cad_to_dagmc(self, dagmc_model):
+        for solid in self.coil_solids:
+            dagmc_model.add_cadquery_object(
+                solid, material_tags=[self.mat_tag]
+            )
 
 
 class MagnetSetFromFilaments(MagnetSet):
@@ -364,7 +371,8 @@ class MagnetSetFromGeometry(MagnetSet):
 
     Arguments:
         geometry_file (str): path to the existing coil geometry. Can be of
-            the types supported by cubit_io.import_geom_to_cubit()
+            the types supported by cubit_io.import_geom_to_cubit(). For
+            cad_to_dagmc, only step files are supported.
         logger (object): logger object (optional, defaults to None). If no
             logger is supplied, a default logger will be instantiated.
 
@@ -391,18 +399,14 @@ class MagnetSetFromGeometry(MagnetSet):
         ):
             self.__setattr__(name, kwargs[name])
 
-    def extract_solids_and_mat_tag(self):
-        """Appends magnet set CadQuery solid objects and material tag to
-        corresponding input lists.
+    def get_cq_solids(self):
+        self.coil_solids = (
+            cq.importers.importStep(str(self.geometry_file)).val().Solids()
+        )
 
-        Returns:
-            solids (list): list of magnet set CadQuery solid objects.
-            mat_tags (list): list of magnet set material tags.
-        """
-        solids = self.coil_solids
-        mat_tags = [self.mat_tag] * len(self.coil_solids)
-
-        return solids, mat_tags
+    def add_solids_to_cad_to_dagmc(self, dagmc_model):
+        self.get_cq_solids()
+        super().add_solids_to_cad_to_dagmc(dagmc_model)
 
 
 class Filament(object):

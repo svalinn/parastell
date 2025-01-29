@@ -329,6 +329,14 @@ class InVesselBuild(object):
 
         return solids, mat_tags
 
+    def add_solids_to_cad_to_dagmc(self, dagmc_model):
+        """Add in vessel build geomtry to the cad_to_dagmc dagmc model with
+        appropriate material tags.
+        """
+        solids, mat_tags = self.extract_solids_and_mat_tags()
+        for solid, mat_tag in zip(solids, mat_tags):
+            dagmc_model.add_cadquery_object(solid, material_tags=[mat_tag])
+
     def export_component_mesh(
         self, components, mesh_size=5, import_dir="", export_dir=""
     ):

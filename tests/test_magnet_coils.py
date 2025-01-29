@@ -104,6 +104,7 @@ def test_magnet_construction(coil_set_from_filaments):
     remove_files()
 
     coil_set_from_filaments.populate_magnet_coils()
+    coil_set_from_filaments.build_magnet_coils()
 
     assert len(coil_set_from_filaments.magnet_coils) == len_coils_exp
     assert coil_set_from_filaments.width == width_exp
