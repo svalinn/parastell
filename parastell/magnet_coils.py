@@ -357,6 +357,7 @@ class MagnetSetFromFilaments(MagnetSet):
         if cubit_io.initialized:
             first_vol_id += cubit.get_last_id("volume")
 
+
 class MagnetSetFromGeometry(MagnetSet):
     """An object representing a set of modular stellarator magnet coils
     with previously defined geometry files.
@@ -390,10 +391,6 @@ class MagnetSetFromGeometry(MagnetSet):
         ):
             self.__setattr__(name, kwargs[name])
 
-
-        coil_set = cq.Compound.makeCompound(self.coil_solids)
-        cq.exporters.export(coil_set, str(export_path))
-
     def extract_solids_and_mat_tag(self):
         """Appends magnet set CadQuery solid objects and material tag to
         corresponding input lists.
@@ -407,8 +404,7 @@ class MagnetSetFromGeometry(MagnetSet):
 
         return solids, mat_tags
 
-    def mesh_magnets(self, min_size=20.0, max_size=50.0, max_gradient=1.5):
-        """Creates tetrahedral mesh of magnet volumes via Coreform Cubit.
+
 class Filament(object):
     """Object containing basic data defining a Filament, and necessary
     functions for working with that data.
