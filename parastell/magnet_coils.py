@@ -98,6 +98,9 @@ class MagnetSet(ABC):
         )
 
     def add_solids_to_cad_to_dagmc(self, dagmc_model):
+        """Add the magnet solids to a cad_to_dagmc model with the magnet
+        material tag.
+        """
         for solid in self.coil_solids:
             dagmc_model.add_cadquery_object(
                 solid, material_tags=[self.mat_tag]
@@ -400,6 +403,7 @@ class MagnetSetFromGeometry(MagnetSet):
             self.__setattr__(name, kwargs[name])
 
     def get_cq_solids(self):
+        """Load the provided geometry into cadquery for use with cad_to_dagmc."""
         self.coil_solids = (
             cq.importers.importStep(str(self.geometry_file)).val().Solids()
         )
