@@ -97,15 +97,6 @@ class MagnetSet(ABC):
             filename=mesh_filename, export_dir=export_dir
         )
 
-    def add_solids_to_cad_to_dagmc(self, dagmc_model):
-        """Add the magnet solids to a cad_to_dagmc model with the magnet
-        material tag.
-        """
-        for solid in self.coil_solids:
-            dagmc_model.add_cadquery_object(
-                solid, material_tags=[self.mat_tag]
-            )
-
 
 class MagnetSetFromFilaments(MagnetSet):
     """Inherits from MagnetSet. This subclass enables the construction of
@@ -393,6 +384,7 @@ class MagnetSetFromGeometry(MagnetSet):
         super().__init__(logger, **kwargs)
         self.geometry_file = Path(geometry_file).resolve()
         self.working_dir = self.geometry_file.parent
+        self._coil_solids = None
 
         for name in kwargs.keys() & (
             "start_line",
@@ -402,15 +394,13 @@ class MagnetSetFromGeometry(MagnetSet):
         ):
             self.__setattr__(name, kwargs[name])
 
-    def get_cq_solids(self):
-        """Load the provided geometry into cadquery for use with cad_to_dagmc."""
-        self.coil_solids = (
-            cq.importers.importStep(str(self.geometry_file)).val().Solids()
-        )
-
-    def add_solids_to_cad_to_dagmc(self, dagmc_model):
-        self.get_cq_solids()
-        super().add_solids_to_cad_to_dagmc(dagmc_model)
+    @property
+    def coil_solids(self):
+        if self._coil_solids is None:
+            self._coil_solids = (
+                cq.importers.importStep(str(self.geometry_file)).val().Solids()
+            )
+        return self._coil_solids
 
 
 class Filament(object):

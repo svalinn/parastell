@@ -444,10 +444,18 @@ class Stellarator(object):
         self.dagmc_model = cad_to_dagmc.CadToDagmc()
 
         if self.invessel_build:
-            self.invessel_build.add_solids_to_cad_to_dagmc(self.dagmc_model)
+            for solid, mat_tag in zip(
+                *self.invessel_build.extract_solids_and_mat_tags()
+            ):
+                self.dagmc_model.add_cadquery_object(
+                    solid, material_tags=[mat_tag]
+                )
 
         if self.magnet_set:
-            self.magnet_set.add_solids_to_cad_to_dagmc(self.dagmc_model)
+            for solid in self.magnet_set.coil_solids:
+                self.dagmc_model.add_cadquery_object(
+                    solid, material_tags=[self.magnet_set.mat_tag]
+                )
 
     def export_cad_to_dagmc(
         self,
