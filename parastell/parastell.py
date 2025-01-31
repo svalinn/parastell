@@ -193,10 +193,10 @@ class Stellarator(object):
             components, mesh_size, import_dir, export_dir
         )
 
-    def construct_magnets(
+    def construct_magnets_from_filaments(
         self, coils_file, width, thickness, toroidal_extent, **kwargs
     ):
-        """Constructs MagnetSet class object.
+        """Constructs MagnetSetFromFilaments class object.
 
         Arguments:
             coils_file (str): path to coil filament data file.
@@ -216,7 +216,7 @@ class Stellarator(object):
             mat_tag (str): DAGMC material tag to use for magnets in DAGMC
                 neutronics model (defaults to 'magnets').
         """
-        self.magnet_set = mc.MagnetSet(
+        self.magnet_set = mc.MagnetSetFromFilaments(
             coils_file,
             width,
             thickness,
@@ -227,6 +227,24 @@ class Stellarator(object):
 
         self.magnet_set.populate_magnet_coils()
         self.magnet_set.build_magnet_coils()
+
+    def add_magnets_from_geometry(self, geometry_file, **kwargs):
+        """Adds custom geometry via the MagnetSetFromGeometry class
+        Arguments:
+            geometry_file (str): path to the existing coil geometry. Can be of
+                the types supported by cubit_io.import_geom_to_cubit()
+            logger (object): logger object (optional, defaults to None). If no
+                logger is supplied, a default logger will be instantiated.
+
+        Optional attributes:
+            mat_tag (str): DAGMC material tag to use for magnets in DAGMC
+                neutronics model (defaults to 'magnets').
+        """
+        self.magnet_set = mc.MagnetSetFromGeometry(
+            geometry_file,
+            logger=self._logger,
+            **kwargs,
+        )
 
     def export_magnets(
         self,
@@ -356,7 +374,7 @@ class Stellarator(object):
             self.invessel_build.import_step_cubit()
 
         if self.magnet_set:
-            self.magnet_set.import_step_cubit()
+            self.magnet_set.import_geom_cubit()
 
         if skip_imprint:
             self.invessel_build.merge_layer_surfaces()
@@ -423,29 +441,21 @@ class Stellarator(object):
             "Building DAGMC neutronics model via CAD-to-DAGMC..."
         )
 
-        solids = []
-        material_names = []
-
-        if self.invessel_build:
-            ivb_solids, ivb_material_names = (
-                self.invessel_build.extract_solids_and_mat_tags()
-            )
-            solids.extend(ivb_solids)
-            material_names.extend(ivb_material_names)
-
-        if self.magnet_set:
-            ms_solids, ms_material_names = (
-                self.magnet_set.extract_solids_and_mat_tag()
-            )
-            solids.extend(ms_solids)
-            material_names.extend(ms_material_names)
-
         self.dagmc_model = cad_to_dagmc.CadToDagmc()
 
-        for solid, mat_tag in zip(solids, material_names):
-            self.dagmc_model.add_cadquery_object(
-                solid, material_tags=[mat_tag]
-            )
+        if self.invessel_build:
+            for solid, mat_tag in zip(
+                *self.invessel_build.extract_solids_and_mat_tags()
+            ):
+                self.dagmc_model.add_cadquery_object(
+                    solid, material_tags=[mat_tag]
+                )
+
+        if self.magnet_set:
+            for solid in self.magnet_set.coil_solids:
+                self.dagmc_model.add_cadquery_object(
+                    solid, material_tags=[self.magnet_set.mat_tag]
+                )
 
     def export_cad_to_dagmc(
         self,
