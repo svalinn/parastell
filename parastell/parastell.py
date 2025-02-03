@@ -161,14 +161,10 @@ class Stellarator(object):
         self.invessel_build = ivb.InVesselBuild(
             self._vmec_obj, self.radial_build, logger=self._logger, **kwargs
         )
-
+        self.use_pydagmc = self.invessel_build.use_pydagmc
         self.invessel_build.populate_surfaces()
         self.invessel_build.calculate_loci()
-        self.use_pydagmc = self.invessel_build.use_pydagmc
-        if self.use_pydagmc:
-            self.invessel_build.generate_components_pydagmc()
-        else:
-            self.invessel_build.generate_components()
+        self.invessel_build.generate_components()
 
     def export_invessel_build(self, export_dir=""):
         """Exports InVesselBuild component STEP files.
