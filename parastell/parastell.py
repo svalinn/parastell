@@ -528,7 +528,6 @@ class Stellarator(object):
         self.merged_model = merge_dagmc_files(
             [magnet_mbc, self.invessel_build.dag_model.mb]
         )
-        Path.unlink(self.magnet_model)
 
 
 def parse_args():

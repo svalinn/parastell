@@ -19,6 +19,7 @@ files_to_remove = [
     "stellarator.log",
     "step_import.log",
     "step_export.log",
+    "magnet_model.h5m",
 ]
 
 
@@ -227,7 +228,7 @@ def test_parastell(stellarator):
     )
 
     stellarator.build_cubit_model()
-    stellarator.export_cubit_dagmc()
+    stellarator.export_cubit_dagmc("magnet_model.h5m")
     stellarator.merge_magnet_and_ivb_dagmc_models()
 
     assert len(stellarator.merged_model.surfaces) == num_surfaces_exp
