@@ -262,15 +262,6 @@ class InVesselBuild(object):
 
         [surface.calculate_loci() for surface in self.Surfaces.values()]
 
-    def generate_pymoab_verts(self):
-        self._logger.info(
-            "Generating pymoab vertices for in-vessel components..."
-        )
-        [
-            surface.generate_pymoab_verts(self.mbc)
-            for surface in self.Surfaces.values()
-        ]
-
     def generate_components(self):
         if self.use_pydagmc:
             self.generate_components_pydagmc()
@@ -312,6 +303,18 @@ class InVesselBuild(object):
             interior_surface = outer_surface
 
     def connect_ribs_with_tris_moab(self, rib1, rib2, reverse=False):
+        """Creat MBTRI elements add add them to a surface between two ribs.
+
+        Arguments:
+            rib1 (Rib object): First of two ribs to be connected.
+            rib2 (Rib object): Second of two ribs to be connected.
+            reverse (bool): Optional. Whether to reverse the connectivity of
+                the MBTRIs being generated. Defaults to False.
+
+        Returns:
+            mb_tris (list of Entity Handle): List of the entity handles of the
+                MBTRIs connecting the two ribs.
+        """
         mb_tris = []
         for rib_loci_index, _ in enumerate(rib1.rib_loci[0:-1]):
             corner1 = rib1.mb_verts[rib_loci_index]
@@ -323,6 +326,13 @@ class InVesselBuild(object):
                 corners, self.mbc, reverse=reverse
             )
         return mb_tris
+
+    def generate_pymoab_verts(self):
+        """Generate MBVERTEX entities from rib loci in all surfaces"""
+        [
+            surface.generate_pymoab_verts(self.mbc)
+            for surface in self.Surfaces.values()
+        ]
 
     def generate_curved_surfaces_pydagmc(self):
         """Generate the faceted representation of each curved surface and
@@ -591,6 +601,12 @@ class Surface(object):
         [rib.calculate_loci() for rib in self.Ribs]
 
     def generate_pymoab_verts(self, mbc):
+        """Generate MBTVERTEX entities from rib loci in all ribs.
+
+        Arguments:
+            mbc (PyMOAB Core): PyMOAB Core instance to add the MBVERTEX
+                entities to.
+        """
         [rib.generate_pymoab_verts(mbc) for rib in self.Ribs]
 
     def generate_surface(self):
@@ -605,23 +621,6 @@ class Surface(object):
     def get_loci(self):
         """Returns the set of point-loci defining the ribs in the surface."""
         return np.array([rib.rib_loci for rib in self.Ribs])
-
-    def generate_pydagmc_surface(self, dag_model, reverse=False):
-        """ """
-
-        mb_tris = []
-        for rib, next_rib in zip(self.Ribs[0:-1], self.Ribs[1:]):
-            for rib_pt_index, _ in enumerate(rib.rib_loci[0:-1]):
-                corner1 = rib.mb_verts[rib_pt_index]
-                corner2 = rib.mb_verts[rib_pt_index + 1]
-                corner3 = next_rib.mb_verts[rib_pt_index + 1]
-                corner4 = next_rib.mb_verts[rib_pt_index]
-                corners = [corner1, corner2, corner3, corner4]
-                mb_tris += create_moab_tris_from_verts(
-                    corners, dag_model.mb, reverse=reverse
-                )
-        surface = dagmc.Surface.create(dag_model)
-        dag_model.mb.add_entities(surface.handle, mb_tris)
 
 
 class Rib(object):
@@ -704,7 +703,13 @@ class Rib(object):
             self.rib_loci += self.offset_list[:, np.newaxis] * self._normals()
 
     def generate_pymoab_verts(self, mbc):
-        """Converts point-loci to pymoab vertices"""
+        """Converts point-loci to MBVERTEX and adds them to a PyMOAB
+        Core instance.
+
+        Arguments:
+            mbc (PyMOAB Core): PyMOAB Core instance to add the MBVERTEX
+                entities to.
+        """
         self.mb_verts = mbc.create_vertices(
             self.rib_loci[0:-1].flatten()
         ).to_array()

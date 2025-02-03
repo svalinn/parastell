@@ -210,7 +210,7 @@ def smooth_matrix(matrix, steps, sigma):
 
 
 class DAGMCMerger:
-    """Class to facilitate renumbering of entities to merge dagmc models
+    """Class to facilitate renumbering of entities to merge DAGMC models.
 
     Arguments:
         mb (PyMOAB Core): PyMOAB core with a DAGMC model loaded. Optional.
@@ -228,10 +228,15 @@ class DAGMCMerger:
         )
 
     def load_file(self, filename):
+        """Load DAGMC model from file.
+
+        Arguments:
+            filename (str): Path to DAGMC model to be loaded.
+        """
         self.mb.load_file(filename)
 
     def get_max_ids(self):
-        """Get the maximum id in the dagmc model for each entity type
+        """Get the maximum id in the DAGMC model for each entity type.
 
         returns:
             max_ids (dict): {entity dimension (int): max_id (int)}
@@ -255,7 +260,8 @@ class DAGMCMerger:
         return max_ids
 
     def reassign_global_ids(self, offsets):
-        """Renumber entities, starting from the offset value for that dimension
+        """Renumber entities, starting from the offset value for that
+            dimension.
 
         Arguments:
             offsets (dict): {entity dimension (int): id_offset (int)}
@@ -277,7 +283,7 @@ class DAGMCMerger:
             )
 
     def write_file(self, filename):
-        """Save to file
+        """Save to file.
 
         Arguments:
             filename (str): Path to save the file to. All filetypes supported
@@ -287,12 +293,12 @@ class DAGMCMerger:
 
 
 def merge_dagmc_files(models_to_merge):
-    """Takes a list of dagmc models, and renumbers entity ids such that they
+    """Takes a list of DAGMC models, and renumbers entity ids such that they
     will no longer clash, allowing the models to be loaded into the same
     PyMOAB core instance, and saved to a single model.
 
     Arguments:
-        models_to_merge (list of PyMOAB core): List of dagmc models to be
+        models_to_merge (list of PyMOAB core): List of DAGMC models to be
             merged.
     Returns:
         merged_model (dagmc.DAGModel): Single DAGMC model containing each
