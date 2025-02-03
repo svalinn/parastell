@@ -311,26 +311,45 @@ class InVesselBuild(object):
             self.Components[name] = component
             interior_surface = outer_surface
 
-    def generate_components_pydagmc(self):
-        self.generate_pymoab_verts()
-        self._logger.info("Generating dagmc model with pydagmc...")
+    def connect_ribs_with_tris_moab(self, rib1, rib2, reverse=False):
+        mb_tris = []
+        for rib_loci_index, _ in enumerate(rib1.rib_loci[0:-1]):
+            corner1 = rib1.mb_verts[rib_loci_index]
+            corner2 = rib1.mb_verts[rib_loci_index + 1]
+            corner3 = rib2.mb_verts[rib_loci_index + 1]
+            corner4 = rib2.mb_verts[rib_loci_index]
+            corners = [corner1, corner2, corner3, corner4]
+            mb_tris += create_moab_tris_from_verts(
+                corners, self.mbc, reverse=reverse
+            )
+        return mb_tris
 
-        # generate the curved surfaces
+    def generate_curved_surfaces_pydagmc(self):
+        """Generate the faceted representation of each curved surface and
+        add it to the PyDAGMC model, remembering the surface ids."""
+        curved_surface_ids = []
         for i, surface in enumerate(self.Surfaces.values()):
-            # this is only because of using the implicit complement for
-            # the plasma chamber
-            if i == 0:
-                surface.generate_pydagmc_surface(
-                    self.dag_model, self.mbc, reverse=True
-                )
-            else:
-                surface.generate_pydagmc_surface(
-                    self.dag_model,
-                    self.mbc,
-                )
-        curved_surface_ids = list(self.dag_model.surfaces_by_id.keys())
+            mb_tris = []
+            for rib, next_rib in zip(surface.Ribs[0:-1], surface.Ribs[1:]):
+                for rib_pt_index, _ in enumerate(rib.rib_loci[0:-1]):
+                    corner1 = rib.mb_verts[rib_pt_index]
+                    corner2 = rib.mb_verts[rib_pt_index + 1]
+                    corner3 = next_rib.mb_verts[rib_pt_index + 1]
+                    corner4 = next_rib.mb_verts[rib_pt_index]
+                    corners = [corner1, corner2, corner3, corner4]
+                    mb_tris += create_moab_tris_from_verts(
+                        corners,
+                        self.dag_model.mb,
+                        reverse=True if i == 0 else False,
+                    )
+            dagmc_surface = dagmc.Surface.create(self.dag_model)
+            self.dag_model.mb.add_entities(dagmc_surface.handle, mb_tris)
+            curved_surface_ids.append(dagmc_surface.id)
+        self.curved_surface_ids = curved_surface_ids
 
-        # generate the end cap surfaces
+    def generate_end_cap_surfaces_pydagmc(self):
+        """Generate the faceted representation of the planar end cap surfaces
+        and add them to the PyDAGMC model, remembering the surface ids."""
         end_cap_surface_ids = []
         for surface, next_surface in zip(
             list(self.Surfaces.values())[0:-1],
@@ -350,38 +369,44 @@ class InVesselBuild(object):
             end_cap_surface_ids.append(
                 list(self.dag_model.surfaces_by_id.keys())[-2:]
             )
+        self.end_cap_surface_ids = end_cap_surface_ids
 
+    def generate_volumes_pydagmc(self):
+        """Use the curved surface and end cap surface IDs to build the
+        the volumes by applying the correct surface sense to each surface."""
         # make the volumes and apply surface sense
         for i in range(len(self.Surfaces) - 1):
             dagmc.Volume.create(self.dag_model)
 
-        for i, surface_id in enumerate(curved_surface_ids):
-            # if it is the first surface, do volume 1, none
+        for i, surface_id in enumerate(self.curved_surface_ids):
+            # if it is the first surface, it goes to the implicit complement
             if i == 0:
                 self.dag_model.surfaces_by_id[surface_id].surf_sense = [
                     self.dag_model.volumes_by_id[i + 1],
                     None,
                 ]
-            elif i != len(curved_surface_ids) - 1:
+            elif i != len(self.curved_surface_ids) - 1:
                 self.dag_model.surfaces_by_id[surface_id].surf_sense = [
                     self.dag_model.volumes_by_id[i],
                     self.dag_model.volumes_by_id[i + 1],
                 ]
-            # if it the last surface do volume n, none
+            # if it the last surface it goes to the implicit complement
             else:
                 self.dag_model.surfaces_by_id[surface_id].surf_sense = [
                     self.dag_model.volumes_by_id[i],
                     None,
                 ]
 
-        for i, end_cap_ids in enumerate(end_cap_surface_ids):
+        # all end caps go to the implicit complement.
+        for i, end_cap_ids in enumerate(self.end_cap_surface_ids):
             for id in end_cap_ids:
                 self.dag_model.surfaces_by_id[id].surf_sense = [
                     self.dag_model.volumes_by_id[i + 1],
                     None,
                 ]
 
-        # apply material definitions to volumes
+    def tag_volumes_with_materials_pydagmc(self):
+        """Tag each volume with the appropriate material name"""
         for vol, (layer_name, layer_data) in zip(
             self.dag_model.volumes,
             list(self.radial_build.radial_build.items())[1:],
@@ -391,18 +416,14 @@ class InVesselBuild(object):
             group = dagmc.Group.create(self.dag_model, name="mat:" + mat)
             group.add_set(vol)
 
-    def connect_ribs_with_tris_moab(self, rib1, rib2, reverse=False):
-        mb_tris = []
-        for rib_loci_index, _ in enumerate(rib1.rib_loci[0:-1]):
-            corner1 = rib1.mb_verts[rib_loci_index]
-            corner2 = rib1.mb_verts[rib_loci_index + 1]
-            corner3 = rib2.mb_verts[rib_loci_index + 1]
-            corner4 = rib2.mb_verts[rib_loci_index]
-            corners = [corner1, corner2, corner3, corner4]
-            mb_tris += create_moab_tris_from_verts(
-                corners, self.mbc, reverse=reverse
-            )
-        return mb_tris
+    def generate_components_pydagmc(self):
+        """Use PyDAGMC to build a DAGMC model of the invessel components"""
+        self._logger.info("Generating ivb dagmc model with pydagmc...")
+        self.generate_pymoab_verts()
+        self.generate_curved_surfaces_pydagmc()
+        self.generate_end_cap_surfaces_pydagmc()
+        self.generate_volumes_pydagmc()
+        self.tag_volumes_with_materials_pydagmc()
 
     def get_loci(self):
         """Returns the set of point-loci defining the outer surfaces of the
@@ -575,7 +596,7 @@ class Surface(object):
         """Returns the set of point-loci defining the ribs in the surface."""
         return np.array([rib.rib_loci for rib in self.Ribs])
 
-    def generate_pydagmc_surface(self, dag_model, mbc, reverse=False):
+    def generate_pydagmc_surface(self, dag_model, reverse=False):
         """ """
 
         mb_tris = []
@@ -587,10 +608,10 @@ class Surface(object):
                 corner4 = next_rib.mb_verts[rib_pt_index]
                 corners = [corner1, corner2, corner3, corner4]
                 mb_tris += create_moab_tris_from_verts(
-                    corners, mbc, reverse=reverse
+                    corners, dag_model.mb, reverse=reverse
                 )
         surface = dagmc.Surface.create(dag_model)
-        mbc.add_entities(surface.handle, mb_tris)
+        dag_model.mb.add_entities(surface.handle, mb_tris)
 
 
 class Rib(object):
