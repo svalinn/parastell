@@ -379,7 +379,7 @@ class Stellarator(object):
         if self.magnet_set:
             self.magnet_set.import_geom_cubit()
 
-        if skip_imprint:
+        if skip_imprint and not self.use_pydagmc:
             self.invessel_build.merge_layer_surfaces()
         else:
             cubit.cmd("imprint volume all")
