@@ -418,6 +418,16 @@ class InVesselBuild(object):
 
     def generate_components_pydagmc(self):
         """Use PyDAGMC to build a DAGMC model of the invessel components"""
+        if np.isclose(
+            (self._repeat + 1) * self.radial_build.toroidal_angles[-1], 360
+        ):
+            e = AssertionError(
+                "PyDAGMC workflow does not support modeling of the full 360 "
+                "degrees. Please consider modeling only one period. i.e. set "
+                "'repeat = 0'"
+            )
+            self._logger.error(e.args[0])
+            raise e
         self._logger.info("Generating ivb dagmc model with pydagmc...")
         self.generate_pymoab_verts()
         self.generate_curved_surfaces_pydagmc()
