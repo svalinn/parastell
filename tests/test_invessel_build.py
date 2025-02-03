@@ -114,6 +114,19 @@ def test_ivb_construction(invessel_build):
     remove_files()
 
 
+def test_ivb_pydagmc_construction(invessel_build):
+    num_volumes_exp = 1
+    num_surfaces_exp = 4
+
+    invessel_build.use_pydagmc = True
+    invessel_build.populate_surfaces()
+    invessel_build.calculate_loci()
+    invessel_build.generate_components()
+
+    assert num_surfaces_exp == len(invessel_build.dag_model.surfaces)
+    assert num_volumes_exp == len(invessel_build.dag_model.volumes)
+
+
 def test_ivb_exports(invessel_build):
 
     remove_files()

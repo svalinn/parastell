@@ -6,6 +6,7 @@ import numpy as np
 import math
 from scipy.ndimage import gaussian_filter
 from pymoab import core, types
+import dagmc
 
 
 m2cm = 100
@@ -294,8 +295,8 @@ def merge_dagmc_files(models_to_merge):
         models_to_merge (list of PyMOAB core): List of dagmc models to be
             merged.
     Returns:
-        merged_mbc (PyMOAB Core): PyMOAB core instance containing the merged
-            DAGMC models.
+        merged_model (dagmc.DAGModel): Single DAGMC model containing each
+            individual model.
     """
     temp_files = []
     max_ids = {dim: 0 for dim in range(5)}
@@ -315,4 +316,4 @@ def merge_dagmc_files(models_to_merge):
         merged_mbc.load_file(file)
 
     Path.unlink(temp_filename)
-    return merged_mbc
+    return dagmc.DAGModel(merged_mbc)
