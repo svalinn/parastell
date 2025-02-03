@@ -4,7 +4,6 @@
 # CAD workflow.
 import numpy as np
 import parastell.parastell as ps
-from parastell.utils import merge_dagmc_files
 
 # Define directory to export all output files to
 export_dir = ""
@@ -67,7 +66,7 @@ thickness = 50.0
 toroidal_extent = 90.0
 
 # Now, generate the magnet CAD files, and create a separate DAGMC model
-stellarator.construct_magnets(
+stellarator.construct_magnets_from_filaments(
     coils_file, width, thickness, toroidal_extent, sample_mod=6
 )
 stellarator.export_magnets(
