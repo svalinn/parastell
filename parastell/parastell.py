@@ -456,7 +456,7 @@ class Stellarator(object):
 
         self.dagmc_model = cad_to_dagmc.CadToDagmc()
 
-        if self.invessel_build:
+        if self.invessel_build and not self.use_pydagmc:
             for solid, mat_tag in zip(
                 *self.invessel_build.extract_solids_and_mat_tags()
             ):

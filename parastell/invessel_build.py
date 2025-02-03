@@ -272,6 +272,12 @@ class InVesselBuild(object):
         ]
 
     def generate_components(self):
+        if self.use_pydagmc:
+            self.generate_components_pydagmc()
+        else:
+            self.generate_components_cadquery()
+
+    def generate_components_cadquery(self):
         """Constructs a CAD solid for each component specified in the radial
         build by cutting the interior surface solid from the outer surface
         solid for a given component.
