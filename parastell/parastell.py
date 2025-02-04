@@ -1,10 +1,9 @@
 import argparse
-import yaml
 from pathlib import Path
 
 import cubit
-import numpy as np
 import pystell.read_vmec as read_vmec
+import cadquery as cq
 import cad_to_dagmc
 
 from . import log
@@ -441,21 +440,23 @@ class Stellarator(object):
             "Building DAGMC neutronics model via CAD-to-DAGMC..."
         )
 
-        self.dagmc_model = cad_to_dagmc.CadToDagmc()
+        solids = []
+        self._material_tags = []
 
         if self.invessel_build:
-            for solid, mat_tag in zip(
-                *self.invessel_build.extract_solids_and_mat_tags()
-            ):
-                self.dagmc_model.add_cadquery_object(
-                    solid, material_tags=[mat_tag]
-                )
+            ivb_solids, ivb_material_tags = (
+                self.invessel_build.extract_solids_and_mat_tags()
+            )
+            solids.extend(ivb_solids)
+            self._material_tags.extend(ivb_material_tags)
 
         if self.magnet_set:
-            for solid in self.magnet_set.coil_solids:
-                self.dagmc_model.add_cadquery_object(
-                    solid, material_tags=[self.magnet_set.mat_tag]
-                )
+            solids.extend(self.magnet_set.coil_solids)
+            self._material_tags.extend(
+                [self.magnet_set.mat_tag] * len(self.magnet_set.coil_solids)
+            )
+
+        self._geometry = cq.Compound.makeCompound(solids)
 
     def export_cad_to_dagmc(
         self,
@@ -482,11 +483,28 @@ class Stellarator(object):
         )
 
         export_path = Path(export_dir) / Path(filename).with_suffix(".h5m")
-        self.dagmc_model.export_dagmc_h5m_file(
-            filename=str(export_path),
-            min_mesh_size=min_mesh_size,
-            max_mesh_size=max_mesh_size,
-            imprint=False,
+
+        gmsh_obj = cad_to_dagmc.init_gmsh()
+
+        _, volumes = cad_to_dagmc.get_volumes(
+            gmsh_obj, self._geometry, method="in memory"
+        )
+
+        cad_to_dagmc.mesh_brep(
+            gmsh_obj, min_mesh_size=min_mesh_size, max_mesh_size=max_mesh_size
+        )
+
+        vertices, triangles_by_solid_and_by_face = (
+            cad_to_dagmc.mesh_to_vertices_and_triangles(volumes)
+        )
+
+        gmsh_obj.finalize()
+
+        cad_to_dagmc.vertices_to_h5m(
+            vertices,
+            triangles_by_solid_and_by_face,
+            self._material_tags,
+            h5m_filename=export_path,
         )
 
 
