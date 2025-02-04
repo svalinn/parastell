@@ -425,6 +425,7 @@ class InVesselBuild(object):
             mat = layer_data.get("mat_tag", layer_name)
             group = dagmc.Group.create(self.dag_model, name="mat:" + mat)
             group.add_set(vol)
+            layer_data["vol_id"] = vol.id
 
     def generate_components_pydagmc(self):
         """Use PyDAGMC to build a DAGMC model of the invessel components"""
