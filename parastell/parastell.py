@@ -522,7 +522,7 @@ class Stellarator(object):
         magnet_mbc = core.Core()
         magnet_mbc.load_file(str(self.magnet_model))
         self.merged_model = merge_dagmc_files(
-            [magnet_mbc, self.invessel_build.dag_model.mb]
+            [self.invessel_build.dag_model.mb, magnet_mbc]
         )
 
 
