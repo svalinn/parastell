@@ -20,3 +20,4 @@ dependencies:
       - pyyaml
       - pytest
       - git+https://github.com/aaroncbader/pystell_uw.git
+      - git+https://github.com/svalinn/pydagmc.git
