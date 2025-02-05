@@ -12,7 +12,7 @@ from . import invessel_build as ivb
 from . import magnet_coils as mc
 from . import source_mesh as sm
 from . import cubit_io
-from .utils import read_yaml_config, filter_kwargs, m2cm, merge_dagmc_files
+from .utils import read_yaml_config, filter_kwargs, m2cm, combine_dagmc_models
 
 build_cubit_model_allowed_kwargs = ["skip_imprint"]
 export_cubit_dagmc_allowed_kwargs = ["anisotropic_ratio", "deviation_angle"]
@@ -518,10 +518,10 @@ class Stellarator(object):
         if self.use_pydagmc:
             self.magnet_model = export_path
 
-    def merge_magnet_and_ivb_dagmc_models(self):
+    def combine_magnet_and_ivb_dagmc_models(self):
         magnet_mbc = core.Core()
         magnet_mbc.load_file(str(self.magnet_model))
-        self.merged_model = merge_dagmc_files(
+        self.pydagmc_model = combine_dagmc_models(
             [self.invessel_build.dag_model.mb, magnet_mbc]
         )
 

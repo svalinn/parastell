@@ -229,12 +229,12 @@ def test_parastell(stellarator):
 
     stellarator.build_cubit_model()
     stellarator.export_cubit_dagmc("magnet_model.h5m")
-    stellarator.merge_magnet_and_ivb_dagmc_models()
+    stellarator.combine_magnet_and_ivb_dagmc_models()
 
-    assert len(stellarator.merged_model.surfaces) == num_surfaces_exp
-    assert len(stellarator.merged_model.volumes) == num_volumes_exp
+    assert len(stellarator.pydagmc_model.surfaces) == num_surfaces_exp
+    assert len(stellarator.pydagmc_model.volumes) == num_volumes_exp
 
-    stellarator.merged_model.write_file("dagmc.h5m")
+    stellarator.pydagmc_model.write_file("dagmc.h5m")
 
     assert Path("dagmc.h5m").exists()
 

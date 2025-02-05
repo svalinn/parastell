@@ -337,56 +337,44 @@ class InVesselBuild(object):
     def generate_curved_surfaces_pydagmc(self):
         """Generate the faceted representation of each curved surface and
         add it to the PyDAGMC model, remembering the surface ids."""
-        curved_surface_ids = []
-        for i, surface in enumerate(self.Surfaces.values()):
+        self.curved_surface_ids = []
+        for surf_idx, surface in enumerate(self.Surfaces.values()):
             mb_tris = []
             for rib, next_rib in zip(surface.Ribs[0:-1], surface.Ribs[1:]):
-                for rib_pt_index, _ in enumerate(rib.rib_loci[0:-1]):
-                    corner1 = rib.mb_verts[rib_pt_index]
-                    corner2 = rib.mb_verts[rib_pt_index + 1]
-                    corner3 = next_rib.mb_verts[rib_pt_index + 1]
-                    corner4 = next_rib.mb_verts[rib_pt_index]
-                    corners = [corner1, corner2, corner3, corner4]
-                    mb_tris += create_moab_tris_from_verts(
-                        corners,
-                        self.dag_model.mb,
-                        reverse=True if i == 0 else False,
-                    )
-            dagmc_surface = dagmc.Surface.create(self.dag_model)
+                mb_tris += self.connect_ribs_with_tris_moab(
+                    rib, next_rib, reverse=True if surf_idx == 0 else False
+                )
+            dagmc_surface = self.dag_model.create_surface()
             self.dag_model.mb.add_entities(dagmc_surface.handle, mb_tris)
-            curved_surface_ids.append(dagmc_surface.id)
-        self.curved_surface_ids = curved_surface_ids
+            self.curved_surface_ids.append(dagmc_surface.id)
 
     def generate_end_cap_surfaces_pydagmc(self):
         """Generate the faceted representation of the planar end cap surfaces
         and add them to the PyDAGMC model, remembering the surface ids."""
-        end_cap_surface_ids = []
+        self.end_cap_surface_ids = []
         for surface, next_surface in zip(
             list(self.Surfaces.values())[0:-1],
             list(self.Surfaces.values())[1:],
         ):
-            mb_tris = self.connect_ribs_with_tris_moab(
-                surface.Ribs[0], next_surface.Ribs[0]
-            )
-            end_cap_start = dagmc.Surface.create(self.dag_model)
-            self.mbc.add_entities(end_cap_start.handle, mb_tris)
+            for index in (0, -1):
+                mb_tris = self.connect_ribs_with_tris_moab(
+                    surface.Ribs[index],
+                    next_surface.Ribs[index],
+                    reverse=True if index == -1 else False,
+                )
+                end_cap = self.dag_model.create_surface()
+                self.mbc.add_entities(end_cap.handle, mb_tris)
 
-            mb_tris = self.connect_ribs_with_tris_moab(
-                surface.Ribs[-1], next_surface.Ribs[-1], reverse=True
-            )
-            end_cap_end = dagmc.Surface.create(self.dag_model)
-            self.mbc.add_entities(end_cap_end.handle, mb_tris)
-            end_cap_surface_ids.append(
+            self.end_cap_surface_ids.append(
                 list(self.dag_model.surfaces_by_id.keys())[-2:]
             )
-        self.end_cap_surface_ids = end_cap_surface_ids
 
     def generate_volumes_pydagmc(self):
         """Use the curved surface and end cap surface IDs to build the
         the volumes by applying the correct surface sense to each surface."""
         # make the volumes and apply surface sense
         for i in range(len(self.Surfaces) - 1):
-            dagmc.Volume.create(self.dag_model)
+            self.dag_model.create_volume()
 
         for i, surface_id in enumerate(self.curved_surface_ids):
             # if it is the first surface, it goes to the implicit complement
@@ -705,7 +693,11 @@ class Rib(object):
 
     def generate_pymoab_verts(self, mbc):
         """Converts point-loci to MBVERTEX and adds them to a PyMOAB
-        Core instance.
+        Core instance. The first and last rib loci are identical. To avoid
+        having separate MBVERTEX entities which are coincident, the last
+        element in rib_loci is not made into an MBVERTEX, and the entity
+        handle corresponding to the first rib locus is appended to the array
+        of MBVERTEX, closing the loop.
 
         Arguments:
             mbc (PyMOAB Core): PyMOAB Core instance to add the MBVERTEX
