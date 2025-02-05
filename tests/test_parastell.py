@@ -2,6 +2,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+import dagmc
 
 import parastell.parastell as ps
 from parastell.cubit_io import create_new_cubit_instance
@@ -31,6 +32,13 @@ def remove_files():
         Path.unlink("step_import.log")
     if Path("step_export.log").exists():
         Path.unlink("step_export.log")
+
+
+def check_surfaces_and_volumes(filename, num_surfaces_exp, num_volumes_exp):
+    dagmc_model = dagmc.DAGModel(str(Path(filename).with_suffix(".h5m")))
+
+    assert len(dagmc_model.surfaces) == num_surfaces_exp
+    assert len(dagmc_model.volumes) == num_volumes_exp
 
 
 @pytest.fixture
@@ -119,6 +127,10 @@ def test_parastell(stellarator):
     component_volume_id_exp = 2
     magnet_volume_ids_exp = list(range(3, 4))
     filename_exp = "dagmc"
+    # Each in-vessel component (2 present) gives 3 unique surfaces; each magnet
+    # (1 present) gives 4 surfaces
+    num_surfaces_exp = 10
+    num_volumes_exp = 3
 
     stellarator.build_cubit_model()
 
@@ -142,12 +154,17 @@ def test_parastell(stellarator):
     assert Path(filename_exp).with_suffix(".h5m").exists()
     assert Path(filename_exp).with_suffix(".cub5").exists()
 
+    check_surfaces_and_volumes(filename_exp, num_surfaces_exp, num_volumes_exp)
+
     remove_files()
 
     stellarator.build_cad_to_dagmc_model()
     stellarator.export_cad_to_dagmc(min_mesh_size=50, max_mesh_size=100)
 
     assert Path(filename_exp).with_suffix(".h5m").exists()
+
+    check_surfaces_and_volumes(filename_exp, num_surfaces_exp, num_volumes_exp)
+
     # Test with custom magnet geometry
 
     create_new_cubit_instance()
@@ -188,11 +205,15 @@ def test_parastell(stellarator):
     assert Path(filename_exp).with_suffix(".h5m").exists()
     assert Path(filename_exp).with_suffix(".cub5").exists()
 
+    check_surfaces_and_volumes(filename_exp, num_surfaces_exp, num_volumes_exp)
+
     remove_files()
 
     stellarator.build_cad_to_dagmc_model()
     stellarator.export_cad_to_dagmc(min_mesh_size=50, max_mesh_size=100)
 
     assert Path(filename_exp).with_suffix(".h5m").exists()
+
+    check_surfaces_and_volumes(filename_exp, num_surfaces_exp, num_volumes_exp)
 
     remove_files()
