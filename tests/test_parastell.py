@@ -227,9 +227,7 @@ def test_parastell(stellarator):
         use_pydagmc=True,
     )
 
-    stellarator.build_cubit_model()
-    stellarator.export_cubit_dagmc("magnet_model.h5m")
-    stellarator.combine_magnet_and_ivb_dagmc_models()
+    stellarator.build_pydagmc_model(magnet_exporter="cubit")
 
     assert len(stellarator.pydagmc_model.surfaces) == num_surfaces_exp
     assert len(stellarator.pydagmc_model.volumes) == num_volumes_exp

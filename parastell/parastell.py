@@ -15,7 +15,19 @@ from . import cubit_io
 from .utils import read_yaml_config, filter_kwargs, m2cm, combine_dagmc_models
 
 build_cubit_model_allowed_kwargs = ["skip_imprint"]
-export_cubit_dagmc_allowed_kwargs = ["anisotropic_ratio", "deviation_angle"]
+export_cubit_dagmc_allowed_kwargs = [
+    "filename",
+    "export_dir",
+    "anisotropic_ratio",
+    "deviation_angle",
+]
+build_cad_to_dagmc_model_allowed_kwargs = []
+export_cad_to_dagmc_allowed_kwargs = [
+    "filename",
+    "export_dir",
+    "min_mesh_size",
+    "max_mesh_size",
+]
 
 
 def make_material_block(mat_tag, block_id, vol_id_str):
@@ -424,7 +436,7 @@ class Stellarator(object):
         )
 
         if self.use_pydagmc:
-            self.magnet_model = Path(export_dir) / filename
+            self.magnet_model_path = Path(export_dir) / filename
 
     def export_cub5(self, filename="stellarator", export_dir=""):
         """Export native Coreform Cubit format (cub5) of Parastell model.
@@ -516,14 +528,82 @@ class Stellarator(object):
             h5m_filename=export_path,
         )
         if self.use_pydagmc:
-            self.magnet_model = export_path
+            self.magnet_model_path = export_path
 
-    def combine_magnet_and_ivb_dagmc_models(self):
-        magnet_mbc = core.Core()
-        magnet_mbc.load_file(str(self.magnet_model))
-        self.pydagmc_model = combine_dagmc_models(
-            [self.invessel_build.dag_model.mb, magnet_mbc]
-        )
+    def build_pydagmc_model(self, magnet_exporter, exporter_args={}):
+        """Combines the invessel build DAGMC model with a DAGMC model of the
+        the magnets, as appropriate.
+
+        Arguments:
+            magnet_exporter (str): Software to use to mesh and export a DAGMC
+                model of the magnet coils. Options are 'cubit' or
+                'cad_to_dagmc'
+            exporter_args (dict): Optional arguments to pass to the DAGMC
+                exporter. For 'cubit' the optional arguments are:
+                    {
+                        "skip_imprint": (bool),
+                        "filename": (str) defaults to "magnets",
+                        "export_dir": (str) defaults to "",
+                        "anisotropic ratio": (float) defaults to 100,
+                        "deviation_angle": (float) defaults to 5}
+                    }
+                For 'cad_to_dagmc' the optional arguments are:
+                    {
+                        "filename": (str) defaults to "magnets",
+                        "export_dir": (str) defaults to "",
+                        "min_mesh_size": (float) defaults to 20,
+                        "max_mesh_size": (float) defaults to 50}
+                    }
+        """
+        exporter_args["filename"] = exporter_args.get("filename", "magnets")
+        if self.magnet_set:
+            if magnet_exporter == "cubit":
+                self.build_cubit_model(
+                    **(
+                        filter_kwargs(
+                            exporter_args, build_cubit_model_allowed_kwargs
+                        )
+                    )
+                )
+                self.export_cubit_dagmc(
+                    **(
+                        filter_kwargs(
+                            exporter_args, export_cubit_dagmc_allowed_kwargs
+                        )
+                    )
+                )
+            elif magnet_exporter == "cad_to_dagmc":
+                self.build_cad_to_dagmc_model(
+                    **(
+                        filter_kwargs(
+                            exporter_args,
+                            build_cad_to_dagmc_model_allowed_kwargs,
+                        )
+                    )
+                )
+                self.export_cad_to_dagmc(
+                    **(
+                        filter_kwargs(
+                            exporter_args, export_cad_to_dagmc_allowed_kwargs
+                        )
+                    )
+                )
+            magnet_mbc = core.Core()
+            magnet_mbc.load_file(str(self.magnet_model_path))
+            self.pydagmc_model = combine_dagmc_models(
+                [self.invessel_build.dag_model.mb, magnet_mbc]
+            )
+        else:
+            self.pydagmc_model = self.invessel_build.dag_model
+
+    def export_pydagmc_model(self, filename="dagmc"):
+        """Saves the PyDAGMC model to .h5m format.
+
+        Arguments:
+            filename (str): name of DAGMC output file, defaults to 'dagmc'
+        """
+        filename = Path(filename).with_suffix(".h5m")
+        self.pydagmc_model.write_file(str(filename))
 
 
 def parse_args():
