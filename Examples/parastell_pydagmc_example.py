@@ -75,11 +75,7 @@ stellarator.export_magnets(
     export_dir=export_dir,
 )
 
-stellarator.build_cubit_model(skip_imprint=False)
-stellarator.export_cubit_dagmc("magnets.h5m")
-stellarator.invessel_build.dag_model.write_file("ivb.h5m")
-stellarator.combine_magnet_and_ivb_dagmc_models()
-stellarator.pydagmc_model.write_file("dagmc.h5m")
-# it is recommended to use the DAGMC command line tool overlap_check
-# to verify that the geometry is valid, and that the magnets and ivb
-# components do not intersect.
+stellarator.build_pydagmc_model(
+    magnet_exporter="cad_to_dagmc", exporter_args={"max_mesh_size": 60}
+)
+stellarator.export_pydagmc_model(filename="dagmc")

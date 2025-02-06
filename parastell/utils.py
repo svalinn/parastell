@@ -1,6 +1,7 @@
 import yaml
 import tempfile
 from pathlib import Path
+from functools import cached_property
 
 import numpy as np
 import math
@@ -209,7 +210,7 @@ def smooth_matrix(matrix, steps, sigma):
     return smoothed_matrix
 
 
-class DAGMCRenumberizer:
+class DAGMCRenumberizer(object):
     """Class to facilitate renumbering of entities to combine DAGMC models.
 
     Arguments:
@@ -221,20 +222,37 @@ class DAGMCRenumberizer:
         self.mb = mb
         if mb is None:
             self.mb = core.Core()
-        self.geom_dim_tag = self.mb.tag_get_handle(
-            "GEOM_DIMENSION", 1, types.MB_TYPE_INTEGER, types.MB_TAG_DENSE
-        )
-        self.global_id_tag = self.mb.tag_get_handle(
+
+        self.categories = ["Vertex", "Curve", "Surface", "Volume", "Group"]
+
+    @cached_property
+    def global_id_tag(self):
+        return self.mb.tag_get_handle(
             "GLOBAL_ID", 1, types.MB_TYPE_INTEGER, types.MB_TAG_DENSE
         )
-        self.category_tag = self.mb.tag_get_handle(
+
+    @cached_property
+    def category_tag(self):
+        """Returns the category tag used to intidate the use of meshset. Values
+        include "Group", "Volume", "Surface", "Curve" and "Vertex".
+        """
+        return self.mb.tag_get_handle(
             types.CATEGORY_TAG_NAME,
             types.CATEGORY_TAG_SIZE,
             types.MB_TYPE_OPAQUE,
             types.MB_TAG_SPARSE,
             create_if_missing=True,
         )
-        self.categories = ["Vertex", "Curve", "Surface", "Volume", "Group"]
+
+    @cached_property
+    def geom_dim_tag(self):
+        return self.mb.tag_get_handle(
+            types.GEOM_DIMENSION_TAG_NAME,
+            1,
+            types.MB_TYPE_INTEGER,
+            types.MB_TAG_SPARSE,
+            create_if_missing=True,
+        )
 
     def load_file(self, filename):
         """Load DAGMC model from file.
