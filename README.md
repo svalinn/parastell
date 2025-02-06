@@ -22,6 +22,7 @@ ParaStell depends on:
 - [SciPy](https://scipy.org/install/)
 - [scikit-learn](https://scikit-learn.org/stable/install.html)
 - [PyYAML](https://pyyaml.org/wiki/PyYAMLDocumentation)
+- [PyDAGMC](https://github.com/svalinn/pydagmc)
 
 ## Install ParaStell
 Download and extract the ParaStell repository:
