@@ -65,7 +65,6 @@ width = 40.0
 thickness = 50.0
 toroidal_extent = 90.0
 
-# Now, generate the magnet CAD files, and create a separate DAGMC model
 stellarator.construct_magnets_from_filaments(
     coils_file, width, thickness, toroidal_extent, sample_mod=6
 )
