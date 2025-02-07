@@ -1,8 +1,14 @@
 import yaml
+import tempfile
+from pathlib import Path
+from functools import cached_property
 
 import numpy as np
 import math
 from scipy.ndimage import gaussian_filter
+from pymoab import core, types
+import dagmc
+
 
 m2cm = 100
 m3tocm3 = m2cm * m2cm * m2cm
@@ -202,3 +208,87 @@ def smooth_matrix(matrix, steps, sigma):
         previous_matrix = smoothed_matrix
 
     return smoothed_matrix
+
+
+class DAGMCRenumberizer(object):
+    """Class to facilitate renumbering of entities to combine DAGMC models.
+
+    Arguments:
+        mb (PyMOAB Core): PyMOAB core with a DAGMC models to be renumbered
+        loaded. Optional.
+    """
+
+    def __init__(self, mb=None):
+        self.mb = mb
+        if mb is None:
+            self.mb = core.Core()
+
+    @cached_property
+    def global_id_tag(self):
+        return self.mb.tag_get_handle(
+            "GLOBAL_ID", 1, types.MB_TYPE_INTEGER, types.MB_TAG_DENSE
+        )
+
+    @cached_property
+    def category_tag(self):
+        """Returns the category tag used to intidate the use of meshset. Values
+        include "Group", "Volume", "Surface", "Curve" and "Vertex".
+        """
+        return self.mb.tag_get_handle(
+            types.CATEGORY_TAG_NAME,
+            types.CATEGORY_TAG_SIZE,
+            types.MB_TYPE_OPAQUE,
+            types.MB_TAG_SPARSE,
+            create_if_missing=True,
+        )
+
+    def load_file(self, filename):
+        """Load DAGMC model from file.
+
+        Arguments:
+            filename (str): Path to DAGMC model to be loaded.
+        """
+        self.mb.load_file(filename)
+
+    def renumber_ids(self):
+        """Renumbers the ids from 1 to N where N is the total number of
+        entities in that category.
+        """
+        categories = ["Vertex", "Curve", "Surface", "Volume", "Group"]
+        root_set = self.mb.get_root_set()
+        for category in categories:
+            category_set = self.mb.get_entities_by_type_and_tag(
+                root_set, types.MBENTITYSET, self.category_tag, [category]
+            )
+            num_ids = len(category_set)
+            if num_ids != 0:
+                set_ids = list(range(1, num_ids + 1))
+                self.mb.tag_set_data(
+                    self.global_id_tag,
+                    category_set,
+                    set_ids,
+                )
+
+
+def combine_dagmc_models(models_to_merge):
+    """Takes a list of DAGMC models, and renumbers entity ids such that they
+    will no longer clash, allowing the models to be loaded into the same
+    PyMOAB core instance, and saved to a single model.
+
+    Arguments:
+        models_to_merge (list of PyMOAB core): List of DAGMC models to be
+            merged.
+    Returns:
+        combined_model (dagmc.DAGModel): Single DAGMC model containing the
+            combined individual models.
+    """
+    renumberizer = DAGMCRenumberizer()
+    for model in models_to_merge:
+        with tempfile.NamedTemporaryFile(
+            delete=True, suffix=".h5m"
+        ) as temp_file:
+            temp_filename = temp_file.name
+            model.write_file(temp_filename)
+            renumberizer.load_file(temp_filename)
+    renumberizer.renumber_ids()
+    return dagmc.DAGModel(renumberizer.mb)

@@ -7,31 +7,26 @@ import dagmc
 import parastell.parastell as ps
 from parastell.cubit_io import create_new_cubit_instance
 
+files_to_remove = [
+    "chamber.step",
+    "component.step",
+    "magnet_set.step",
+    "magnet_mesh.exo",
+    "magnet_mesh.h5m",
+    "dagmc.h5m",
+    "dagmc.cub5",
+    "source_mesh.h5m",
+    "stellarator.log",
+    "step_import.log",
+    "step_export.log",
+    "magnet_model.h5m",
+]
+
 
 def remove_files():
-
-    if Path("chamber.step").exists():
-        Path.unlink("chamber.step")
-    if Path("component.step").exists():
-        Path.unlink("component.step")
-    if Path("magnet_set.step").exists():
-        Path.unlink("magnet_set.step")
-    if Path("magnet_mesh.exo").exists():
-        Path.unlink("magnet_mesh.exo")
-    if Path("magnet_mesh.h5m").exists():
-        Path.unlink("magnet_mesh.h5m")
-    if Path("dagmc.h5m").exists():
-        Path.unlink("dagmc.h5m")
-    if Path("dagmc.cub5").exists():
-        Path.unlink("dagmc.cub5")
-    if Path("source_mesh.h5m").exists():
-        Path.unlink("source_mesh.h5m")
-    if Path("stellarator.log").exists():
-        Path.unlink("stellarator.log")
-    if Path("step_import.log").exists():
-        Path.unlink("step_import.log")
-    if Path("step_export.log").exists():
-        Path.unlink("step_export.log")
+    for file in files_to_remove:
+        if Path(file).exists():
+            Path.unlink(file)
 
 
 def check_surfaces_and_volumes(filename, num_surfaces_exp, num_volumes_exp):
@@ -215,5 +210,37 @@ def test_parastell(stellarator):
     assert Path(filename_exp).with_suffix(".h5m").exists()
 
     check_surfaces_and_volumes(filename_exp, num_surfaces_exp, num_volumes_exp)
+
+    remove_files()
+
+    # Test pydagmc model generation
+
+    # Mo plasma chamber. 4 surfaces from single magnet, 4 surfaces from single
+    # component.
+    num_surfaces_exp = 8
+
+    # One magnet and one component
+    num_volumes_exp = 2
+
+    stellarator.construct_invessel_build(
+        toroidal_angles,
+        poloidal_angles,
+        wall_s,
+        radial_build_dict,
+        num_ribs=num_ribs,
+        use_pydagmc=True,
+    )
+
+    # intentionally pass a kwarg for 'cad_to_dagmc' export to verify that
+    # kwargs are filtered appropriately
+    stellarator.build_pydagmc_model(
+        magnet_exporter="cubit", deviation_angle=6, max_mesh_size=40
+    )
+
+    stellarator.pydagmc_model.write_file("dagmc.h5m")
+
+    check_surfaces_and_volumes("dagmc.h5m", num_surfaces_exp, num_volumes_exp)
+
+    assert Path("dagmc.h5m").exists()
 
     remove_files()

@@ -7,6 +7,8 @@ from scipy.interpolate import RegularGridInterpolator
 import cubit
 import cadquery as cq
 import pystell.read_vmec as read_vmec
+import dagmc
+from pymoab import core, types
 
 from . import log
 from . import cubit_io
@@ -16,6 +18,35 @@ from .utils import (
     read_yaml_config,
     m2cm,
 )
+
+
+def create_moab_tris_from_verts(corners, mbc, reverse=False):
+    """Create 2 moab triangle elements from a list of 4 pymoab verts.
+
+    Arguments:
+        corners (4x3 numpy array): list of 4 (x,y,z) points. Connecting the
+            points in the order given should result in a polygon
+        mbc (pymoab core): pymoab core instance to create elements with.
+
+    Returns:
+        list of two pymoab MBTRI elements
+    """
+    if reverse:
+        tri_1 = mbc.create_element(
+            types.MBTRI, [corners[0], corners[1], corners[2]]
+        )
+        tri_2 = mbc.create_element(
+            types.MBTRI, [corners[0], corners[2], corners[3]]
+        )
+    else:
+        tri_1 = mbc.create_element(
+            types.MBTRI, [corners[2], corners[1], corners[0]]
+        )
+        tri_2 = mbc.create_element(
+            types.MBTRI, [corners[3], corners[2], corners[0]]
+        )
+
+    return [tri_1, tri_2]
 
 
 def orient_spline_surfaces(volume_id):
@@ -83,6 +114,8 @@ class InVesselBuild(object):
             greater than the number of entries in 'poloidal_angles'.
         scale (float): a scaling factor between the units of VMEC and [cm]
             (defaults to m2cm = 100).
+        use_pydagmc (bool): If True, generate components with pydagmc, rather
+            than CADQuery. Defaults to False.
     """
 
     def __init__(self, vmec_obj, radial_build, logger=None, **kwargs):
@@ -95,12 +128,14 @@ class InVesselBuild(object):
         self.num_ribs = 61
         self.num_rib_pts = 67
         self.scale = m2cm
+        self.use_pydagmc = False
 
         for name in kwargs.keys() & (
             "repeat",
             "num_ribs",
             "num_rib_pts",
             "scale",
+            "use_pydagmc",
         ):
             self.__setattr__(name, kwargs[name])
 
@@ -139,6 +174,17 @@ class InVesselBuild(object):
             self._logger.error(e.args[0])
             raise e
 
+    @property
+    def use_pydagmc(self):
+        return self._use_pydagmc
+
+    @use_pydagmc.setter
+    def use_pydagmc(self, value):
+        self._use_pydagmc = value
+        if self._use_pydagmc:
+            self.mbc = core.Core()
+            self.dag_model = dagmc.DAGModel(self.mbc)
+
     def _interpolate_offset_matrix(self, offset_mat):
         """Interpolates total offset for expanded angle lists using cubic spline
         interpolation.
@@ -155,7 +201,7 @@ class InVesselBuild(object):
                 self.radial_build.poloidal_angles,
             ),
             offset_mat,
-            method="pchip",
+            method="linear" if self.use_pydagmc else "pchip",
         )
 
         interpolated_offset_mat = np.array(
@@ -223,6 +269,12 @@ class InVesselBuild(object):
         [surface.calculate_loci() for surface in self.Surfaces.values()]
 
     def generate_components(self):
+        if self.use_pydagmc:
+            self.generate_components_pydagmc()
+        else:
+            self.generate_components_cadquery()
+
+    def generate_components_cadquery(self):
         """Constructs a CAD solid for each component specified in the radial
         build by cutting the interior surface solid from the outer surface
         solid for a given component.
@@ -255,6 +307,160 @@ class InVesselBuild(object):
 
             self.Components[name] = component
             interior_surface = outer_surface
+
+    def _connect_ribs_with_tris_moab(self, rib1, rib2, reverse=False):
+        """Creat MBTRI elements add add them to a surface between two ribs.
+
+        Arguments:
+            rib1 (Rib object): First of two ribs to be connected.
+            rib2 (Rib object): Second of two ribs to be connected.
+            reverse (bool): Optional. Whether to reverse the connectivity of
+                the MBTRIs being generated. Defaults to False.
+
+        Returns:
+            mb_tris (list of Entity Handle): List of the entity handles of the
+                MBTRIs connecting the two ribs.
+        """
+        mb_tris = []
+        for rib_loci_index, _ in enumerate(rib1.rib_loci[0:-1]):
+            corner1 = rib1.mb_verts[rib_loci_index]
+            corner2 = rib1.mb_verts[rib_loci_index + 1]
+            corner3 = rib2.mb_verts[rib_loci_index + 1]
+            corner4 = rib2.mb_verts[rib_loci_index]
+            corners = [corner1, corner2, corner3, corner4]
+            mb_tris += create_moab_tris_from_verts(
+                corners, self.mbc, reverse=reverse
+            )
+        return mb_tris
+
+    def _generate_pymoab_verts(self):
+        """Generate MBVERTEX entities from rib loci in all surfaces"""
+        [
+            surface._generate_pymoab_verts(self.mbc)
+            for surface in self.Surfaces.values()
+        ]
+
+    def _generate_curved_surfaces_pydagmc(self):
+        """Generate the faceted representation of each curved surface and
+        add it to the PyDAGMC model, remembering the surface ids. The sense
+        of the triangles should point outward (increasing radial direction),
+        with the exception of the first surface, which should point inward
+        since the implicit complement is being used for the plasma chamber.
+        """
+        self.curved_surface_ids = []
+        surfaces = list(self.Surfaces.values())
+        first_surface = surfaces[0]
+        for surface in surfaces:
+            mb_tris = []
+            for rib, next_rib in zip(surface.Ribs[0:-1], surface.Ribs[1:]):
+                mb_tris += self._connect_ribs_with_tris_moab(
+                    rib,
+                    next_rib,
+                    reverse=(surface == first_surface),
+                )
+            dagmc_surface = self.dag_model.create_surface()
+            self.dag_model.mb.add_entities(dagmc_surface.handle, mb_tris)
+            self.curved_surface_ids.append(dagmc_surface.id)
+
+    def _generate_end_cap_surfaces_pydagmc(self):
+        """Generate the faceted representation of the planar end cap surfaces
+        and add them to the PyDAGMC model, remembering the surface ids.
+        The sense of the triangles should point toward the implicit complement.
+        """
+        self.end_cap_surface_ids = []
+        for surface, next_surface in zip(
+            list(self.Surfaces.values())[0:-1],
+            list(self.Surfaces.values())[1:],
+        ):
+            end_cap_pair = []
+            for index in (0, -1):
+                mb_tris = self._connect_ribs_with_tris_moab(
+                    surface.Ribs[index],
+                    next_surface.Ribs[index],
+                    reverse=(index == -1),
+                )
+                end_cap = self.dag_model.create_surface()
+                self.mbc.add_entities(end_cap.handle, mb_tris)
+                end_cap_pair.append(end_cap.id)
+
+            self.end_cap_surface_ids.append(end_cap_pair)
+
+    def _generate_volumes_pydagmc(self):
+        """Use the curved surface and end cap surface IDs to build the
+        the volumes by applying the correct surface sense to each surface.
+        The convention here is to point the surface sense toward the implicit
+        complement, or if the surface is between two volumes then the surface
+        sense should point in the increasing radial direction."""
+
+        [self.dag_model.create_volume() for _ in list(self.Surfaces)[:-1]]
+
+        # First surface goes to the implicit complement (plasma chamber)
+        first_surface = self.dag_model.surfaces_by_id[
+            self.curved_surface_ids[0]
+        ]
+        first_surface.surf_sense = [
+            self.dag_model.volumes_by_id[first_surface.id],
+            None,
+        ]
+
+        for surface_id in self.curved_surface_ids[1:-1]:
+            self.dag_model.surfaces_by_id[surface_id].surf_sense = [
+                self.dag_model.volumes_by_id[surface_id - 1],
+                self.dag_model.volumes_by_id[surface_id],
+            ]
+
+        # if it the last surface it goes to the implicit complement
+        last_surface = self.dag_model.surfaces_by_id[
+            self.curved_surface_ids[-1]
+        ]
+        last_surface.surf_sense = [
+            self.dag_model.volumes_by_id[last_surface.id - 1],
+            None,
+        ]
+
+        # all end caps go to the implicit complement.
+        for vol_id, end_cap_ids in enumerate(
+            self.end_cap_surface_ids, start=1
+        ):
+            for end_cap_id in end_cap_ids:
+                self.dag_model.surfaces_by_id[end_cap_id].surf_sense = [
+                    self.dag_model.volumes_by_id[vol_id],
+                    None,
+                ]
+
+    def _tag_volumes_with_materials_pydagmc(self):
+        """Tag each volume with the appropriate material name"""
+        for vol, (layer_name, layer_data) in zip(
+            self.dag_model.volumes,
+            list(self.radial_build.radial_build.items())[1:],
+        ):
+
+            mat = layer_data.get("mat_tag", layer_name)
+            group = dagmc.Group.create(self.dag_model, name="mat:" + mat)
+            group.add_set(vol)
+            layer_data["vol_id"] = vol.id
+
+    def generate_components_pydagmc(self):
+        """Use PyDAGMC to build a DAGMC model of the invessel components"""
+        if np.isclose(
+            (self._repeat + 1) * self.radial_build.toroidal_angles[-1], 360
+        ):
+            e = AssertionError(
+                "The PyDAGMC workflow does not support modeling 360-degree "
+                "geometries. For configurations with more than one period, "
+                "please consider modeling only one period. i.e. set "
+                "'repeat = 0'."
+            )
+            self._logger.error(e.args[0])
+            raise e
+        self._logger.info(
+            "Generating DAGMC model of in-vessel components with PyDAGMC..."
+        )
+        self._generate_pymoab_verts()
+        self._generate_curved_surfaces_pydagmc()
+        self._generate_end_cap_surfaces_pydagmc()
+        self._generate_volumes_pydagmc()
+        self._tag_volumes_with_materials_pydagmc()
 
     def get_loci(self):
         """Returns the set of point-loci defining the outer surfaces of the
@@ -411,6 +617,15 @@ class Surface(object):
         """Calls calculate_loci method in Rib class for each rib in the surface."""
         [rib.calculate_loci() for rib in self.Ribs]
 
+    def _generate_pymoab_verts(self, mbc):
+        """Generate MBTVERTEX entities from rib loci in all ribs.
+
+        Arguments:
+            mbc (PyMOAB Core): PyMOAB Core instance to add the MBVERTEX
+                entities to.
+        """
+        [rib._generate_pymoab_verts(mbc) for rib in self.Ribs]
+
     def generate_surface(self):
         """Constructs a surface by lofting across a set of rib splines."""
         if not self.surface:
@@ -503,6 +718,23 @@ class Rib(object):
 
         if not np.all(self.offset_list == 0):
             self.rib_loci += self.offset_list[:, np.newaxis] * self._normals()
+
+    def _generate_pymoab_verts(self, mbc):
+        """Converts point-loci to MBVERTEX and adds them to a PyMOAB
+        Core instance. The first and last rib loci are identical. To avoid
+        having separate MBVERTEX entities which are coincident, the last
+        element in rib_loci is not made into an MBVERTEX, and the entity
+        handle corresponding to the first rib locus is appended to the array
+        of MBVERTEX, closing the loop.
+
+        Arguments:
+            mbc (PyMOAB Core): PyMOAB Core instance to add the MBVERTEX
+                entities to.
+        """
+        self.mb_verts = mbc.create_vertices(
+            self.rib_loci[0:-1].flatten()
+        ).to_array()
+        self.mb_verts = np.append(self.mb_verts, self.mb_verts[0])
 
     def generate_rib(self):
         """Constructs component rib by constructing a spline connecting all
