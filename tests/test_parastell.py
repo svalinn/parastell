@@ -215,7 +215,11 @@ def test_parastell(stellarator):
 
     # Test pydagmc model generation
 
+    # Mo plasma chamber. 4 surfaces from single magnet, 4 surfaces from single
+    # component.
     num_surfaces_exp = 8
+
+    # One magnet and one component
     num_volumes_exp = 2
 
     stellarator.construct_invessel_build(
@@ -233,10 +237,9 @@ def test_parastell(stellarator):
         magnet_exporter="cubit", deviation_angle=6, max_mesh_size=40
     )
 
-    assert len(stellarator.pydagmc_model.surfaces) == num_surfaces_exp
-    assert len(stellarator.pydagmc_model.volumes) == num_volumes_exp
-
     stellarator.pydagmc_model.write_file("dagmc.h5m")
+
+    check_surfaces_and_volumes("dagmc.h5m", num_surfaces_exp, num_volumes_exp)
 
     assert Path("dagmc.h5m").exists()
 
