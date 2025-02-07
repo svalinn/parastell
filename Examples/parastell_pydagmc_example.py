@@ -75,6 +75,6 @@ stellarator.export_magnets(
 )
 
 stellarator.build_pydagmc_model(
-    magnet_exporter="cad_to_dagmc", exporter_args={"max_mesh_size": 60}
+    magnet_exporter="cad_to_dagmc", max_mesh_size=60
 )
 stellarator.export_pydagmc_model(filename="dagmc")

@@ -285,11 +285,10 @@ def combine_dagmc_models(models_to_merge):
     renumberizer = DAGMCRenumberizer()
     for model in models_to_merge:
         with tempfile.NamedTemporaryFile(
-            delete=False, suffix=".h5m"
+            delete=True, suffix=".h5m"
         ) as temp_file:
             temp_filename = temp_file.name
-        model.write_file(temp_filename)
-        renumberizer.load_file(temp_filename)
-        Path.unlink(temp_filename)
+            model.write_file(temp_filename)
+            renumberizer.load_file(temp_filename)
     renumberizer.renumber_ids()
     return dagmc.DAGModel(renumberizer.mb)
