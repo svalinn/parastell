@@ -530,7 +530,7 @@ class Stellarator(object):
         if self.use_pydagmc:
             self.magnet_model_path = export_path
 
-    def build_pydagmc_model(self, magnet_exporter, exporter_args={}):
+    def build_pydagmc_model(self, magnet_exporter, **kwargs):
         """Combines the invessel build DAGMC model with a DAGMC model of the
         the magnets, as appropriate.
 
@@ -538,37 +538,45 @@ class Stellarator(object):
             magnet_exporter (str): Software to use to mesh and export a DAGMC
                 model of the magnet coils. Options are 'cubit' or
                 'cad_to_dagmc'
-            exporter_args (dict): Optional arguments to pass to the DAGMC
-                exporter. For 'cubit' the optional arguments are:
-                    {
-                        "skip_imprint": (bool),
-                        "filename": (str) defaults to "magnets",
-                        "export_dir": (str) defaults to "",
-                        "anisotropic ratio": (float) defaults to 100,
-                        "deviation_angle": (float) defaults to 5}
-                    }
-                For 'cad_to_dagmc' the optional arguments are:
-                    {
-                        "filename": (str) defaults to "magnets",
-                        "export_dir": (str) defaults to "",
-                        "min_mesh_size": (float) defaults to 20,
-                        "max_mesh_size": (float) defaults to 50}
-                    }
+
+            Optional Attributes:
+            Valid optional attributes depend on which magnet exporter is
+            being used.
+
+            For magnet_exporter = 'cubit'
+            skip_imprint (bool): choose whether to imprint and merge all in
+                Coreform Cubit or to merge surfaces based on import order and
+                geometry information (Defaults to False).
+            filename (str): name of DAGMC output file, excluding '.h5m'
+                extension (optional, defaults to 'dagmc').
+            export_dir (str): directory to which to export DAGMC output file
+                (optional, defaults to empty string).
+            anisotropic_ratio (float): controls edge length ratio of elements
+                (optional, defaults to 100.0).
+            deviation_angle (float): controls deviation angle of facet from
+                surface (i.e., lesser deviation angle results in more elements
+                in areas with higher curvature) (optional, defaults to 5.0).
+
+            For 'cad_to_dagmc' the optional arguments are:
+            filename (str): name of DAGMC output file, excluding '.h5m'
+                extension (optional, defaults to 'dagmc').
+            export_dir (str): directory to which to export DAGMC output file
+                (optional, defaults to empty string).
+            min_mesh_size (float): minimum size of mesh elements (defaults to
+                20).
+            max_mesh_size (float): maximum size of mesh elements (defaults to
+                50).
         """
-        exporter_args["filename"] = exporter_args.get("filename", "magnets")
+
         if self.magnet_set:
             if magnet_exporter == "cubit":
                 self.build_cubit_model(
-                    **(
-                        filter_kwargs(
-                            exporter_args, build_cubit_model_allowed_kwargs
-                        )
-                    )
+                    **(filter_kwargs(kwargs, build_cubit_model_allowed_kwargs))
                 )
                 self.export_cubit_dagmc(
                     **(
                         filter_kwargs(
-                            exporter_args, export_cubit_dagmc_allowed_kwargs
+                            kwargs, export_cubit_dagmc_allowed_kwargs
                         )
                     )
                 )
@@ -576,7 +584,7 @@ class Stellarator(object):
                 self.build_cad_to_dagmc_model(
                     **(
                         filter_kwargs(
-                            exporter_args,
+                            kwargs,
                             build_cad_to_dagmc_model_allowed_kwargs,
                         )
                     )
@@ -584,7 +592,7 @@ class Stellarator(object):
                 self.export_cad_to_dagmc(
                     **(
                         filter_kwargs(
-                            exporter_args, export_cad_to_dagmc_allowed_kwargs
+                            kwargs, export_cad_to_dagmc_allowed_kwargs
                         )
                     )
                 )

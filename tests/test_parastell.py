@@ -227,7 +227,11 @@ def test_parastell(stellarator):
         use_pydagmc=True,
     )
 
-    stellarator.build_pydagmc_model(magnet_exporter="cubit")
+    # intentionally pass a kwarg for 'cad_to_dagmc' export to verify that
+    # kwargs are filtered appropriately
+    stellarator.build_pydagmc_model(
+        magnet_exporter="cubit", deviation_angle=6, max_mesh_size=40
+    )
 
     assert len(stellarator.pydagmc_model.surfaces) == num_surfaces_exp
     assert len(stellarator.pydagmc_model.volumes) == num_volumes_exp
