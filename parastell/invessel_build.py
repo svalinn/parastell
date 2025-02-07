@@ -342,13 +342,21 @@ class InVesselBuild(object):
 
     def _generate_curved_surfaces_pydagmc(self):
         """Generate the faceted representation of each curved surface and
-        add it to the PyDAGMC model, remembering the surface ids."""
+        add it to the PyDAGMC model, remembering the surface ids. The sense
+        of the triangles should point outward (increasing radial direction),
+        with the exception of the first surface, which should point inward
+        since the implicit complement is being used for the plasma chamber.
+        """
         self.curved_surface_ids = []
-        for surf_idx, surface in enumerate(self.Surfaces.values()):
+        surfaces = list(self.Surfaces.values())
+        first_surface = surfaces[0]
+        for surface in surfaces:
             mb_tris = []
             for rib, next_rib in zip(surface.Ribs[0:-1], surface.Ribs[1:]):
                 mb_tris += self._connect_ribs_with_tris_moab(
-                    rib, next_rib, reverse=True if surf_idx == 0 else False
+                    rib,
+                    next_rib,
+                    reverse=(surface == first_surface),
                 )
             dagmc_surface = self.dag_model.create_surface()
             self.dag_model.mb.add_entities(dagmc_surface.handle, mb_tris)
@@ -356,37 +364,42 @@ class InVesselBuild(object):
 
     def _generate_end_cap_surfaces_pydagmc(self):
         """Generate the faceted representation of the planar end cap surfaces
-        and add them to the PyDAGMC model, remembering the surface ids."""
+        and add them to the PyDAGMC model, remembering the surface ids.
+        The sense of the triangles should point toward the implicit complement.
+        """
         self.end_cap_surface_ids = []
         for surface, next_surface in zip(
             list(self.Surfaces.values())[0:-1],
             list(self.Surfaces.values())[1:],
         ):
+            end_cap_pair = []
             for index in (0, -1):
                 mb_tris = self._connect_ribs_with_tris_moab(
                     surface.Ribs[index],
                     next_surface.Ribs[index],
-                    reverse=True if index == -1 else False,
+                    reverse=(index == -1),
                 )
                 end_cap = self.dag_model.create_surface()
                 self.mbc.add_entities(end_cap.handle, mb_tris)
+                end_cap_pair.append(end_cap.id)
 
-            self.end_cap_surface_ids.append(
-                list(self.dag_model.surfaces_by_id.keys())[-2:]
-            )
+            self.end_cap_surface_ids.append(end_cap_pair)
 
     def _generate_volumes_pydagmc(self):
         """Use the curved surface and end cap surface IDs to build the
-        the volumes by applying the correct surface sense to each surface."""
-        # make the volumes and apply surface sense
+        the volumes by applying the correct surface sense to each surface.
+        The convention here is to point the surface sense toward the implicit
+        complement, or if the surface is between two volumes then the surface
+        sense should point in the increasing radial direction."""
 
         [self.dag_model.create_volume() for _ in list(self.Surfaces)[:-1]]
 
         # First surface goes to the implicit complement (plasma chamber)
-        self.dag_model.surfaces_by_id[
+        first_surface = self.dag_model.surfaces_by_id[
             self.curved_surface_ids[0]
-        ].surf_sense = [
-            self.dag_model.volumes_by_id[1],
+        ]
+        first_surface.surf_sense = [
+            self.dag_model.volumes_by_id[first_surface.id],
             None,
         ]
 
@@ -397,18 +410,21 @@ class InVesselBuild(object):
             ]
 
         # if it the last surface it goes to the implicit complement
-        self.dag_model.surfaces_by_id[
+        last_surface = self.dag_model.surfaces_by_id[
             self.curved_surface_ids[-1]
-        ].surf_sense = [
-            self.dag_model.volumes_by_id[self.curved_surface_ids[-1] - 1],
+        ]
+        last_surface.surf_sense = [
+            self.dag_model.volumes_by_id[last_surface.id - 1],
             None,
         ]
 
         # all end caps go to the implicit complement.
-        for i, end_cap_ids in enumerate(self.end_cap_surface_ids):
-            for id in end_cap_ids:
-                self.dag_model.surfaces_by_id[id].surf_sense = [
-                    self.dag_model.volumes_by_id[i + 1],
+        for vol_id, end_cap_ids in enumerate(
+            self.end_cap_surface_ids, start=1
+        ):
+            for end_cap_id in end_cap_ids:
+                self.dag_model.surfaces_by_id[end_cap_id].surf_sense = [
+                    self.dag_model.volumes_by_id[vol_id],
                     None,
                 ]
 

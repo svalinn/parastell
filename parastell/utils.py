@@ -223,8 +223,6 @@ class DAGMCRenumberizer(object):
         if mb is None:
             self.mb = core.Core()
 
-        self.categories = ["Vertex", "Curve", "Surface", "Volume", "Group"]
-
     @cached_property
     def global_id_tag(self):
         return self.mb.tag_get_handle(
@@ -244,16 +242,6 @@ class DAGMCRenumberizer(object):
             create_if_missing=True,
         )
 
-    @cached_property
-    def geom_dim_tag(self):
-        return self.mb.tag_get_handle(
-            types.GEOM_DIMENSION_TAG_NAME,
-            1,
-            types.MB_TYPE_INTEGER,
-            types.MB_TAG_SPARSE,
-            create_if_missing=True,
-        )
-
     def load_file(self, filename):
         """Load DAGMC model from file.
 
@@ -266,15 +254,15 @@ class DAGMCRenumberizer(object):
         """Renumbers the ids from 1 to N where N is the total number of
         entities in that category.
         """
-        for category in self.categories:
-            root_set = self.mb.get_root_set()
+        categories = ["Vertex", "Curve", "Surface", "Volume", "Group"]
+        root_set = self.mb.get_root_set()
+        for category in categories:
             category_set = self.mb.get_entities_by_type_and_tag(
                 root_set, types.MBENTITYSET, self.category_tag, [category]
             )
-            set_ids = self.mb.tag_get_data(self.global_id_tag, category_set)
-            num_ids = len(set_ids)
+            num_ids = len(category_set)
             if num_ids != 0:
-                set_ids = np.arange(1, num_ids + 1).tolist()
+                set_ids = list(range(1, num_ids + 1))
                 self.mb.tag_set_data(
                     self.global_id_tag,
                     category_set,
@@ -291,8 +279,8 @@ def combine_dagmc_models(models_to_merge):
         models_to_merge (list of PyMOAB core): List of DAGMC models to be
             merged.
     Returns:
-        merged_model (dagmc.DAGModel): Single DAGMC model containing each
-            individual model.
+        combined_model (dagmc.DAGModel): Single DAGMC model containing the
+            combined individual models.
     """
     renumberizer = DAGMCRenumberizer()
     for model in models_to_merge:
