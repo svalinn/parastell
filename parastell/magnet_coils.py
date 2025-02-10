@@ -12,8 +12,8 @@ from .cubit_utils import (
     export_mesh_cubit,
     mesh_volume_skeleton,
     get_last_id,
-    initialized,
 )
+from . import cubit_utils
 from .utils import read_yaml_config, filter_kwargs, reorder_loop, m2cm
 
 export_allowed_kwargs = ["step_filename", "export_mesh", "mesh_filename"]
@@ -55,7 +55,7 @@ class MagnetSet(ABC):
     def import_geom_cubit(self):
         """Import geometry file for magnet set into Coreform Cubit."""
         first_vol_id = 1
-        if initialized:
+        if cubit_utils.initialized:
             first_vol_id += get_last_id("volume")
 
         last_vol_id = import_geom_to_cubit(
