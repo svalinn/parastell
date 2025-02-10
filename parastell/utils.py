@@ -95,11 +95,21 @@ def expand_list(list, num):
     for entry, next_entry in zip(list[:-1], list[1:]):
         num_new_entries = int(round((next_entry - entry) / avg_diff))
 
-        # Don't append the last entry in the created linspace to avoid adding
-        # it twice when the next created linspace is appended
+        # Conditionally include the last entry in the created linspace to avoid
+        # adding it twice when the next created linspace is appended
+        # In the event that num << len(list), num_new_entries = 0
+        if num_new_entries == 0:
+            new_entries = np.linspace(
+                entry, next_entry, num=num_new_entries + 1
+            )
+        else:
+            new_entries = np.linspace(
+                entry, next_entry, num=num_new_entries + 1
+            )[:-1]
+
         list_exp = np.append(
             list_exp,
-            np.linspace(entry, next_entry, num=num_new_entries + 1)[:-1],
+            new_entries,
         )
 
     list_exp = np.append(list_exp, final_entry)
