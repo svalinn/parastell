@@ -99,6 +99,7 @@ def expand_list(list, num):
         # adding it twice when the next created linspace is appended
         # In the event that num << len(list), num_new_entries = 0
         if num_new_entries == 0:
+            # Returns an array with 'entry' as the only element
             new_entries = np.linspace(
                 entry, next_entry, num=num_new_entries + 1
             )
