@@ -12,16 +12,15 @@ Open-source Python package featuring a parametric 3-D CAD modeling toolset for s
 ## Dependencies
 ParaStell depends on:
 
-- [CadQuery](https://cadquery.readthedocs.io/en/latest/installation.html)
 - [PyStell](https://github.com/aaroncbader/pystell_uw)
+- [CadQuery](https://cadquery.readthedocs.io/en/latest/installation.html)
+- [PyDAGMC](https://github.com/svalinn/pydagmc)
 - [MOAB](https://bitbucket.org/fathomteam/moab/src/master/)
 - [CAD-to-DAGMC](https://github.com/fusion-energy/cad_to_dagmc)
 - [OpenMC](https://github.com/openmc-dev/openmc)
 - [NumPy](https://numpy.org/install/)
 - [SciPy](https://scipy.org/install/)
-- [scikit-learn](https://scikit-learn.org/stable/install.html)
 - [PyYAML](https://pyyaml.org/wiki/PyYAMLDocumentation)
-- [PyDAGMC](https://github.com/svalinn/pydagmc)
 - [Coreform Cubit](https://coreform.com/products/downloads/) (optional)
 
 ## Install ParaStell
