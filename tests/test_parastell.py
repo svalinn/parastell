@@ -5,7 +5,7 @@ import pytest
 import dagmc
 
 import parastell.parastell as ps
-from parastell.cubit_io import create_new_cubit_instance
+from parastell.cubit_utils import create_new_cubit_instance
 
 files_to_remove = [
     "chamber.step",

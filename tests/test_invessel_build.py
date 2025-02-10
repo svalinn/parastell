@@ -6,7 +6,7 @@ import pytest
 # import this before read_vmec to deal with conflicting
 # dependencies correctly
 import parastell.invessel_build as ivb
-from parastell.cubit_io import create_new_cubit_instance
+from parastell.cubit_utils import create_new_cubit_instance
 
 import pystell.read_vmec as read_vmec
 

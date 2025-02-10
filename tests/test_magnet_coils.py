@@ -5,7 +5,7 @@ import numpy as np
 import cadquery as cq
 
 import parastell.magnet_coils as magnet_coils
-from parastell.cubit_io import create_new_cubit_instance
+from parastell.cubit_utils import create_new_cubit_instance
 
 files_to_remove = [
     "magnet_set.step",
