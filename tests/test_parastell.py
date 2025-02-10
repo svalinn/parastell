@@ -5,7 +5,7 @@ import pytest
 import dagmc
 
 import parastell.parastell as ps
-from parastell.cubit_utils import create_new_cubit_instance
+from parastell.cubit_utils import init_cubit, create_new_cubit_instance
 
 files_to_remove = [
     "chamber.step",
@@ -29,6 +29,15 @@ def remove_files():
             Path.unlink(file)
 
 
+def check_cubit():
+    try:
+        import cubit
+
+        return True
+    except ImportError:
+        return False
+
+
 def check_surfaces_and_volumes(filename, num_surfaces_exp, num_volumes_exp):
     dagmc_model = dagmc.DAGModel(str(Path(filename).with_suffix(".h5m")))
 
@@ -36,9 +45,146 @@ def check_surfaces_and_volumes(filename, num_surfaces_exp, num_volumes_exp):
     assert len(dagmc_model.volumes) == num_volumes_exp
 
 
+def create_ivb_cad_magnets_from_filaments(stellarator_obj):
+    toroidal_angles = [0.0, 5.0, 10.0, 15.0]
+    poloidal_angles = [0.0, 120.0, 240.0, 360.0]
+    wall_s = 1.08
+    component_name_exp = "component"
+    radial_build_dict = {
+        component_name_exp: {
+            "thickness_matrix": np.ones(
+                (len(toroidal_angles), len(poloidal_angles))
+            )
+            * 10
+        }
+    }
+    num_ribs = 11
+
+    stellarator_obj.construct_invessel_build(
+        toroidal_angles,
+        poloidal_angles,
+        wall_s,
+        radial_build_dict,
+        num_ribs=num_ribs,
+    )
+
+    stellarator_obj.export_invessel_build()
+
+    coils_file = Path("files_for_tests") / "coils.example"
+    width = 40.0
+    thickness = 50.0
+    toroidal_extent = 90.0
+    sample_mod = 6
+
+    stellarator_obj.construct_magnets_from_filaments(
+        coils_file, width, thickness, toroidal_extent, sample_mod=sample_mod
+    )
+
+    step_filename_exp = "magnet_set.step"
+
+    stellarator_obj.export_magnets(step_filename=step_filename_exp)
+
+
+def create_ivb_cad_magnets_from_cad(stellarator_obj):
+    toroidal_angles = [0.0, 5.0, 10.0, 15.0]
+    poloidal_angles = [0.0, 120.0, 240.0, 360.0]
+    wall_s = 1.08
+    component_name_exp = "component"
+    radial_build_dict = {
+        component_name_exp: {
+            "thickness_matrix": np.ones(
+                (len(toroidal_angles), len(poloidal_angles))
+            )
+            * 10
+        }
+    }
+    num_ribs = 11
+
+    stellarator_obj.construct_invessel_build(
+        toroidal_angles,
+        poloidal_angles,
+        wall_s,
+        radial_build_dict,
+        num_ribs=num_ribs,
+    )
+
+    stellarator_obj.export_invessel_build()
+
+    geometry_file = Path("files_for_tests") / "magnet_geom.step"
+
+    stellarator_obj.add_magnets_from_geometry(geometry_file)
+
+
+def create_ivb_pydagmc_magnets_from_filaments(stellarator_obj):
+    toroidal_angles = [0.0, 5.0, 10.0, 15.0]
+    poloidal_angles = [0.0, 120.0, 240.0, 360.0]
+    wall_s = 1.08
+    component_name_exp = "component"
+    radial_build_dict = {
+        component_name_exp: {
+            "thickness_matrix": np.ones(
+                (len(toroidal_angles), len(poloidal_angles))
+            )
+            * 10
+        }
+    }
+    num_ribs = 11
+
+    stellarator_obj.construct_invessel_build(
+        toroidal_angles,
+        poloidal_angles,
+        wall_s,
+        radial_build_dict,
+        num_ribs=num_ribs,
+        use_pydagmc=True,
+    )
+
+    coils_file = Path("files_for_tests") / "coils.example"
+    width = 40.0
+    thickness = 50.0
+    toroidal_extent = 90.0
+    sample_mod = 6
+
+    stellarator_obj.construct_magnets_from_filaments(
+        coils_file, width, thickness, toroidal_extent, sample_mod=sample_mod
+    )
+
+    step_filename_exp = "magnet_set.step"
+
+    stellarator_obj.export_magnets(step_filename=step_filename_exp)
+
+
+def create_ivb_pydagmc_magnets_from_cad(stellarator_obj):
+    toroidal_angles = [0.0, 5.0, 10.0, 15.0]
+    poloidal_angles = [0.0, 120.0, 240.0, 360.0]
+    wall_s = 1.08
+    component_name_exp = "component"
+    radial_build_dict = {
+        component_name_exp: {
+            "thickness_matrix": np.ones(
+                (len(toroidal_angles), len(poloidal_angles))
+            )
+            * 10
+        }
+    }
+    num_ribs = 11
+
+    stellarator_obj.construct_invessel_build(
+        toroidal_angles,
+        poloidal_angles,
+        wall_s,
+        radial_build_dict,
+        num_ribs=num_ribs,
+        use_pydagmc=True,
+    )
+
+    geometry_file = Path("files_for_tests") / "magnet_geom.step"
+
+    stellarator_obj.add_magnets_from_geometry(geometry_file)
+
+
 @pytest.fixture
 def stellarator():
-
     vmec_file = Path("files_for_tests") / "wout_vmec.nc"
 
     stellarator_obj = ps.Stellarator(vmec_file)
@@ -46,11 +192,8 @@ def stellarator():
     return stellarator_obj
 
 
-def test_parastell(stellarator):
-
+def test_invessel_build(stellarator):
     remove_files()
-    create_new_cubit_instance()
-    # In-Vessel Build
 
     toroidal_angles = [0.0, 5.0, 10.0, 15.0]
     poloidal_angles = [0.0, 120.0, 240.0, 360.0]
@@ -82,7 +225,11 @@ def test_parastell(stellarator):
     assert chamber_filename_exp.exists()
     assert component_filename_exp.exists()
 
-    # Magnet Coils
+    remove_files()
+
+
+def test_magnet_set(stellarator):
+    remove_files()
 
     coils_file = Path("files_for_tests") / "coils.example"
     width = 40.0
@@ -95,7 +242,7 @@ def test_parastell(stellarator):
     )
 
     step_filename_exp = "magnet_set.step"
-    export_mesh = True
+    export_mesh = check_cubit()
     mesh_filename_exp = "magnet_mesh"
 
     stellarator.export_magnets(
@@ -105,7 +252,14 @@ def test_parastell(stellarator):
     )
 
     assert Path(step_filename_exp).with_suffix(".step").exists()
-    assert Path(mesh_filename_exp).with_suffix(".h5m").exists()
+    if export_mesh:
+        assert Path(mesh_filename_exp).with_suffix(".h5m").exists()
+
+    remove_files()
+
+
+def test_source_mesh(stellarator):
+    remove_files()
 
     mesh_size = (6, 41, 9)
     toroidal_extent = 15.0
@@ -118,8 +272,20 @@ def test_parastell(stellarator):
 
     assert Path(filename_exp).with_suffix(".h5m").exists()
 
+    remove_files()
+
+
+def test_cubit_ps_geom(stellarator):
+    pytest.importorskip("cubit")
+
+    remove_files()
+    create_new_cubit_instance()
+
+    create_ivb_cad_magnets_from_filaments(stellarator)
+
     chamber_volume_id_exp = 1
     component_volume_id_exp = 2
+    component_name_exp = "component"
     magnet_volume_ids_exp = list(range(3, 4))
     filename_exp = "dagmc"
     # Each in-vessel component (2 present) gives 3 unique surfaces; each magnet
@@ -153,30 +319,24 @@ def test_parastell(stellarator):
 
     remove_files()
 
-    stellarator.build_cad_to_dagmc_model()
-    stellarator.export_cad_to_dagmc(min_mesh_size=50, max_mesh_size=100)
 
-    assert Path(filename_exp).with_suffix(".h5m").exists()
+def test_cubit_cad_magnets(stellarator):
+    pytest.importorskip("cubit")
 
-    check_surfaces_and_volumes(filename_exp, num_surfaces_exp, num_volumes_exp)
-
-    # Test with custom magnet geometry
-
+    remove_files()
     create_new_cubit_instance()
 
-    geometry_file = Path("files_for_tests") / "magnet_geom.step"
+    create_ivb_cad_magnets_from_cad(stellarator)
 
-    stellarator.construct_invessel_build(
-        toroidal_angles,
-        poloidal_angles,
-        wall_s,
-        radial_build_dict,
-        num_ribs=num_ribs,
-    )
-
-    stellarator.export_invessel_build()
-
-    stellarator.add_magnets_from_geometry(geometry_file)
+    chamber_volume_id_exp = 1
+    component_volume_id_exp = 2
+    component_name_exp = "component"
+    magnet_volume_ids_exp = list(range(3, 4))
+    filename_exp = "dagmc"
+    # Each in-vessel component (2 present) gives 3 unique surfaces; each magnet
+    # (1 present) gives 4 surfaces
+    num_surfaces_exp = 10
+    num_volumes_exp = 3
 
     stellarator.build_cubit_model()
 
@@ -204,6 +364,18 @@ def test_parastell(stellarator):
 
     remove_files()
 
+
+def test_cad_to_dagmc_ps_geom(stellarator):
+    remove_files()
+
+    create_ivb_cad_magnets_from_filaments(stellarator)
+
+    filename_exp = "dagmc"
+    # Each in-vessel component (2 present) gives 3 unique surfaces; each magnet
+    # (1 present) gives 4 surfaces
+    num_surfaces_exp = 10
+    num_volumes_exp = 3
+
     stellarator.build_cad_to_dagmc_model()
     stellarator.export_cad_to_dagmc(min_mesh_size=50, max_mesh_size=100)
 
@@ -213,31 +385,130 @@ def test_parastell(stellarator):
 
     remove_files()
 
-    # Test pydagmc model generation
 
-    # Mo plasma chamber. 4 surfaces from single magnet, 4 surfaces from single
-    # component.
-    num_surfaces_exp = 8
+def test_cad_to_dagmc_cad_magnets(stellarator):
+    remove_files()
 
-    # One magnet and one component
-    num_volumes_exp = 2
+    create_ivb_cad_magnets_from_cad(stellarator)
 
-    stellarator.construct_invessel_build(
-        toroidal_angles,
-        poloidal_angles,
-        wall_s,
-        radial_build_dict,
-        num_ribs=num_ribs,
-        use_pydagmc=True,
-    )
+    filename_exp = "dagmc"
+    # Each in-vessel component (2 present) gives 3 unique surfaces; each magnet
+    # (1 present) gives 4 surfaces
+    num_surfaces_exp = 10
+    num_volumes_exp = 3
+
+    stellarator.build_cad_to_dagmc_model()
+    stellarator.export_cad_to_dagmc(min_mesh_size=50, max_mesh_size=100)
+
+    assert Path(filename_exp).with_suffix(".h5m").exists()
+
+    check_surfaces_and_volumes(filename_exp, num_surfaces_exp, num_volumes_exp)
+
+    remove_files()
+
+
+def test_pydagmc_ps_geom_cubit(stellarator):
+    pytest.importorskip("cubit")
+
+    remove_files()
+    create_new_cubit_instance()
+
+    create_ivb_pydagmc_magnets_from_filaments(stellarator)
 
     # intentionally pass a kwarg for 'cad_to_dagmc' export to verify that
     # kwargs are filtered appropriately
     stellarator.build_pydagmc_model(
         magnet_exporter="cubit", deviation_angle=6, max_mesh_size=40
     )
+    stellarator.export_pydagmc_model("dagmc.h5m")
 
-    stellarator.pydagmc_model.write_file("dagmc.h5m")
+    # No plasma chamber. 4 surfaces from single magnet, 4 surfaces from single
+    # component.
+    num_surfaces_exp = 8
+
+    # One magnet and one component
+    num_volumes_exp = 2
+
+    check_surfaces_and_volumes("dagmc.h5m", num_surfaces_exp, num_volumes_exp)
+
+    assert Path("dagmc.h5m").exists()
+
+    remove_files()
+
+
+def test_pydagmc_ps_geom_cad_to_dagmc(stellarator):
+    remove_files()
+
+    create_ivb_pydagmc_magnets_from_filaments(stellarator)
+
+    # intentionally pass a kwarg for 'cubit' export to verify that
+    # kwargs are filtered appropriately
+    stellarator.build_pydagmc_model(
+        magnet_exporter="cad_to_dagmc", deviation_angle=6, max_mesh_size=40
+    )
+    stellarator.export_pydagmc_model("dagmc.h5m")
+
+    # No plasma chamber. 4 surfaces from single magnet, 4 surfaces from single
+    # component.
+    num_surfaces_exp = 8
+
+    # One magnet and one component
+    num_volumes_exp = 2
+
+    check_surfaces_and_volumes("dagmc.h5m", num_surfaces_exp, num_volumes_exp)
+
+    assert Path("dagmc.h5m").exists()
+
+    remove_files()
+
+
+def test_pydagmc_cad_magnets_cubit(stellarator):
+    pytest.importorskip("cubit")
+
+    remove_files()
+    create_new_cubit_instance()
+
+    create_ivb_pydagmc_magnets_from_cad(stellarator)
+
+    # intentionally pass a kwarg for 'cad_to_dagmc' export to verify that
+    # kwargs are filtered appropriately
+    stellarator.build_pydagmc_model(
+        magnet_exporter="cubit", deviation_angle=6, max_mesh_size=40
+    )
+    stellarator.export_pydagmc_model("dagmc.h5m")
+
+    # No plasma chamber. 4 surfaces from single magnet, 4 surfaces from single
+    # component.
+    num_surfaces_exp = 8
+
+    # One magnet and one component
+    num_volumes_exp = 2
+
+    check_surfaces_and_volumes("dagmc.h5m", num_surfaces_exp, num_volumes_exp)
+
+    assert Path("dagmc.h5m").exists()
+
+    remove_files()
+
+
+def test_pydagmc_cad_magnets_cad_to_dagmc(stellarator):
+    remove_files()
+
+    create_ivb_pydagmc_magnets_from_cad(stellarator)
+
+    # intentionally pass a kwarg for 'cubit' export to verify that
+    # kwargs are filtered appropriately
+    stellarator.build_pydagmc_model(
+        magnet_exporter="cad_to_dagmc", deviation_angle=6, max_mesh_size=40
+    )
+    stellarator.export_pydagmc_model("dagmc.h5m")
+
+    # No plasma chamber. 4 surfaces from single magnet, 4 surfaces from single
+    # component.
+    num_surfaces_exp = 8
+
+    # One magnet and one component
+    num_volumes_exp = 2
 
     check_surfaces_and_volumes("dagmc.h5m", num_surfaces_exp, num_volumes_exp)
 
