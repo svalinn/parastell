@@ -301,6 +301,7 @@ def get_last_id(entity):
 
     Arguments:
         entity (str): the type of entity for which the ID should be retrieved.
+            Valid arguments include "vertex", "curve", "surface", and "volume".
 
     Returns:
         (int): the ID of the most recently created entity of the given type.
