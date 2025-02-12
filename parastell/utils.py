@@ -75,7 +75,8 @@ def enforce_helical_symmetry(matrix):
 def expand_list(list, num):
     """Expands a list of ordered floats to a total number of entries by
     linearly interpolating between entries, inserting a proportional number of
-    new entries between original entries.
+    new entries between original entries. If num < len(list), no entries are
+    added.
 
     Arguments:
         list (iterable of float): list to be expanded.
@@ -93,25 +94,25 @@ def expand_list(list, num):
     avg_diff = extent / (num - 1)
 
     for entry, next_entry in zip(list[:-1], list[1:]):
-        num_new_entries = int(round((next_entry - entry) / avg_diff))
-
-        # Conditionally include the last entry in the created linspace to avoid
-        # adding it twice when the next created linspace is appended
-        # In the event that num << len(list), num_new_entries = 0
-        if num_new_entries == 0:
-            # Returns an array with 'entry' as the only element
-            new_entries = np.linspace(
-                entry, next_entry, num=num_new_entries + 1
-            )
+        # Only add entries to current block if difference between entry and
+        # next_entry is greater than desired average
+        num_new_entries = (next_entry - entry) / avg_diff
+        if num_new_entries >= 1.0:
+            num_new_entries = int(round(num_new_entries))
         else:
-            new_entries = np.linspace(
-                entry, next_entry, num=num_new_entries + 1
-            )[:-1]
+            num_new_entries = 0
 
-        list_exp = np.append(
-            list_exp,
-            new_entries,
-        )
+        # Manually append first entry
+        list_exp = np.append(list_exp, entry)
+
+        # If num_new_entries == 0, don't add new entries
+        new_entries = np.linspace(
+            entry,
+            next_entry,
+            num=num_new_entries + 2,
+        )[1:-1]
+
+        list_exp = np.append(list_exp, new_entries)
 
     list_exp = np.append(list_exp, final_entry)
 
