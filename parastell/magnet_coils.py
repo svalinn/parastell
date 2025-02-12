@@ -13,6 +13,10 @@ from .cubit_utils import (
     mesh_volume_skeleton,
     get_last_id,
 )
+
+# Import cubit_utils separately for its initialized variable. If initialized is
+# imported into this namespace, changes to the variable do not persist when
+# modified by calls to the imported functions
 from . import cubit_utils
 from .utils import read_yaml_config, filter_kwargs, reorder_loop, m2cm
 
