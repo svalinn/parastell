@@ -96,11 +96,10 @@ def expand_list(list, num):
     for entry, next_entry in zip(list[:-1], list[1:]):
         # Only add entries to current block if difference between entry and
         # next_entry is greater than desired average
-        num_new_entries = (next_entry - entry) / avg_diff
-        if num_new_entries >= 1.0:
-            num_new_entries = int(round(num_new_entries))
-        else:
-            num_new_entries = 0
+        num_new_entries = 0;
+        
+        if next_entry - entry > avg_diff:
+            num_new_entries = int(round(next_entry - entry / avg_diff))
 
         # Manually append first entry
         list_exp = np.append(list_exp, entry)
