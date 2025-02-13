@@ -6,7 +6,7 @@ import pytest
 # import this before read_vmec to deal with conflicting
 # dependencies correctly
 import parastell.invessel_build as ivb
-from parastell.cubit_io import create_new_cubit_instance
+from parastell.cubit_utils import create_new_cubit_instance
 
 import pystell.read_vmec as read_vmec
 
@@ -19,6 +19,15 @@ def remove_files():
         Path.unlink("component.step")
     if Path("stellarator.log").exists():
         Path.unlink("stellarator.log")
+
+
+def check_cubit():
+    try:
+        import cubit
+
+        return True
+    except ImportError:
+        return False
 
 
 @pytest.fixture
@@ -130,15 +139,18 @@ def test_ivb_pydagmc_construction(invessel_build):
 def test_ivb_exports(invessel_build):
 
     remove_files()
-    create_new_cubit_instance()
     invessel_build.populate_surfaces()
     invessel_build.calculate_loci()
     invessel_build.generate_components()
     invessel_build.export_step()
-    invessel_build.export_component_mesh(components=["component"])
 
     assert Path("chamber.step").exists()
     assert Path("component.step").exists()
-    assert Path("component.h5m").exists()
+
+    if check_cubit():
+        create_new_cubit_instance()
+
+        invessel_build.export_component_mesh(components=["component"])
+        assert Path("component.h5m").exists()
 
     remove_files()
