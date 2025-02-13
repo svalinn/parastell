@@ -96,8 +96,8 @@ def expand_list(list, num):
     for entry, next_entry in zip(list[:-1], list[1:]):
         # Only add entries to current block if difference between entry and
         # next_entry is greater than desired average
-        num_new_entries = 0;
-        
+        num_new_entries = 0
+
         if next_entry - entry > avg_diff:
             num_new_entries = int(round(next_entry - entry / avg_diff))
 
