@@ -33,6 +33,14 @@ def remove_files():
 
 
 def check_surfaces_and_volumes(filename, num_surfaces_exp, num_volumes_exp):
+    """Checks whether a DAGMC model has the expected number of surfaces and
+    volumes.
+
+    Arguments:
+        filename (str): filepath to DAGMC model.
+        num_surfaces_exp (int): expected number of surfaces.
+        num_volumes_exp (int): expected number of volumes.
+    """
     dagmc_model = dagmc.DAGModel(str(Path(filename).with_suffix(".h5m")))
 
     assert len(dagmc_model.surfaces) == num_surfaces_exp
@@ -40,6 +48,14 @@ def check_surfaces_and_volumes(filename, num_surfaces_exp, num_volumes_exp):
 
 
 def construct_invessel_build(stellarator_obj, use_pydagmc=False):
+    """Constructs the in-vessel build of a Stellarator class object.
+
+    Arguments:
+        stellarator_obj (object): parastell.Stellarator class object.
+        use_pydagmc (bool): flag to indicate whether ParaStell's PyDAGMC
+            workflow should be used to construct the in-vessel build (defaults
+            to False).
+    """
     toroidal_angles = [0.0, 5.0, 10.0, 15.0]
     poloidal_angles = [0.0, 120.0, 240.0, 360.0]
     wall_s = 1.08
@@ -65,6 +81,12 @@ def construct_invessel_build(stellarator_obj, use_pydagmc=False):
 
 
 def create_ivb_cad_magnets_from_filaments(stellarator_obj):
+    """Constructs the in-vessel build (CadQuery workflow) and magnet set (from
+    filaments) of a Stellarator class object.
+
+    Arguments:
+        stellarator_obj (object): parastell.Stellarator class object.
+    """
     construct_invessel_build(stellarator_obj)
     stellarator_obj.export_invessel_build()
 
@@ -84,6 +106,12 @@ def create_ivb_cad_magnets_from_filaments(stellarator_obj):
 
 
 def create_ivb_cad_magnets_from_cad(stellarator_obj):
+    """Constructs the in-vessel build (CadQuery workflow) and magnet set
+    (imported CAD) of a Stellarator class object.
+
+    Arguments:
+        stellarator_obj (object): parastell.Stellarator class object.
+    """
     construct_invessel_build(stellarator_obj)
     stellarator_obj.export_invessel_build()
 
@@ -93,6 +121,12 @@ def create_ivb_cad_magnets_from_cad(stellarator_obj):
 
 
 def create_ivb_pydagmc_magnets_from_filaments(stellarator_obj):
+    """Constructs the in-vessel build (PyDAGMC workflow) and magnet set (from
+    filaments) of a Stellarator class object.
+
+    Arguments:
+        stellarator_obj (object): parastell.Stellarator class object.
+    """
     construct_invessel_build(stellarator_obj, use_pydagmc=True)
 
     coils_file = Path("files_for_tests") / "coils.example"
@@ -111,6 +145,12 @@ def create_ivb_pydagmc_magnets_from_filaments(stellarator_obj):
 
 
 def create_ivb_pydagmc_magnets_from_cad(stellarator_obj):
+    """Constructs the in-vessel build (PyDAGMC workflow) and magnet set
+    (imported CAD) of a Stellarator class object.
+
+    Arguments:
+        stellarator_obj (object): parastell.Stellarator class object.
+    """
     construct_invessel_build(stellarator_obj, use_pydagmc=True)
 
     geometry_file = Path("files_for_tests") / "magnet_geom.step"
@@ -128,6 +168,9 @@ def stellarator():
 
 
 def test_invessel_build(stellarator):
+    """Tests whether in-vessel build functionality can be called via the
+    Stellarator class.
+    """
     remove_files()
 
     component_name_exp = "component"
@@ -145,6 +188,9 @@ def test_invessel_build(stellarator):
 
 
 def test_magnet_set(stellarator):
+    """Tests whether magnet set functionality can be called via the Stellarator
+    class.
+    """
     remove_files()
 
     coils_file = Path("files_for_tests") / "coils.example"
@@ -175,6 +221,9 @@ def test_magnet_set(stellarator):
 
 
 def test_source_mesh(stellarator):
+    """Tests whether source mesh functionality can be called via the
+    Stellarator class.
+    """
     remove_files()
 
     mesh_size = (6, 41, 9)
@@ -192,6 +241,10 @@ def test_source_mesh(stellarator):
 
 
 def test_cubit_ps_geom(stellarator):
+    """Tests whether the Cubit-DAGMC workflow produces the expected model,
+    using magnets constructed from filaments. This test is skipped if Cubit
+    cannot be imported.
+    """
     pytest.importorskip("cubit")
 
     remove_files()
@@ -204,6 +257,7 @@ def test_cubit_ps_geom(stellarator):
     component_name_exp = "component"
     magnet_volume_ids_exp = list(range(3, 4))
     filename_exp = "dagmc"
+
     # Each in-vessel component (2 present) gives 3 unique surfaces; each magnet
     # (1 present) gives 4 surfaces
     num_surfaces_exp = 10
@@ -237,6 +291,10 @@ def test_cubit_ps_geom(stellarator):
 
 
 def test_cubit_cad_magnets(stellarator):
+    """Tests whether the Cubit-DAGMC workflow produces the expected model,
+    using an imported CAD magnet set. This test is skipped if Cubit cannot be
+    imported.
+    """
     pytest.importorskip("cubit")
 
     remove_files()
@@ -249,6 +307,7 @@ def test_cubit_cad_magnets(stellarator):
     component_name_exp = "component"
     magnet_volume_ids_exp = list(range(3, 4))
     filename_exp = "dagmc"
+
     # Each in-vessel component (2 present) gives 3 unique surfaces; each magnet
     # (1 present) gives 4 surfaces
     num_surfaces_exp = 10
@@ -282,11 +341,15 @@ def test_cubit_cad_magnets(stellarator):
 
 
 def test_cad_to_dagmc_ps_geom(stellarator):
+    """Tests whether the CAD-to-DAGMC workflow produces the expected model,
+    using magnets constructed from filaments.
+    """
     remove_files()
 
     create_ivb_cad_magnets_from_filaments(stellarator)
 
     filename_exp = "dagmc"
+
     # Each in-vessel component (2 present) gives 3 unique surfaces; each magnet
     # (1 present) gives 4 surfaces
     num_surfaces_exp = 10
@@ -303,11 +366,15 @@ def test_cad_to_dagmc_ps_geom(stellarator):
 
 
 def test_cad_to_dagmc_cad_magnets(stellarator):
+    """Tests whether the CAD-to-DAGMC workflow produces the expected model,
+    using an imported CAD magnet set.
+    """
     remove_files()
 
     create_ivb_cad_magnets_from_cad(stellarator)
 
     filename_exp = "dagmc"
+
     # Each in-vessel component (2 present) gives 3 unique surfaces; each magnet
     # (1 present) gives 4 surfaces
     num_surfaces_exp = 10
@@ -324,6 +391,10 @@ def test_cad_to_dagmc_cad_magnets(stellarator):
 
 
 def test_pydagmc_ps_geom_cubit(stellarator):
+    """Tests whether the PyDAGMC workflow produces the expected model, using
+    constructed magnets faceted via Cubit. This test is skipped if Cubit cannot
+    be imported.
+    """
     pytest.importorskip("cubit")
 
     remove_files()
@@ -331,7 +402,7 @@ def test_pydagmc_ps_geom_cubit(stellarator):
 
     create_ivb_pydagmc_magnets_from_filaments(stellarator)
 
-    # intentionally pass a kwarg for 'cad_to_dagmc' export to verify that
+    # Intentionally pass a kwarg for 'cad_to_dagmc' export to verify that
     # kwargs are filtered appropriately
     stellarator.build_pydagmc_model(
         magnet_exporter="cubit", deviation_angle=6, max_mesh_size=40
@@ -353,11 +424,14 @@ def test_pydagmc_ps_geom_cubit(stellarator):
 
 
 def test_pydagmc_ps_geom_cad_to_dagmc(stellarator):
+    """Tests whether the PyDAGMC workflow produces the expected model, using
+    constructed magnets faceted via CAD-to-DAGMC.
+    """
     remove_files()
 
     create_ivb_pydagmc_magnets_from_filaments(stellarator)
 
-    # intentionally pass a kwarg for 'cubit' export to verify that
+    # Intentionally pass a kwarg for 'cubit' export to verify that
     # kwargs are filtered appropriately
     stellarator.build_pydagmc_model(
         magnet_exporter="cad_to_dagmc", deviation_angle=6, max_mesh_size=40
@@ -379,6 +453,10 @@ def test_pydagmc_ps_geom_cad_to_dagmc(stellarator):
 
 
 def test_pydagmc_cad_magnets_cubit(stellarator):
+    """Tests whether the PyDAGMC workflow produces the expected model, using
+    imported magnets faceted via Cubit. This test is skipped if Cubit cannot be
+    imported.
+    """
     pytest.importorskip("cubit")
 
     remove_files()
@@ -386,7 +464,7 @@ def test_pydagmc_cad_magnets_cubit(stellarator):
 
     create_ivb_pydagmc_magnets_from_cad(stellarator)
 
-    # intentionally pass a kwarg for 'cad_to_dagmc' export to verify that
+    # Intentionally pass a kwarg for 'cad_to_dagmc' export to verify that
     # kwargs are filtered appropriately
     stellarator.build_pydagmc_model(
         magnet_exporter="cubit", deviation_angle=6, max_mesh_size=40
@@ -408,11 +486,14 @@ def test_pydagmc_cad_magnets_cubit(stellarator):
 
 
 def test_pydagmc_cad_magnets_cad_to_dagmc(stellarator):
+    """Tests whether the PyDAGMC workflow produces the expected model, using
+    imported magnets faceted via CAD-to-DAGMC.
+    """
     remove_files()
 
     create_ivb_pydagmc_magnets_from_cad(stellarator)
 
-    # intentionally pass a kwarg for 'cubit' export to verify that
+    # Intentionally pass a kwarg for 'cubit' export to verify that
     # kwargs are filtered appropriately
     stellarator.build_pydagmc_model(
         magnet_exporter="cad_to_dagmc", deviation_angle=6, max_mesh_size=40
