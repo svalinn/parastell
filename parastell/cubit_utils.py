@@ -4,6 +4,21 @@ import subprocess
 initialized = False
 
 
+def check_cubit_installation():
+    """Checks if Cubit is present on the Python module search path.
+
+    Returns:
+        (bool): flag indicating the presence of Cubit on the module search
+            path.
+    """
+    try:
+        import cubit
+
+        return True
+    except ImportError:
+        return False
+
+
 def init_cubit():
     """Initializes Coreform Cubit with the DAGMC plugin."""
     global cubit
