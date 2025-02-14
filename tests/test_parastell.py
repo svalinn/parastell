@@ -5,7 +5,10 @@ import pytest
 import dagmc
 
 import parastell.parastell as ps
-from parastell.cubit_utils import init_cubit, create_new_cubit_instance
+from parastell.cubit_utils import (
+    check_cubit_installation,
+    create_new_cubit_instance,
+)
 
 files_to_remove = [
     "chamber.step",
@@ -29,15 +32,6 @@ def remove_files():
             Path.unlink(file)
 
 
-def check_cubit():
-    try:
-        import cubit
-
-        return True
-    except ImportError:
-        return False
-
-
 def check_surfaces_and_volumes(filename, num_surfaces_exp, num_volumes_exp):
     dagmc_model = dagmc.DAGModel(str(Path(filename).with_suffix(".h5m")))
 
@@ -45,7 +39,7 @@ def check_surfaces_and_volumes(filename, num_surfaces_exp, num_volumes_exp):
     assert len(dagmc_model.volumes) == num_volumes_exp
 
 
-def create_ivb_cad_magnets_from_filaments(stellarator_obj):
+def construct_invessel_build(stellarator_obj, use_pydagmc=False):
     toroidal_angles = [0.0, 5.0, 10.0, 15.0]
     poloidal_angles = [0.0, 120.0, 240.0, 360.0]
     wall_s = 1.08
@@ -66,8 +60,12 @@ def create_ivb_cad_magnets_from_filaments(stellarator_obj):
         wall_s,
         radial_build_dict,
         num_ribs=num_ribs,
+        use_pydagmc=use_pydagmc,
     )
 
+
+def create_ivb_cad_magnets_from_filaments(stellarator_obj):
+    construct_invessel_build(stellarator_obj)
     stellarator_obj.export_invessel_build()
 
     coils_file = Path("files_for_tests") / "coils.example"
@@ -86,28 +84,7 @@ def create_ivb_cad_magnets_from_filaments(stellarator_obj):
 
 
 def create_ivb_cad_magnets_from_cad(stellarator_obj):
-    toroidal_angles = [0.0, 5.0, 10.0, 15.0]
-    poloidal_angles = [0.0, 120.0, 240.0, 360.0]
-    wall_s = 1.08
-    component_name_exp = "component"
-    radial_build_dict = {
-        component_name_exp: {
-            "thickness_matrix": np.ones(
-                (len(toroidal_angles), len(poloidal_angles))
-            )
-            * 10
-        }
-    }
-    num_ribs = 11
-
-    stellarator_obj.construct_invessel_build(
-        toroidal_angles,
-        poloidal_angles,
-        wall_s,
-        radial_build_dict,
-        num_ribs=num_ribs,
-    )
-
+    construct_invessel_build(stellarator_obj)
     stellarator_obj.export_invessel_build()
 
     geometry_file = Path("files_for_tests") / "magnet_geom.step"
@@ -116,28 +93,7 @@ def create_ivb_cad_magnets_from_cad(stellarator_obj):
 
 
 def create_ivb_pydagmc_magnets_from_filaments(stellarator_obj):
-    toroidal_angles = [0.0, 5.0, 10.0, 15.0]
-    poloidal_angles = [0.0, 120.0, 240.0, 360.0]
-    wall_s = 1.08
-    component_name_exp = "component"
-    radial_build_dict = {
-        component_name_exp: {
-            "thickness_matrix": np.ones(
-                (len(toroidal_angles), len(poloidal_angles))
-            )
-            * 10
-        }
-    }
-    num_ribs = 11
-
-    stellarator_obj.construct_invessel_build(
-        toroidal_angles,
-        poloidal_angles,
-        wall_s,
-        radial_build_dict,
-        num_ribs=num_ribs,
-        use_pydagmc=True,
-    )
+    construct_invessel_build(stellarator_obj, use_pydagmc=True)
 
     coils_file = Path("files_for_tests") / "coils.example"
     width = 40.0
@@ -155,28 +111,7 @@ def create_ivb_pydagmc_magnets_from_filaments(stellarator_obj):
 
 
 def create_ivb_pydagmc_magnets_from_cad(stellarator_obj):
-    toroidal_angles = [0.0, 5.0, 10.0, 15.0]
-    poloidal_angles = [0.0, 120.0, 240.0, 360.0]
-    wall_s = 1.08
-    component_name_exp = "component"
-    radial_build_dict = {
-        component_name_exp: {
-            "thickness_matrix": np.ones(
-                (len(toroidal_angles), len(poloidal_angles))
-            )
-            * 10
-        }
-    }
-    num_ribs = 11
-
-    stellarator_obj.construct_invessel_build(
-        toroidal_angles,
-        poloidal_angles,
-        wall_s,
-        radial_build_dict,
-        num_ribs=num_ribs,
-        use_pydagmc=True,
-    )
+    construct_invessel_build(stellarator_obj, use_pydagmc=True)
 
     geometry_file = Path("files_for_tests") / "magnet_geom.step"
 
@@ -195,27 +130,8 @@ def stellarator():
 def test_invessel_build(stellarator):
     remove_files()
 
-    toroidal_angles = [0.0, 5.0, 10.0, 15.0]
-    poloidal_angles = [0.0, 120.0, 240.0, 360.0]
-    wall_s = 1.08
     component_name_exp = "component"
-    radial_build_dict = {
-        component_name_exp: {
-            "thickness_matrix": np.ones(
-                (len(toroidal_angles), len(poloidal_angles))
-            )
-            * 10
-        }
-    }
-    num_ribs = 11
-
-    stellarator.construct_invessel_build(
-        toroidal_angles,
-        poloidal_angles,
-        wall_s,
-        radial_build_dict,
-        num_ribs=num_ribs,
-    )
+    construct_invessel_build(stellarator)
 
     chamber_filename_exp = Path("chamber").with_suffix(".step")
     component_filename_exp = Path(component_name_exp).with_suffix(".step")
@@ -242,7 +158,7 @@ def test_magnet_set(stellarator):
     )
 
     step_filename_exp = "magnet_set.step"
-    export_mesh = check_cubit()
+    export_mesh = check_cubit_installation()
     mesh_filename_exp = "magnet_mesh"
 
     stellarator.export_magnets(
