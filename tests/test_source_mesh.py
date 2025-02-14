@@ -7,12 +7,16 @@ import pystell.read_vmec as read_vmec
 import parastell.source_mesh as sm
 
 
-def remove_files():
+files_to_remove = [
+    "source_mesh.h5m",
+    "stellarator.log",
+]
 
-    if Path("source_mesh.h5m").exists():
-        Path.unlink("source_mesh.h5m")
-    if Path("stellarator.log").exists():
-        Path.unlink("stellarator.log")
+
+def remove_files():
+    for file in files_to_remove:
+        if Path(file).exists():
+            Path.unlink(file)
 
 
 @pytest.fixture

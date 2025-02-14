@@ -43,9 +43,9 @@ def construct_invessel_build(stellarator_obj, use_pydagmc=False):
     toroidal_angles = [0.0, 5.0, 10.0, 15.0]
     poloidal_angles = [0.0, 120.0, 240.0, 360.0]
     wall_s = 1.08
-    component_name_exp = "component"
+    component_name = "component"
     radial_build_dict = {
-        component_name_exp: {
+        component_name: {
             "thickness_matrix": np.ones(
                 (len(toroidal_angles), len(poloidal_angles))
             )

@@ -5,7 +5,10 @@ import numpy as np
 import cadquery as cq
 
 import parastell.magnet_coils as magnet_coils
-from parastell.cubit_utils import create_new_cubit_instance
+from parastell.cubit_utils import (
+    check_cubit_installation,
+    create_new_cubit_instance,
+)
 
 files_to_remove = [
     "magnet_set.step",
@@ -21,15 +24,6 @@ def remove_files():
     for file in files_to_remove:
         if Path(file).exists():
             Path.unlink(file)
-
-
-def check_cubit():
-    try:
-        import cubit
-
-        return True
-    except ImportError:
-        return False
 
 
 simple_filament_coords = np.array(
@@ -146,7 +140,7 @@ def test_magnet_exports_from_filaments(coil_set_from_filaments):
     coil_set_from_filaments.export_step()
     assert Path("magnet_set.step").exists()
 
-    if check_cubit():
+    if check_cubit_installation():
         create_new_cubit_instance()
 
         coil_set_from_filaments.mesh_magnets()
@@ -159,17 +153,18 @@ def test_magnet_exports_from_filaments(coil_set_from_filaments):
 
 
 def test_magnet_exports_from_geometry(coil_set_from_geometry):
+    pytest.importorskip("cubit")
+
     volume_ids_exp = list(range(1, 2))
 
     remove_files()
 
-    if check_cubit():
-        create_new_cubit_instance()
+    create_new_cubit_instance()
 
-        coil_set_from_geometry.mesh_magnets()
-        assert coil_set_from_geometry.volume_ids == volume_ids_exp
+    coil_set_from_geometry.mesh_magnets()
+    assert coil_set_from_geometry.volume_ids == volume_ids_exp
 
-        coil_set_from_geometry.export_mesh()
-        assert Path("magnet_mesh.h5m").exists()
+    coil_set_from_geometry.export_mesh()
+    assert Path("magnet_mesh.h5m").exists()
 
     remove_files()
