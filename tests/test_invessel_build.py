@@ -60,7 +60,10 @@ def invessel_build(radial_build):
 
 
 def test_ivb_basics(invessel_build):
-    """Tests whether InVesselBuild arguments are instantiated as expected."""
+    """Tests whether InVesselBuild arguments are instantiated as expected, by
+    testing if:
+        * after being set, member variables match inputs
+    """
     toroidal_angles_exp = [0.0, 5.0, 10.0, 15.0]
     poloidal_angles_exp = [0.0, 120.0, 240.0, 360.0]
     num_components_exp = 2
@@ -98,7 +101,10 @@ def test_ivb_basics(invessel_build):
 
 def test_ivb_cadquery_construction(invessel_build):
     """Tests whether the InVesselBuild CadQuery workflow functions as
-    expected.
+    expected, by testing if:
+        * the correct number of components were assembled
+        * rib coordinates have the correct dimension
+        * rib coordinates are defined by floating point numbers
     """
     num_components_exp = 2
     len_loci_pt_exp = 3
@@ -120,7 +126,8 @@ def test_ivb_cadquery_construction(invessel_build):
 
 def test_ivb_pydagmc_construction(invessel_build):
     """Tests whether the InVesselBuild PyDAGMC workflow functions as
-    expected.
+    expected, by testing if:
+        * the correct number of volumes and surfaces are produced
     """
     num_volumes_exp = 1
     num_surfaces_exp = 4
@@ -136,8 +143,12 @@ def test_ivb_pydagmc_construction(invessel_build):
 
 def test_ivb_exports(invessel_build):
     """Tests whether the InVesselBuild CadQuery workflow's export
-    functionality behaves as expected. The Cubit-enabled portion of this test
-    is skipped if Cubit cannot be imported.
+    functionality behaves as expected, by testing if:
+        * the expected STEP are produced
+        * if Cubit is correctly installed, the expected H5M file is produced
+
+    The Cubit-enabled portion of this test is skipped if Cubit cannot be
+    imported.
     """
     remove_files()
     invessel_build.populate_surfaces()

@@ -36,7 +36,10 @@ def source_mesh():
 
 
 def test_mesh_basics(source_mesh):
-    """Tests whether SourceMesh arguments are instantiated as expected."""
+    """Tests whether SourceMesh arguments are instantiated as expected, by
+    testing if:
+        * after being set, member variables match inputs
+    """
     remove_files()
 
     num_cfs_exp = 6
@@ -55,7 +58,12 @@ def test_mesh_basics(source_mesh):
 
 
 def test_vertices(source_mesh):
-    """Tests whether SourceMesh vertices are generated as expected."""
+    """Tests whether SourceMesh vertices are generated as expected, by testing
+    if:
+        * the correct number of vertices are produced, and that they have the
+          expected dimension
+        * the correct number CFS values are stored
+    """
     remove_files()
 
     num_cfs_exp = 6
@@ -76,7 +84,11 @@ def test_vertices(source_mesh):
 
 
 def test_mesh_generation(source_mesh):
-    """Tests whether SourceMesh construction functions as expected."""
+    """Tests whether SourceMesh construction functions as expected, by testing
+    if:
+        * the correct number of mesh elements are produced
+        * no elements with negative volume are created
+    """
     remove_files()
 
     num_s = 6
@@ -101,7 +113,10 @@ def test_mesh_generation(source_mesh):
 
 
 def test_export(source_mesh):
-    """Tests whether SourceMesh's export functionality behaves as expected."""
+    """Tests whether SourceMesh's export functionality behaves as expected, by
+    testing if:
+        * the expected H5M file is produced
+    """
     remove_files()
 
     source_mesh.create_vertices()

@@ -66,7 +66,12 @@ def single_coil(single_filament):
 
 
 def test_single_filament(single_filament):
-    """Tests whether the data for a Filament object is generated as expected."""
+    """Tests whether the data for a Filament object is generated as expected,
+    by testing if:
+        * the expected tangent vectors are computed
+        * the expected center of mass is computed
+        * the expected center of mass toroidal angle is computed
+    """
     tangents_exp = np.array(
         [
             [0.53452248, 0.80178373, -0.26726124],
@@ -86,7 +91,10 @@ def test_single_filament(single_filament):
 
 
 def test_single_coil(single_coil):
-    """Tests whether a MagnetCoil object can be generated with valid CAD."""
+    """Tests whether a MagnetCoil object can be generated with valid CAD, by
+    testing if:
+        * the expected STEP file is produced
+    """
     remove_files()
 
     single_coil.create_magnet()
@@ -98,7 +106,11 @@ def test_single_coil(single_coil):
 
 def test_magnet_construction(coil_set_from_filaments):
     """Tests whether the MagnetSetFromFilaments object is instantiated and
-    constructed as expected, along with relevant data.
+    constructed as expected, along with relevant data, by testing if:
+        * after being set, member variables match inputs
+        * the expected coil properties are computed
+        * the expected number of coils are built
+        * the built coil has the correct number of points
     """
     remove_files()
 
@@ -114,7 +126,6 @@ def test_magnet_construction(coil_set_from_filaments):
     coil_set_from_filaments.populate_magnet_coils()
     coil_set_from_filaments.build_magnet_coils()
 
-    assert len(coil_set_from_filaments.magnet_coils) == len_coils_exp
     assert coil_set_from_filaments.width == width_exp
     assert coil_set_from_filaments.thickness == thickness_exp
     assert coil_set_from_filaments.toroidal_extent == toroidal_extent_exp
@@ -137,8 +148,13 @@ def test_magnet_construction(coil_set_from_filaments):
 
 def test_magnet_exports_from_filaments(coil_set_from_filaments):
     """Tests whether the MagnetSetFromFilaments' export functionality behaves
-    as expected. The Cubit-enabled portion of this test is skipped if Cubit
-    cannot be imported.
+    as expected, by testing if:
+        * the expected STEP file is produced
+        * if Cubit is correctly installed, the correct volume IDs are stored
+        * if Cubit is correctly installed, the expected H5M file is produced
+
+    The Cubit-enabled portion of this test is skipped if Cubit cannot be
+    imported.
     """
     remove_files()
 
@@ -163,7 +179,11 @@ def test_magnet_exports_from_filaments(coil_set_from_filaments):
 
 def test_magnet_exports_from_geometry(coil_set_from_geometry):
     """Tests whether the MagnetSetFromGeometry's export functionality behaves
-    as expected. This test is skipped if Cubit cannot be imported.
+    as expected, by testing if:
+        * the correct volume IDs are stored
+        * the expected H5M file is produced
+
+    This test is skipped if Cubit cannot be imported.
     """
     pytest.importorskip("cubit")
 

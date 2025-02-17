@@ -169,7 +169,8 @@ def stellarator():
 
 def test_invessel_build(stellarator):
     """Tests whether in-vessel build functionality can be called via the
-    Stellarator class.
+    Stellarator class, by testing if:
+        * the expected STEP files are produced
     """
     remove_files()
 
@@ -189,7 +190,9 @@ def test_invessel_build(stellarator):
 
 def test_magnet_set(stellarator):
     """Tests whether magnet set functionality can be called via the Stellarator
-    class.
+    class, by testing if:
+        * the expected STEP are produced
+        * if Cubit is correctly installed, the expected H5M file is produced
     """
     remove_files()
 
@@ -222,7 +225,8 @@ def test_magnet_set(stellarator):
 
 def test_source_mesh(stellarator):
     """Tests whether source mesh functionality can be called via the
-    Stellarator class.
+    Stellarator class, by testing if:
+        * the expected H5M file is produced
     """
     remove_files()
 
@@ -242,8 +246,13 @@ def test_source_mesh(stellarator):
 
 def test_cubit_ps_geom(stellarator):
     """Tests whether the Cubit-DAGMC workflow produces the expected model,
-    using magnets constructed from filaments. This test is skipped if Cubit
-    cannot be imported.
+    using magnets constructed from filaments, by testing if:
+        * volume IDs are correctly assigned and stored to in-vessel components
+          and magnets
+        * the expected H5M and CUB files are produced
+        * the correct number of surfaces and volumes are assembled
+
+    This test is skipped if Cubit cannot be imported.
     """
     pytest.importorskip("cubit")
 
@@ -292,8 +301,13 @@ def test_cubit_ps_geom(stellarator):
 
 def test_cubit_cad_magnets(stellarator):
     """Tests whether the Cubit-DAGMC workflow produces the expected model,
-    using an imported CAD magnet set. This test is skipped if Cubit cannot be
-    imported.
+    using an imported CAD magnet set, by testing if:
+        * volume IDs are correctly assigned and stored to in-vessel components
+          and magnets
+        * the expected H5M and CUB files are produced
+        * the correct number of surfaces and volumes are assembled
+
+    This test is skipped if Cubit cannot be imported.
     """
     pytest.importorskip("cubit")
 
@@ -342,7 +356,9 @@ def test_cubit_cad_magnets(stellarator):
 
 def test_cad_to_dagmc_ps_geom(stellarator):
     """Tests whether the CAD-to-DAGMC workflow produces the expected model,
-    using magnets constructed from filaments.
+    using magnets constructed from filaments, by testing if:
+        * the expected H5M file is produced
+        * the correct number of surfaces and volumes are assembled
     """
     remove_files()
 
@@ -367,7 +383,9 @@ def test_cad_to_dagmc_ps_geom(stellarator):
 
 def test_cad_to_dagmc_cad_magnets(stellarator):
     """Tests whether the CAD-to-DAGMC workflow produces the expected model,
-    using an imported CAD magnet set.
+    using an imported CAD magnet set, by testing if:
+        * the expected H5M file is produced
+        * the correct number of surfaces and volumes are assembled
     """
     remove_files()
 
@@ -392,8 +410,11 @@ def test_cad_to_dagmc_cad_magnets(stellarator):
 
 def test_pydagmc_ps_geom_cubit(stellarator):
     """Tests whether the PyDAGMC workflow produces the expected model, using
-    constructed magnets faceted via Cubit. This test is skipped if Cubit cannot
-    be imported.
+    constructed magnets faceted via Cubit, by testing if:
+        * the expected H5M file is produced
+        * the correct number of surfaces and volumes are assembled
+
+    This test is skipped if Cubit cannot be imported.
     """
     pytest.importorskip("cubit")
 
@@ -425,7 +446,9 @@ def test_pydagmc_ps_geom_cubit(stellarator):
 
 def test_pydagmc_ps_geom_cad_to_dagmc(stellarator):
     """Tests whether the PyDAGMC workflow produces the expected model, using
-    constructed magnets faceted via CAD-to-DAGMC.
+    constructed magnets faceted via CAD-to-DAGMC, by testing if:
+        * the expected H5M file is produced
+        * the correct number of surfaces and volumes are assembled
     """
     remove_files()
 
@@ -454,8 +477,11 @@ def test_pydagmc_ps_geom_cad_to_dagmc(stellarator):
 
 def test_pydagmc_cad_magnets_cubit(stellarator):
     """Tests whether the PyDAGMC workflow produces the expected model, using
-    imported magnets faceted via Cubit. This test is skipped if Cubit cannot be
-    imported.
+    imported magnets faceted via Cubit, by testing if:
+        * the expected H5M file is produced
+        * the correct number of surfaces and volumes are assembled
+
+    This test is skipped if Cubit cannot be imported.
     """
     pytest.importorskip("cubit")
 
@@ -487,7 +513,9 @@ def test_pydagmc_cad_magnets_cubit(stellarator):
 
 def test_pydagmc_cad_magnets_cad_to_dagmc(stellarator):
     """Tests whether the PyDAGMC workflow produces the expected model, using
-    imported magnets faceted via CAD-to-DAGMC.
+    imported magnets faceted via CAD-to-DAGMC, by testing if:
+        * the expected H5M file is produced
+        * the correct number of surfaces and volumes are assembled
     """
     remove_files()
 
