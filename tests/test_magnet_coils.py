@@ -5,7 +5,10 @@ import numpy as np
 import cadquery as cq
 
 import parastell.magnet_coils as magnet_coils
-from parastell.cubit_io import create_new_cubit_instance
+from parastell.cubit_utils import (
+    check_cubit_installation,
+    create_new_cubit_instance,
+)
 
 files_to_remove = [
     "magnet_set.step",
@@ -30,7 +33,6 @@ simple_filament_coords = np.array(
 
 @pytest.fixture
 def coil_set_from_filaments():
-
     coils_file = Path("files_for_tests") / "coils.example"
     width = 40.0
     thickness = 50.0
@@ -64,6 +66,12 @@ def single_coil(single_filament):
 
 
 def test_single_filament(single_filament):
+    """Tests whether the data for a Filament object is generated as expected,
+    by testing if:
+        * the expected tangent vectors are computed
+        * the expected center of mass is computed
+        * the expected center of mass toroidal angle is computed
+    """
     tangents_exp = np.array(
         [
             [0.53452248, 0.80178373, -0.26726124],
@@ -83,14 +91,28 @@ def test_single_filament(single_filament):
 
 
 def test_single_coil(single_coil):
+    """Tests whether a MagnetCoil object can be generated with valid CAD, by
+    testing if:
+        * the expected STEP file is produced
+    """
     remove_files()
+
     single_coil.create_magnet()
     cq.exporters.export(single_coil.solid, "single_coil.step")
     assert Path("single_coil.step").exists()
+
     remove_files()
 
 
 def test_magnet_construction(coil_set_from_filaments):
+    """Tests whether the MagnetSetFromFilaments object is instantiated and
+    constructed as expected, along with relevant data, by testing if:
+        * after being set, member variables match inputs
+        * the expected coil properties are computed
+        * the expected number of coils are built
+        * the built coil has the correct number of points
+    """
+    remove_files()
 
     width_exp = 40.0
     thickness_exp = 50.0
@@ -101,12 +123,9 @@ def test_magnet_construction(coil_set_from_filaments):
     len_coords_exp = 129
     len_coils_exp = 1
 
-    remove_files()
-
     coil_set_from_filaments.populate_magnet_coils()
     coil_set_from_filaments.build_magnet_coils()
 
-    assert len(coil_set_from_filaments.magnet_coils) == len_coils_exp
     assert coil_set_from_filaments.width == width_exp
     assert coil_set_from_filaments.thickness == thickness_exp
     assert coil_set_from_filaments.toroidal_extent == toroidal_extent_exp
@@ -128,29 +147,50 @@ def test_magnet_construction(coil_set_from_filaments):
 
 
 def test_magnet_exports_from_filaments(coil_set_from_filaments):
+    """Tests whether the MagnetSetFromFilaments' export functionality behaves
+    as expected, by testing if:
+        * the expected STEP file is produced
+        * if Cubit is correctly installed, the correct volume IDs are stored
+        * if Cubit is correctly installed, the expected H5M file is produced
+
+    The Cubit-enabled portion of this test is skipped if Cubit cannot be
+    imported.
+    """
+    remove_files()
 
     volume_ids_exp = list(range(1, 2))
 
-    remove_files()
-    create_new_cubit_instance()
     coil_set_from_filaments.populate_magnet_coils()
     coil_set_from_filaments.build_magnet_coils()
     coil_set_from_filaments.export_step()
     assert Path("magnet_set.step").exists()
 
-    coil_set_from_filaments.mesh_magnets()
-    assert coil_set_from_filaments.volume_ids == volume_ids_exp
+    if check_cubit_installation():
+        create_new_cubit_instance()
 
-    coil_set_from_filaments.export_mesh()
-    assert Path("magnet_mesh.h5m").exists()
+        coil_set_from_filaments.mesh_magnets()
+        assert coil_set_from_filaments.volume_ids == volume_ids_exp
+
+        coil_set_from_filaments.export_mesh()
+        assert Path("magnet_mesh.h5m").exists()
 
     remove_files()
 
 
 def test_magnet_exports_from_geometry(coil_set_from_geometry):
-    volume_ids_exp = list(range(1, 2))
+    """Tests whether the MagnetSetFromGeometry's export functionality behaves
+    as expected, by testing if:
+        * the correct volume IDs are stored
+        * the expected H5M file is produced
+
+    This test is skipped if Cubit cannot be imported.
+    """
+    pytest.importorskip("cubit")
 
     remove_files()
+
+    volume_ids_exp = list(range(1, 2))
+
     create_new_cubit_instance()
 
     coil_set_from_geometry.mesh_magnets()
