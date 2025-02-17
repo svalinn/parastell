@@ -35,3 +35,10 @@ def test_dagmc_renumbering():
     assert len(combined_model.volumes) == num_vol_exp
     assert max(combined_model.volumes_by_id.keys()) == max_vol_id_exp
     assert all(mat in mats_exp for mat in mats)
+
+
+def test_expand_list():
+    test_values = np.linspace(1, 10, 10)
+    exp_expanded_list = np.linspace(1, 10, 19)
+    expanded_list = expand_list(test_values, 19)
+    assert np.allclose(exp_expanded_list, expanded_list)
