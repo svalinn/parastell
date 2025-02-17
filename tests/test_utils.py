@@ -38,7 +38,26 @@ def test_dagmc_renumbering():
 
 
 def test_expand_list():
+    # Make sure new entries are inserted as expected
     test_values = np.linspace(1, 10, 10)
     exp_expanded_list = np.linspace(1, 10, 19)
     expanded_list = expand_list(test_values, 19)
     assert np.allclose(exp_expanded_list, expanded_list)
+
+    # Make sure no changes are made if list already has the requested number of
+    # entries
+    expanded_list = expand_list(test_values, 10)
+    assert len(expanded_list) == len(test_values)
+    assert np.allclose(expanded_list, test_values)
+
+    # Make sure no changes are made if list has more than the requested number
+    # of entries
+    expanded_list = expand_list(test_values, 5)
+    assert len(expanded_list) == len(test_values)
+    assert np.allclose(expanded_list, test_values)
+
+    # Make sure it works with unevenly spaced entries
+    test_values = [1, 5, 6, 7, 10]
+    exp_expanded_list = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    expanded_list = expand_list(test_values, 10)
+    assert np.allclose(expanded_list, exp_expanded_list)

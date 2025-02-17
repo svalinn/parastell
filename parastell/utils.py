@@ -99,7 +99,7 @@ def expand_list(list, num):
         num_new_entries = 0
 
         if next_entry - entry > avg_diff:
-            num_new_entries = int(round(next_entry - entry / avg_diff))
+            num_new_entries = int(round((next_entry - entry) / avg_diff)) - 1
 
         # Manually append first entry
         list_exp = np.append(list_exp, entry)
