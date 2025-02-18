@@ -39,7 +39,12 @@ def test_dagmc_renumbering():
 
 def test_expand_list():
     """Tests utils.expand_list() to ensure returned arrays are the length
-    expected, and contain the expected values."""
+    expected, and contain the expected values, by testing if:
+        * the expected entries are added to uniformly and non-uniformly spaced
+          lists
+        * entries are added when the requested size is less than or equal to
+          that of the input list (no entries should be added)
+    """
     # Make sure new entries are inserted as expected
     test_values = np.linspace(1, 10, 10)
     exp_expanded_list = np.linspace(1, 10, 19)
