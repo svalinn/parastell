@@ -75,6 +75,9 @@ def test_expand_list():
     expanded_list = expand_list(test_values, 5)
     assert len(expanded_list) == 5
 
+    # int math makes this list one element longer than requested
     test_values = [1, 4.5, 6, 7, 10]
+    expected_values = [1, 1.875, 2.75, 3.625, 4.5, 5.25, 6, 7, 8, 9, 10]
     expanded_list = expand_list(test_values, 10)
-    assert len(expanded_list) == 10
+    assert len(expanded_list) == 11
+    assert np.allclose(expected_values, expanded_list)
