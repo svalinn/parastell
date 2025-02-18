@@ -86,6 +86,9 @@ def expand_list(list_to_expand, num):
     Returns:
         list_exp (iterable of float): expanded list.
     """
+    if len(list_to_expand) >= num:
+        return list_to_expand
+
     list_exp = []
 
     init_entry = list_to_expand[0]

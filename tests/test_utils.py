@@ -67,5 +67,9 @@ def test_expand_list():
     # Make sure it works with unevenly spaced entries that are not
     # nicely divisible
     test_values = [1, 4.5, 6, 7, 10]
+    expanded_list = expand_list(test_values, 5)
+    assert len(expanded_list) == 5
+
+    test_values = [1, 4.5, 6, 7, 10]
     expanded_list = expand_list(test_values, 10)
     assert len(expanded_list) == 10
