@@ -38,6 +38,8 @@ def test_dagmc_renumbering():
 
 
 def test_expand_list():
+    """Tests utils.expand_list() to ensure returned arrays are the length
+    expected, and contain the expected values."""
     # Make sure new entries are inserted as expected
     test_values = np.linspace(1, 10, 10)
     exp_expanded_list = np.linspace(1, 10, 19)
@@ -61,3 +63,9 @@ def test_expand_list():
     exp_expanded_list = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     expanded_list = expand_list(test_values, 10)
     assert np.allclose(expanded_list, exp_expanded_list)
+
+    # Make sure it works with unevenly spaced entries that are not
+    # nicely divisible
+    test_values = [1, 4.5, 6, 7, 10]
+    expanded_list = expand_list(test_values, 10)
+    assert len(expanded_list) == 10
