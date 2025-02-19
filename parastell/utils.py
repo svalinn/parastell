@@ -72,39 +72,47 @@ def enforce_helical_symmetry(matrix):
     return matrix
 
 
-def expand_list(list, num):
+def expand_list(list_to_expand, num):
     """Expands a list of ordered floats to a total number of entries by
     linearly interpolating between entries, inserting a proportional number of
-    new entries between original entries. If num < len(list), no entries are
-    added.
+    new entries between original entries. If num <= len(list), list_to_expand
+    is not modified. It is possible that the result will have slightly more
+    or fewer elements than num, due to round off approximations.
 
     Arguments:
-        list (iterable of float): list to be expanded.
+        list_to_expand (iterable of float): list to be expanded.
         num (int): desired number of entries in expanded list.
 
     Returns:
         list_exp (iterable of float): expanded list.
     """
+    if len(list_to_expand) >= num:
+        return list_to_expand
+
     list_exp = []
 
-    init_entry = list[0]
-    final_entry = list[-1]
+    init_entry = list_to_expand[0]
+    final_entry = list_to_expand[-1]
     extent = final_entry - init_entry
 
     avg_diff = extent / (num - 1)
 
-    for entry, next_entry in zip(list[:-1], list[1:]):
+    for entry, next_entry in zip(list_to_expand[:-1], list_to_expand[1:]):
         # Only add entries to current block if difference between entry and
         # next_entry is greater than desired average
         num_new_entries = 0
 
         if next_entry - entry > avg_diff:
-            num_new_entries = int(round(next_entry - entry / avg_diff))
+            # Goal is to create bins of approximately avg_diff width between
+            # entry and next_entry
+            num_new_entries = int(round((next_entry - entry) / avg_diff)) - 1
 
         # Manually append first entry
         list_exp = np.append(list_exp, entry)
 
         # If num_new_entries == 0, don't add new entries
+        # First and last elements of new_entries are entry and next_entry,
+        # respectively
         new_entries = np.linspace(
             entry,
             next_entry,

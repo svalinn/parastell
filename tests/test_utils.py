@@ -35,3 +35,49 @@ def test_dagmc_renumbering():
     assert len(combined_model.volumes) == num_vol_exp
     assert max(combined_model.volumes_by_id.keys()) == max_vol_id_exp
     assert all(mat in mats_exp for mat in mats)
+
+
+def test_expand_list():
+    """Tests utils.expand_list() to ensure returned arrays are the length
+    expected, and contain the expected values, by testing if:
+        * the expected entries are added to uniformly and non-uniformly spaced
+          lists
+        * entries are added when the requested size is less than or equal to
+          that of the input list (no entries should be added)
+    """
+    # Make sure new entries are inserted as expected
+    test_values = np.linspace(1, 10, 10)
+    exp_expanded_list = np.linspace(1, 10, 19)
+    expanded_list = expand_list(test_values, 19)
+    assert np.allclose(exp_expanded_list, expanded_list)
+
+    # Make sure no changes are made if list already has the requested number of
+    # entries
+    expanded_list = expand_list(test_values, 10)
+    assert len(expanded_list) == len(test_values)
+    assert np.allclose(expanded_list, test_values)
+
+    # Make sure no changes are made if list has more than the requested number
+    # of entries
+    expanded_list = expand_list(test_values, 5)
+    assert len(expanded_list) == len(test_values)
+    assert np.allclose(expanded_list, test_values)
+
+    # Make sure it works with unevenly spaced entries
+    test_values = [1, 5, 6, 7, 10]
+    exp_expanded_list = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    expanded_list = expand_list(test_values, 10)
+    assert np.allclose(expanded_list, exp_expanded_list)
+
+    # Make sure it works with unevenly spaced entries that are not
+    # nicely divisible
+    test_values = [1, 4.5, 6, 7, 10]
+    expanded_list = expand_list(test_values, 5)
+    assert len(expanded_list) == 5
+
+    # int math makes this list one element longer than requested
+    test_values = [1, 4.5, 6, 7, 10]
+    expected_values = [1, 1.875, 2.75, 3.625, 4.5, 5.25, 6, 7, 8, 9, 10]
+    expanded_list = expand_list(test_values, 10)
+    assert len(expanded_list) == 11
+    assert np.allclose(expected_values, expanded_list)
