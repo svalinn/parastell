@@ -114,10 +114,19 @@ def test_stl_surfaces_to_cq_solid():
 
 
 def test_rib_rotation():
-    """"""
+    """Tests utils.rotate_ribs() to ensure rotations are as expected
+    by testing if:
+        * a set of points rotated 90 degrees about the z axis has the expected
+          values
+    """
+    # fmt: off
     original_points = np.array(
-        [[[1, 1, 1], [1, 2, 1], [3, 2, 0]], [[1, 1, 1], [1, 2, 1], [3, 2, 0]]]
+        [
+            [[1, 1, 1], [1, 2, 1], [3, 2, 0]],
+            [[1, 1, 1], [1, 2, 1], [3, 2, 0]],
+        ]
     )
+    # fmt: on
     rotation_angle = 90
     rotated_points_exp = np.array(
         [
@@ -126,5 +135,4 @@ def test_rib_rotation():
         ]
     )
     rotated_points = rotate_ribs(original_points, rotation_angle)
-    print(rotated_points)
     assert np.allclose(rotated_points, rotated_points_exp)
