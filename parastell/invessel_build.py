@@ -16,6 +16,7 @@ from pymoab import core, types
 
 from . import log
 from .cubit_utils import (
+    create_new_cubit_instance,
     import_step_cubit,
     export_mesh_cubit,
     orient_spline_surfaces,
@@ -710,7 +711,7 @@ class InVesselBuild(object):
         return solids, mat_tags
 
     def export_component_mesh(
-        self, components, mesh_size=5, import_dir="", export_dir=""
+        self, components, filename, mesh_size=5, import_dir="", export_dir=""
     ):
         """Creates a tetrahedral mesh of an in-vessel component volume
         via Coreform Cubit and exports it as H5M file.
@@ -718,6 +719,7 @@ class InVesselBuild(object):
         Arguments:
             components (array of strings): array containing the name
                 of the in-vessel components to be meshed.
+            filename (str): name of H5M output file, excluding '.h5m' extension.
             mesh_size (float): controls the size of the mesh. Takes values
                 between 1.0 (finer) and 10.0 (coarser) (optional, defaults to
                 5.0).
@@ -726,14 +728,22 @@ class InVesselBuild(object):
             export_dir (str): directory to which to export the h5m
                 output file (optional, defaults to empty string).
         """
+        create_new_cubit_instance()
+
+        volume_ids = []
+
         for component in components:
-            vol_id = import_step_cubit(component, import_dir)
-            mesh_volume_auto_factor([vol_id], mesh_size=mesh_size)
-            export_mesh_cubit(
-                filename=component,
-                export_dir=export_dir,
-                delete_upon_export=True,
-            )
+            volume_id = import_step_cubit(component, import_dir)
+            volume_ids.append(volume_id)
+
+        mesh_volume_auto_factor(volume_ids, mesh_size=mesh_size)
+        export_mesh_cubit(
+            filename=filename,
+            export_dir=export_dir,
+            delete_upon_export=True,
+        )
+
+        create_new_cubit_instance()
 
 
 class Surface(object):
