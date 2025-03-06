@@ -585,14 +585,16 @@ class Stellarator(object):
         else:
             self.pydagmc_model = self.invessel_build.dag_model
 
-    def export_pydagmc_model(self, filename="dagmc"):
+    def export_pydagmc_model(self, filename="dagmc", export_dir=""):
         """Saves the PyDAGMC model to .h5m format.
 
         Arguments:
             filename (str): name of DAGMC output file, defaults to 'dagmc'
+            export_dir (str): directory to save the output file, defaults to current directory
         """
-        filename = Path(filename).with_suffix(".h5m")
-        self.pydagmc_model.write_file(str(filename))
+
+        export_path = Path(export_dir) / Path(filename).with_suffix(".h5m")
+        self.pydagmc_model.write_file(str(export_path))
 
 
 def parse_args():
