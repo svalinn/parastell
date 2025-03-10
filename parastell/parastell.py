@@ -188,7 +188,7 @@ class Stellarator(object):
         self.invessel_build.calculate_loci()
         self.invessel_build.generate_components()
 
-    def export_invessel_build(self, export_dir=""):
+    def export_invessel_build_step(self, export_dir=""):
         """Exports InVesselBuild component STEP files.
 
         Arguments:
@@ -197,13 +197,14 @@ class Stellarator(object):
         """
         self.invessel_build.export_step(export_dir=export_dir)
 
-    def export_invessel_component_mesh(
-        self, components, mesh_size=5, import_dir="", export_dir=""
+    def export_invessel_build_mesh_cubit(
+        self, filename, components, mesh_size=5, export_dir=""
     ):
-        """Creates a tetrahedral mesh of an in-vessel component volume
-        via Coreform Cubit and exports it as H5M file.
+        """Creates a tetrahedral mesh of in-vessel component volumes via
+        Coreform Cubit and exports the mesh as a H5M file.
 
         Arguments:
+            filename (str): name of H5M output file.
             components (array of strings): array containing the name
                 of the in-vessel components to be meshed.
             mesh_size (int): controls the size of the mesh. Takes values
@@ -214,9 +215,12 @@ class Stellarator(object):
                 output file (optional, defaults to empty string).
         """
         self._logger.info("Exporting in-vessel components mesh...")
-        self.invessel_build.export_component_mesh(
-            components, mesh_size, import_dir, export_dir
+        self.invessel_build.mesh_components_cubit(
+            components,
+            mesh_size=mesh_size,
+            import_dir=self.invessel_build.export_dir,
         )
+        self.invessel_build.export_mesh_cubit(filename, export_dir=export_dir)
 
     def construct_magnets_from_filaments(
         self, coils_file, width, thickness, toroidal_extent, **kwargs
@@ -271,44 +275,48 @@ class Stellarator(object):
             **kwargs,
         )
 
-    def export_magnets(
-        self,
-        step_filename="magnet_set",
-        export_mesh=False,
-        mesh_filename="magnet_mesh",
-        export_dir="",
-        **kwargs,
-    ):
-        """Export magnet components.
+    def export_magnets_step(self, filename="magnet_set", export_dir=""):
+        """Export STEP file of magnet set.
 
         Arguments:
-            step_filename (str): name of STEP export output file, excluding
-                '.step' extension (optional, optional, defaults to
-                'magnet_set').
-            export_mesh (bool): flag to indicate tetrahedral mesh generation
-                for magnet volumes (optional, defaults to False).
-            mesh_filename (str): name of tetrahedral mesh H5M file, excluding
-                '.h5m' extension (optional, defaults to 'magnet_mesh').
+            filename (str): name of STEP export output file (optional, defaults
+                to 'magnet_set').
             export_dir (str): directory to which to export output files
                 (optional, defaults to empty string).
+        """
+        self.magnet_set.export_step(filename=filename, export_dir=export_dir)
 
-        Optional attributes:
+    def export_magnet_mesh_cubit(
+        self,
+        filename="magnet_mesh",
+        min_size=20.0,
+        max_size=50.0,
+        max_gradient=1.5,
+        export_dir="",
+    ):
+        """Creates a tetrahedral mesh of magnet volumes via Coreform Cubit and
+        exports the mesh as a H5M file.
+
+        Arguments:
+            filename (str): name of tetrahedral mesh H5M file (optional,
+                defaults to 'magnet_mesh').
             min_size (float): minimum size of magnet mesh elements (defaults to
                 20.0).
             max_size (float): maximum size of magnet mesh elements (defaults to
                 50.0).
             max_gradient (float): maximum transition in magnet mesh element
                 size (defaults to 1.5).
+            export_dir (str): directory to which to export output files
+                (optional, defaults to empty string).
         """
-        self.magnet_set.export_step(
-            step_filename=step_filename, export_dir=export_dir
+        self.magnet_set.mesh_magnets_cubit(
+            min_size=min_size,
+            max_size=max_size,
+            max_gradient=max_gradient,
         )
-
-        if export_mesh:
-            self.magnet_set.mesh_magnets(**kwargs)
-            self.magnet_set.export_mesh(
-                mesh_filename=mesh_filename, export_dir=export_dir
-            )
+        self.magnet_set.export_mesh_cubit(
+            filename=filename, export_dir=export_dir
+        )
 
     def construct_source_mesh(self, mesh_size, toroidal_extent, **kwargs):
         """Constructs SourceMesh class object.

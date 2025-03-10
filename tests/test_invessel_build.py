@@ -187,7 +187,8 @@ def test_ivb_exports(invessel_build):
     if check_cubit_installation():
         create_new_cubit_instance()
 
-        invessel_build.export_component_mesh(components=["component"])
+        invessel_build.mesh_components_cubit(components=["component"])
+        invessel_build.export_mesh_cubit("component")
         assert Path("component.h5m").exists()
 
     remove_files()

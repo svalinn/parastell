@@ -710,24 +710,23 @@ class InVesselBuild(object):
 
         return solids, mat_tags
 
-    def export_component_mesh(
-        self, components, filename, mesh_size=5, import_dir="", export_dir=""
-    ):
-        """Creates a tetrahedral mesh of an in-vessel component volume
-        via Coreform Cubit and exports it as H5M file.
+    def mesh_components_cubit(self, components, mesh_size=5, import_dir=""):
+        """Creates a tetrahedral mesh of in-vessel component volumes via
+        Coreform Cubit.
 
         Arguments:
             components (array of strings): array containing the name
                 of the in-vessel components to be meshed.
-            filename (str): name of H5M output file, excluding '.h5m' extension.
             mesh_size (float): controls the size of the mesh. Takes values
                 between 1.0 (finer) and 10.0 (coarser) (optional, defaults to
                 5.0).
             import_dir (str): directory containing the STEP file of
                 the in-vessel component (optional, defaults to empty string).
-            export_dir (str): directory to which to export the h5m
-                output file (optional, defaults to empty string).
         """
+        self._logger.info(
+            "Generating tetrahedral mesh of in-vessel component(s)..."
+        )
+
         create_new_cubit_instance()
 
         volume_ids = []
@@ -737,13 +736,25 @@ class InVesselBuild(object):
             volume_ids.append(volume_id)
 
         mesh_volume_auto_factor(volume_ids, mesh_size=mesh_size)
+
+    def export_mesh_cubit(self, filename, export_dir=""):
+        """Exports a tetrahedral mesh of in-vessel component volumes in H5M
+        format via Coreform Cubit and MOAB.
+
+        Arguments:
+            filename (str): name of H5M output file.
+            export_dir (str): directory to which to export the h5m output file
+                (optional, defaults to empty string).
+        """
+        self._logger.info(
+            "Exporting mesh H5M file for in-vessel component(s)..."
+        )
+
         export_mesh_cubit(
             filename=filename,
             export_dir=export_dir,
             delete_upon_export=True,
         )
-
-        create_new_cubit_instance()
 
 
 class Surface(object):
