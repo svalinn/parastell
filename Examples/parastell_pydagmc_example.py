@@ -68,11 +68,7 @@ toroidal_extent = 90.0
 stellarator.construct_magnets_from_filaments(
     coils_file, width, thickness, toroidal_extent, sample_mod=6
 )
-stellarator.export_magnets(
-    step_filename="magnets",
-    export_mesh=False,
-    export_dir=export_dir,
-)
+stellarator.export_magnets_step(filename="magnets", export_dir=export_dir)
 
 stellarator.build_pydagmc_model(
     magnet_exporter="cad_to_dagmc", max_mesh_size=60
