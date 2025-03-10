@@ -197,6 +197,22 @@ class Stellarator(object):
         """
         self.invessel_build.export_step(export_dir=export_dir)
 
+    def export_invessel_build_mesh_moab(
+        self, component, filename, export_dir=""
+    ):
+        """Creates a tetrahedral mesh of in-vessel component volumes via
+        MOAB and exports the mesh as a H5M file.
+
+        Arguments:
+            component (str): name of the in-vessel component to be meshed.
+            filename (str): name of H5M output file.
+            export_dir (str): directory to which to export the h5m output file
+                (defaults to empty string).
+        """
+        self._logger.info("Exporting in-vessel components mesh via MOAB...")
+        self.invessel_build.mesh_components_moab(component)
+        self.invessel_build.export_mesh_moab(filename, export_dir=export_dir)
+
     def export_invessel_build_mesh_cubit(
         self, filename, components, mesh_size=5, export_dir=""
     ):
@@ -214,7 +230,9 @@ class Stellarator(object):
             export_dir (str): directory to which to export the h5m
                 output file (optional, defaults to empty string).
         """
-        self._logger.info("Exporting in-vessel components mesh...")
+        self._logger.info(
+            "Exporting in-vessel components mesh via Coreform Cubit..."
+        )
         self.invessel_build.mesh_components_cubit(
             components,
             mesh_size=mesh_size,
@@ -491,8 +509,8 @@ class Stellarator(object):
         self,
         filename="dagmc",
         export_dir="",
-        min_mesh_size=20,
-        max_mesh_size=50,
+        min_mesh_size=5.0,
+        max_mesh_size=20.0,
     ):
         """Exports DAGMC neutronics H5M file of ParaStell components via
         CAD-to-DAGMC.
@@ -503,9 +521,9 @@ class Stellarator(object):
             export_dir (str): directory to which to export DAGMC output file
                 (optional, defaults to empty string).
             min_mesh_size (float): minimum size of mesh elements (defaults to
-                20).
+                5.0).
             max_mesh_size (float): maximum size of mesh elements (defaults to
-                50).
+                20.0).
         """
         self._logger.info(
             "Exporting DAGMC neutronics model with CAD-to-DAGMC ..."
