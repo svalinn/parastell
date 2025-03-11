@@ -440,12 +440,18 @@ class Filament(object):
         Returns:
             outboard_index (int): index of the outboard midplane point.
         """
+        # Define small value
+        eps = 1e-10
+        # Shift coordinates by small amount to compute appropriate midplane flags
+        # If z = 0, midplane flag = 0
+        coords = self.coords + np.array([0.0, 0.0, eps])
+
         # Compute radial distance of coordinates from z-axis
-        radii = np.linalg.norm(self.coords[:, :2], axis=1)
+        radii = np.linalg.norm(coords[:, :2], axis=1)
         # Determine whether adjacent points cross the midplane (if so, they will
         # have opposite signs)
-        shifted_coords = np.append(self.coords[1:], [self.coords[1]], axis=0)
-        midplane_flags = -np.sign(self.coords[:, 2] * shifted_coords[:, 2])
+        shifted_coords = np.append(coords[1:], [coords[1]], axis=0)
+        midplane_flags = -np.sign(coords[:, 2] * shifted_coords[:, 2])
         # Find index of outboard midplane point
         outboard_index = np.argmax(midplane_flags * radii)
 
