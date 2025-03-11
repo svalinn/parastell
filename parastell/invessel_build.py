@@ -746,7 +746,6 @@ class InVesselBuild(object):
             for rib in surface.Ribs:
                 coords.extend(rib.rib_loci)
         coords = np.array(coords)
-        print(coords.shape)
 
         self.verts = self.mesh_mbc.create_vertices(coords)
 
