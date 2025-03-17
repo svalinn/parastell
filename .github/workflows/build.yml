@@ -9,22 +9,22 @@ on:
       - '.github/workflows/docker_publish.yml'
       - 'environment.yml'
 
-  jobs:
-    build:
-      runs-on: ubuntu-latest
-      strategy:
-        matrix:
-          python-version: ["3.11"]
-      steps:
-        - use: actions/checkout@v4
-        - name: set up python ${{ matrix.python-version }}
-          uses: conda-incubator/setup-miniconda@v3
-          with:
-            auto-update-conda: true
-            python-version: ${{ matrix.python-version }}        
-        - run: conda install .[develop]
-          name: Install locally with conda
-        - name: Test building wheels
-          run: python -m build --sdist --wheel
-        - name: Install with pip
-          run: pip install .[develop]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: set up python ${{ matrix.python-version }}
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          python-version: ${{ matrix.python-version }}        
+      - run: conda install .[develop]
+        name: Install locally with conda
+      - name: Test building wheels
+        run: python -m build --sdist --wheel
+      - name: Install with pip
+        run: pip install .[develop]
