@@ -23,9 +23,9 @@ jobs:
           auto-update-conda: true
           python-version: ${{ matrix.python-version }}       
       - run: conda install conda-build 
-      - run: conda develop .[develop]
+      - run: conda develop .
         name: Install locally with conda
-      - name: Test building wheels
-        run: python -m build --sdist --wheel
       - name: Install with pip
         run: pip install .[develop]
+      - name: Test building wheels
+        run: python -m build --sdist --wheel
