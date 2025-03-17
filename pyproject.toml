@@ -6,15 +6,21 @@ version = "0.0.2"
 readme = "README.md"
 requires-python = ">=3.11"
 maintainers = [
-	{name = "Connor Moreno", email = "camoreno@wisc.edu"}
+	{name = "Connor Moreno", email = "camoreno@wisc.edu"},
+	{name = "Paul Wilson", email = "paul.wilson@wisc.edu"}
 ]
 
 authors = [
-	{name = "Connor Moreno", email = "camoreno@wisc.edu"},
-	{name = "Edgar"}, # TODO
-	{name = "Paul Wilson", email = "paul.wilson@wisc.edu"},
-
-] # TODO
+	{name = "Connor Moreno"},
+	{name = "Edgar Pflug"},
+	{name = "Paul Wilson"},
+	{name = "Eitan Weinstein"},
+	{name = "Enrique Miralles-Dolz"},
+	{name = "Joshua Smandych"},
+	{name = "Paul Romano"},
+	{name = "Bowen Quan"},
+	{name = "Jonathan Shimwell"}
+]
 
 keywords = ["stellarator", "fusion", "reactor", "parametric", "cad", "model", "dagmc", "geometry"]
 license = {file="LICENSE.md"}
