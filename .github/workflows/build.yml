@@ -22,7 +22,7 @@ jobs:
         with:
           auto-update-conda: true
           python-version: ${{ matrix.python-version }}       
-      - run: conda install conda-build cadquery
+      - run: conda install -c conda-forge conda-build cadquery
         name: Install conda dependencies
       - run: conda develop .
         name: Install locally with conda
