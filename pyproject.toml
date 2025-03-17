@@ -39,24 +39,21 @@ classifiers = [
 ]
 
 dependencies = [
-	"numpy==1.26.4",
+	"numpy~=1.26.4",
 	"scipy",
 	"cadquery",
-	"moab=5.5.1[build=nompi_tempest_*]",
-	"cad_to_dagmc >=0.8.2",
-	"ca-certificates",
-	"certifi",
-	"openssl",
-	"openmc>=0.15.0[build=dagmc_nompi_*]",
+	"moab==5.5.1",
+	"cad_to_dagmc>=0.8.2",
+	"openmc>=0.15.0",
 	"matplotlib",
 	"netcdf4",
 	"pyyaml",
-	"git+https://github.com/aaroncbader/pystell_uw.git",
-      	"git+https://github.com/svalinn/pydagmc.git"
+	"pystell @ git+https://github.com/aaroncbader/pystell_uw.git",
+      	"pydagmc @ git+https://github.com/svalinn/pydagmc.git"
 ]
 
 [project.optional-dependencies]
-test = ["pytest"]
+test = ["pytest", "pytest-cov"]
 
 format = ["black"]
 
