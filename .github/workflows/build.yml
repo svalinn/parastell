@@ -21,8 +21,9 @@ jobs:
         uses: conda-incubator/setup-miniconda@v3
         with:
           auto-update-conda: true
-          python-version: ${{ matrix.python-version }}        
-      - run: conda install .[develop]
+          python-version: ${{ matrix.python-version }}       
+      - run: conda install conda-build 
+      - run: conda develop .[develop]
         name: Install locally with conda
       - name: Test building wheels
         run: python -m build --sdist --wheel
