@@ -55,7 +55,7 @@ dependencies = [
 [project.optional-dependencies]
 test = ["pytest", "pytest-cov"]
 
-format = ["black"]
+format = ["black==25"]
 
 [project.urls]
 Repository = "https://github.com/svalinn/parastell.git"
