@@ -57,6 +57,10 @@ test = ["pytest", "pytest-cov"]
 
 format = ["black==25"]
 
+build = ["build"]
+
+develop = ["parastell[test,format,build]"]
+
 [project.urls]
 Repository = "https://github.com/svalinn/parastell.git"
 "Bug Tracker" = "https://github.com/svalinn/parastell/issues"
