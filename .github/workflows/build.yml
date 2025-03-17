@@ -22,6 +22,8 @@ jobs:
         with:
           auto-update-conda: true
           python-version: ${{ matrix.python-version }}       
+      - run:  conda config --set pip_interop_enabled true
+        name: config pip-conda interop
       - run: conda install -c conda-forge conda-build cadquery
         name: Install conda dependencies
       - run: conda develop .
