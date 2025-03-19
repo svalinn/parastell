@@ -20,7 +20,7 @@ def check_cubit_installation():
 
 
 def init_cubit():
-    """Initializes Coreform Cubit with the DAGMC plugin."""
+    """Initializes Coreform Cubit."""
     global cubit
     import cubit
 
