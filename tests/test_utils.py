@@ -85,10 +85,10 @@ def test_expand_list():
 
 def test_stl_surfaces_to_cq_solid():
     """Tests utils.stl_surface_to_cq_solid() to verify that the correct number
-    of faces are present on the CadQuery solid representation of the DAGMC
-    volume, and that the volume of the DAGMC volume and the CadQuery solid
-    are equal by testing if:
-      * the number of triangle handles beloning to the DAGMC volume is the
+    of faces are present in the CadQuery solid representation of the DAGMC
+    volume, and that the volume of the DAGMC volume was preserved in the
+    CadQuery solid by checking if:
+      * the number of triangle handles belonging to the DAGMC volume is the
         same as the number of faces belonging to the CadQuery solid.
       * the volume of the DAGMC volume is close to the volume of the CadQuery
         solid (using math.isclose()).

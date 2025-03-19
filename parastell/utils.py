@@ -321,7 +321,7 @@ def combine_dagmc_models(models_to_merge):
 
 
 def stl_surfaces_to_cq_solid(stl_file_paths, tolerance=0.001):
-    """ "Create a solid volume in CadQuery from STL files defining the surfaces
+    """Create a solid volume in CadQuery from STL files defining the surfaces
     of a watertight volume. The resulting volume should have surfaces that
     exactly match the STL files provided. Useful for obtaining CAD
     representations of volumes in DAGMC models.
@@ -334,7 +334,7 @@ def stl_surfaces_to_cq_solid(stl_file_paths, tolerance=0.001):
 
     Returns:
         cq_solid (CadQuery Solid): Solid volume with surfaces defined by the
-            the provided STL files.
+            the triangles in the provided STL files.
     """
     sewer = BRepBuilderAPI_Sewing(tolerance)
 
@@ -391,8 +391,9 @@ def dagmc_volume_to_step(
     if num_tris != num_faces:
         raise ValueError(
             f"Number of faces in the STEP file ({num_faces}) does"
-            "not match the number of triangles in the STL files"
-            f"({num_tris})"
+            "not match the number of triangles in the DAGMC volume"
+            f"({num_tris}). Please verify that your geometry is valid or use"
+            "a tighter tolerance."
         )
 
     cq_solid.exportStep(str(Path(step_file_path).with_suffix(".step")))
