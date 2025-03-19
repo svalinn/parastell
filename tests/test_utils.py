@@ -81,3 +81,36 @@ def test_expand_list():
     expanded_list = expand_list(test_values, 10)
     assert len(expanded_list) == 11
     assert np.allclose(expected_values, expanded_list)
+
+
+def test_stl_surfaces_to_cq_solid():
+    """Tests utils.stl_surface_to_cq_solid() to verify that the correct number
+    of faces are present on the CadQuery solid representation of the DAGMC
+    volume, and that the volume of the DAGMC volume and the CadQuery solid
+    are equal by testing if:
+      * the number of triangle handles beloning to the DAGMC volume is the
+        same as the number of faces belonging to the CadQuery solid.
+      * the volume of the DAGMC volume is close to the volume of the CadQuery
+        solid (using math.isclose()).
+    """
+    vol_id = 1
+    dag_model = dagmc.DAGModel("files_for_tests/one_cube.h5m")
+    vol = dag_model.volumes_by_id[vol_id]
+    dagmc_volume_volume = vol.volume
+    num_tris = len(vol.triangle_handles)
+
+    stl_files = []
+    for surf in vol.surfaces:
+        with tempfile.NamedTemporaryFile(
+            delete=False, suffix=".stl"
+        ) as temp_file:
+            stl_path = temp_file.name
+            stl_files.append(stl_path)
+            surf.model.mb.write_file(stl_path, output_sets=[surf.handle])
+
+    cq_solid = stl_surfaces_to_cq_solid(stl_files)
+    cq_solid_volume = cq_solid.Volume()
+    num_faces = len(cq_solid.Faces())
+
+    assert num_faces == num_tris
+    assert math.isclose(dagmc_volume_volume, cq_solid_volume)

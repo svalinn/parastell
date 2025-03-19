@@ -2,12 +2,19 @@ import yaml
 import tempfile
 from pathlib import Path
 from functools import cached_property
+import tempfile
 
 import numpy as np
 import math
 from scipy.ndimage import gaussian_filter
 from pymoab import core, types
 import dagmc
+import cadquery as cq
+from OCP.BRepBuilderAPI import BRepBuilderAPI_Sewing
+from OCP.StlAPI import StlAPI_Reader
+from OCP.TopoDS import TopoDS_Shape
+from OCP.TopExp import TopExp_Explorer
+from OCP.TopAbs import TopAbs_SHELL
 
 
 m2cm = 100
@@ -233,7 +240,7 @@ class DAGMCRenumberizer(object):
     """Class to facilitate renumbering of entities to combine DAGMC models.
 
     Arguments:
-        mb (PyMOAB Core): PyMOAB core with a DAGMC models to be renumbered
+        mb (PyMOAB Core): PyMOAB core with the DAGMC models to be renumbered
         loaded. Optional.
     """
 
@@ -311,3 +318,81 @@ def combine_dagmc_models(models_to_merge):
             renumberizer.load_file(temp_filename)
     renumberizer.renumber_ids()
     return dagmc.DAGModel(renumberizer.mb)
+
+
+def stl_surfaces_to_cq_solid(stl_file_paths, tolerance=0.001):
+    """ "Create a solid volume in CadQuery from STL files defining the surfaces
+    of a watertight volume. The resulting volume should have surfaces that
+    exactly match the STL files provided. Useful for obtaining CAD
+    representations of volumes in DAGMC models.
+
+    Arguments:
+        stl_file_paths (list of str): List of paths to the STL files defining
+            the surfaces of the volume.
+        tolerance (float): Distance (in whatever units the STL file is in)
+            at which to consider vertices coincident or edges colinear.
+
+    Returns:
+        cq_solid (CadQuery Solid): Solid volume with surfaces defined by the
+            the provided STL files.
+    """
+    sewer = BRepBuilderAPI_Sewing(tolerance)
+
+    for stl_path in stl_file_paths:
+        reader = StlAPI_Reader()
+        shape = TopoDS_Shape()
+        reader.Read(shape, stl_path)
+        sewer.Add(shape)
+
+    sewer.Perform()
+    sewn_shape = sewer.SewedShape()
+
+    shell_explorer = TopExp_Explorer(sewn_shape, TopAbs_SHELL)
+    shell_shape = shell_explorer.Current()
+
+    cq_solid = cq.Solid.makeSolid(cq.Shape(shell_shape))
+
+    return cq_solid
+
+
+def dagmc_volume_to_step(
+    dagmc_model, volume_id, step_file_path, tolerance=0.001
+):
+    """Create a STEP file with surfaces defined by the surfaces of a DAGMC
+    volume and save it to file.
+
+    Arguments:
+        dagmc_model (PyDAGMC DAGModel object): DAGMC model containing the
+            volume to be converted to STEP.
+        volume_id (int): ID of the volume to be converted to STEP.
+        step_file_path (str): Path on which to save the resulting step file.
+        tolerance (float): Distance (in whatever units the STL file is in)
+            at which to consider vertices coincident or edges colinear.
+            Defaults to 0.001.
+    """
+    volume = dagmc_model.volumes_by_id[volume_id]
+
+    num_tris = len(volume.triangle_handles)
+    stl_files = []
+    for surf in volume.surfaces:
+        with tempfile.NamedTemporaryFile(
+            delete=False, suffix=".stl"
+        ) as temp_file:
+            stl_path = temp_file.name
+            stl_files.append(stl_path)
+            surf.model.mb.write_file(stl_path, output_sets=[surf.handle])
+
+    cq_solid = stl_surfaces_to_cq_solid(stl_files, tolerance)
+    num_faces = len(cq_solid.Faces())
+
+    for stl_path in stl_files:
+        Path(stl_path).unlink()
+
+    if num_tris != num_faces:
+        raise ValueError(
+            f"Number of faces in the STEP file ({num_faces}) does"
+            "not match the number of triangles in the STL files"
+            f"({num_tris})"
+        )
+
+    cq_solid.exportStep(str(Path(step_file_path).with_suffix(".step")))
