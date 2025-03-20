@@ -99,16 +99,11 @@ def test_stl_surfaces_to_cq_solid():
     dagmc_volume_volume = vol.volume
     num_tris = len(vol.triangle_handles)
 
-    stl_files = []
-    for surf in vol.surfaces:
-        with tempfile.NamedTemporaryFile(
-            delete=False, suffix=".stl"
-        ) as temp_file:
-            stl_path = temp_file.name
-            stl_files.append(stl_path)
-            surf.model.mb.write_file(stl_path, output_sets=[surf.handle])
+    with tempfile.NamedTemporaryFile(delete=True, suffix=".stl") as temp_file:
+        stl_path = temp_file.name
+        vol.model.mb.write_file(stl_path, output_sets=vol._get_triangle_sets())
+        cq_solid = stl_to_cq_solid(stl_path)
 
-    cq_solid = stl_surfaces_to_cq_solid(stl_files)
     cq_solid_volume = cq_solid.Volume()
     num_faces = len(cq_solid.Faces())
 

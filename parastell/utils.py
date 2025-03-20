@@ -320,15 +320,14 @@ def combine_dagmc_models(models_to_merge):
     return dagmc.DAGModel(renumberizer.mb)
 
 
-def stl_surfaces_to_cq_solid(stl_file_paths, tolerance=0.001):
-    """Create a solid volume in CadQuery from STL files defining the surfaces
-    of a watertight volume. The resulting volume should have surfaces that
-    exactly match the STL files provided. Useful for obtaining CAD
-    representations of volumes in DAGMC models.
+def stl_to_cq_solid(stl_path, tolerance=0.001):
+    """Create a solid volume in CadQuery from an STL file containing the
+    triangles defining a watertight DAGMC volume. The resulting volume should
+    have surfaces that exactly match the STL files provided. Useful for
+    obtaining CAD representations of volumes in DAGMC models.
 
     Arguments:
-        stl_file_paths (list of str): List of paths to the STL files defining
-            the surfaces of the volume.
+        stl_path (str): Path to the STL file defining the volume.
         tolerance (float): Distance (in whatever units the STL file is in)
             at which to consider vertices coincident or edges colinear.
 
@@ -338,11 +337,10 @@ def stl_surfaces_to_cq_solid(stl_file_paths, tolerance=0.001):
     """
     sewer = BRepBuilderAPI_Sewing(tolerance)
 
-    for stl_path in stl_file_paths:
-        reader = StlAPI_Reader()
-        shape = TopoDS_Shape()
-        reader.Read(shape, stl_path)
-        sewer.Add(shape)
+    reader = StlAPI_Reader()
+    shape = TopoDS_Shape()
+    reader.Read(shape, stl_path)
+    sewer.Add(shape)
 
     sewer.Perform()
     sewn_shape = sewer.SewedShape()
@@ -358,8 +356,8 @@ def stl_surfaces_to_cq_solid(stl_file_paths, tolerance=0.001):
 def dagmc_volume_to_step(
     dagmc_model, volume_id, step_file_path, tolerance=0.001
 ):
-    """Create a STEP file with surfaces defined by the surfaces of a DAGMC
-    volume and save it to file.
+    """Create a STEP file with surfaces defined by the triangles making up the
+    surface of a DAGMC volume and save it to file.
 
     Arguments:
         dagmc_model (PyDAGMC DAGModel object): DAGMC model containing the
@@ -373,20 +371,14 @@ def dagmc_volume_to_step(
     volume = dagmc_model.volumes_by_id[volume_id]
 
     num_tris = len(volume.triangle_handles)
-    stl_files = []
-    for surf in volume.surfaces:
-        with tempfile.NamedTemporaryFile(
-            delete=False, suffix=".stl"
-        ) as temp_file:
-            stl_path = temp_file.name
-            stl_files.append(stl_path)
-            surf.model.mb.write_file(stl_path, output_sets=[surf.handle])
 
-    cq_solid = stl_surfaces_to_cq_solid(stl_files, tolerance)
+    with tempfile.NamedTemporaryFile(delete=True, suffix=".stl") as temp_file:
+        stl_path = temp_file.name
+        volume.model.mb.write_file(
+            stl_path, output_sets=volume._get_triangle_sets()
+        )
+        cq_solid = stl_to_cq_solid(stl_path, tolerance)
     num_faces = len(cq_solid.Faces())
-
-    for stl_path in stl_files:
-        Path(stl_path).unlink()
 
     if num_tris != num_faces:
         raise ValueError(
