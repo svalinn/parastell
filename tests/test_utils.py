@@ -97,7 +97,6 @@ def test_stl_surfaces_to_cq_solid():
     dagmc_model = dagmc.DAGModel("files_for_tests/one_cube.h5m")
     volume = dagmc_model.volumes_by_id[vol_id]
     dagmc_volume_volume = volume.volume
-    num_tris = len(volume.triangle_handles)
 
     with tempfile.NamedTemporaryFile(delete=True, suffix=".stl") as temp_file:
         stl_path = temp_file.name
@@ -108,6 +107,7 @@ def test_stl_surfaces_to_cq_solid():
 
     cq_solid_volume = cq_solid.Volume()
     num_faces = len(cq_solid.Faces())
+    num_tris = len(volume.triangle_handles)
 
     assert num_faces == num_tris
-    assert math.isclose(dagmc_volume_volume, cq_solid_volume)
+    assert np.isclose(dagmc_volume_volume, cq_solid_volume)

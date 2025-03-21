@@ -370,15 +370,15 @@ def dagmc_volume_to_step(
     """
     volume = dagmc_model.volumes_by_id[volume_id]
 
-    num_tris = len(volume.triangle_handles)
-
     with tempfile.NamedTemporaryFile(delete=True, suffix=".stl") as temp_file:
         stl_path = temp_file.name
         dagmc_model.mb.write_file(
             stl_path, output_sets=[s.handle for s in volume.surfaces]
         )
         cq_solid = stl_to_cq_solid(stl_path, tolerance)
+
     num_faces = len(cq_solid.Faces())
+    num_tris = len(volume.triangle_handles)
 
     if num_tris != num_faces:
         raise ValueError(
