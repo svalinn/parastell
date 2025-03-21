@@ -374,8 +374,8 @@ def dagmc_volume_to_step(
 
     with tempfile.NamedTemporaryFile(delete=True, suffix=".stl") as temp_file:
         stl_path = temp_file.name
-        volume.model.mb.write_file(
-            stl_path, output_sets=volume._get_triangle_sets()
+        dagmc_model.mb.write_file(
+            stl_path, output_sets=[s.handle for s in volume.surfaces]
         )
         cq_solid = stl_to_cq_solid(stl_path, tolerance)
     num_faces = len(cq_solid.Faces())

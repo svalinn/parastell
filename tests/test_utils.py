@@ -94,14 +94,16 @@ def test_stl_surfaces_to_cq_solid():
         solid (using math.isclose()).
     """
     vol_id = 1
-    dag_model = dagmc.DAGModel("files_for_tests/one_cube.h5m")
-    vol = dag_model.volumes_by_id[vol_id]
-    dagmc_volume_volume = vol.volume
-    num_tris = len(vol.triangle_handles)
+    dagmc_model = dagmc.DAGModel("files_for_tests/one_cube.h5m")
+    volume = dagmc_model.volumes_by_id[vol_id]
+    dagmc_volume_volume = volume.volume
+    num_tris = len(volume.triangle_handles)
 
     with tempfile.NamedTemporaryFile(delete=True, suffix=".stl") as temp_file:
         stl_path = temp_file.name
-        vol.model.mb.write_file(stl_path, output_sets=vol._get_triangle_sets())
+        dagmc_model.mb.write_file(
+            stl_path, output_sets=[s.handle for s in volume.surfaces]
+        )
         cq_solid = stl_to_cq_solid(stl_path)
 
     cq_solid_volume = cq_solid.Volume()
