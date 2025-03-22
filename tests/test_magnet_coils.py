@@ -82,12 +82,14 @@ def test_single_filament(single_filament):
     )
     com_exp = np.array([66.66666667, 100.0, 33.33333333])
     com_toroidal_angle_exp = 0.982793723247329
+    ob_mp_idx_exp = 0
 
     assert np.allclose(tangents_exp, single_filament.tangents)
     assert np.allclose(com_exp, single_filament.com)
     assert np.isclose(
         com_toroidal_angle_exp, single_filament.com_toroidal_angle
     )
+    assert single_filament.get_ob_mp_index() == ob_mp_idx_exp
 
 
 def test_single_coil(single_coil):
