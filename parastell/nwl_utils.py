@@ -12,26 +12,6 @@ matplotlib.use("agg")
 import matplotlib.pyplot as plt
 
 
-def extract_ss(ss_file):
-    """Extracts list of source strengths for each tetrahedron from input file.
-
-    Arguments:
-        ss_file (str): path to source strength input file.
-
-    Returns:
-        strengths (list): list of source strengths for each tetrahedron (1/s).
-            Returned only if source mesh is generated.
-    """
-    strengths = []
-
-    file_obj = open(ss_file, "r")
-    data = file_obj.readlines()
-    for line in data:
-        strengths.append(float(line))
-
-    return strengths
-
-
 def nwl_transport(dagmc_geom, source_mesh, tor_ext, strengths, num_parts):
     """Performs neutron transport on first wall geometry via OpenMC. The
     first wall must be tagged as a vacuum boundary during the creating of the
@@ -41,7 +21,7 @@ def nwl_transport(dagmc_geom, source_mesh, tor_ext, strengths, num_parts):
         dagmc_geom (str): path to DAGMC geometry file.
         source_mesh (str): path to source mesh file.
         tor_ext (float): toroidal extent of model (deg).
-        ss_file (str): source strength input file.
+        strengths (array): array of source strengths for each tetrahedron (1/s).
         num_parts (int): number of source particles to simulate.
     """
     tor_ext = np.deg2rad(tor_ext)
@@ -290,7 +270,7 @@ def nwl_plot(
 
     Arguments:
         source_file (str): path to OpenMC surface source file.
-        ss_file (str): source strength input file.
+        strengths (array): array of source strengths for each tetrahedron (1/s).
         plas_eq (str): path to plasma equilibrium NetCDF file.
         tor_ext (float): toroidal extent of model (deg).
         pol_ext (float): poloidal extent of model (deg).
