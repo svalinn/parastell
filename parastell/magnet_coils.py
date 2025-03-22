@@ -447,7 +447,7 @@ class Filament(object):
         # => incorrect OB midplane index
         # Replace z-coordinates at 0 with eps
         coords = self.coords
-        np.place(coords[:, 2], coords[:, 2] == 0.0, [eps])
+        np.place(coords[:, 2], np.abs(coords[:, 2]) < eps, [eps])
 
         # Compute radial distance of coordinates from z-axis
         radii = np.linalg.norm(coords[:, :2], axis=1)
