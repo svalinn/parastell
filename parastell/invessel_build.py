@@ -794,28 +794,15 @@ class InVesselBuild(object):
         # first, ordered clockwise relative to the thumb, followed by the
         # remaining vertex at the end of the thumb.
         # See Moreno, Bader, Wilson 2024 for hexahedron splitting
-        canonical_ordering_schemes = [
-            [
-                [idx_list[0], idx_list[3], idx_list[1], idx_list[4]],
-                [idx_list[1], idx_list[3], idx_list[2], idx_list[6]],
-                [idx_list[1], idx_list[4], idx_list[6], idx_list[5]],
-                [idx_list[3], idx_list[6], idx_list[4], idx_list[7]],
-                [idx_list[1], idx_list[3], idx_list[6], idx_list[4]],
-            ],
-            [
-                [idx_list[0], idx_list[2], idx_list[1], idx_list[5]],
-                [idx_list[0], idx_list[3], idx_list[2], idx_list[7]],
-                [idx_list[0], idx_list[7], idx_list[5], idx_list[4]],
-                [idx_list[7], idx_list[2], idx_list[5], idx_list[6]],
-                [idx_list[0], idx_list[2], idx_list[5], idx_list[7]],
-            ],
+        hex_to_tets_mapping = [
+            [idx_list[0], idx_list[3], idx_list[1], idx_list[4]],
+            [idx_list[1], idx_list[3], idx_list[2], idx_list[6]],
+            [idx_list[1], idx_list[4], idx_list[6], idx_list[5]],
+            [idx_list[3], idx_list[6], idx_list[4], idx_list[7]],
+            [idx_list[1], idx_list[3], idx_list[6], idx_list[4]],
         ]
 
-        # Alternate canonical ordering schemes defining hexahedron splitting to
-        # avoid gaps and overlaps between non-planar hexahedron faces
-        scheme_idx = 0
-
-        for vertex_ids in canonical_ordering_schemes[scheme_idx]:
+        for vertex_ids in hex_to_tets_mapping:
             self._create_tet(vertex_ids)
 
     def _get_vertex_id(self, vertex_idx):
