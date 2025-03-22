@@ -27,7 +27,13 @@ def remove_files():
 
 
 simple_filament_coords = np.array(
-    [[0, 0, 0], [200, 300, 0], [0, 0, 100], [0, 0, 0]]
+    [
+        [100, 0, 0],
+        [75, 0, 25],
+        [50, 0, 0],
+        [75, 0, -25],
+        [100, 0, 0],
+    ]
 )
 
 
@@ -74,14 +80,16 @@ def test_single_filament(single_filament):
     """
     tangents_exp = np.array(
         [
-            [0.53452248, 0.80178373, -0.26726124],
             [0.0, 0.0, 1.0],
-            [-0.5547002, -0.83205029, 0.0],
-            [0.53452248, 0.80178373, -0.26726124],
+            [-1.0, 0.0, 0.0],
+            [0.0, 0.0, -1.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0],
         ]
     )
-    com_exp = np.array([66.66666667, 100.0, 33.33333333])
-    com_toroidal_angle_exp = 0.982793723247329
+
+    com_exp = np.array([75.0, 0.0, 0.0])
+    com_toroidal_angle_exp = 0.0
     ob_mp_idx_exp = 0
 
     assert np.allclose(tangents_exp, single_filament.tangents)
