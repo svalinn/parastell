@@ -1,14 +1,15 @@
+import math
+
 import h5py
 import numpy as np
 from scipy.optimize import direct
 import openmc
-import pystell.read_vmec as read_vmec
-import matplotlib.pyplot as plt
 import concurrent.futures
-import math
+from pystell import read_vmec
 import matplotlib
 
 matplotlib.use("agg")
+import matplotlib.pyplot as plt
 
 
 def extract_ss(ss_file):
@@ -31,7 +32,7 @@ def extract_ss(ss_file):
     return strengths
 
 
-def nwl_transport(dagmc_geom, source_mesh, tor_ext, ss_file, num_parts):
+def nwl_transport(dagmc_geom, source_mesh, tor_ext, strengths, num_parts):
     """Performs neutron transport on first wall geometry via OpenMC. The
     first wall must be tagged as a vacuum boundary during the creating of the
     DAGMC geometry.
@@ -45,26 +46,27 @@ def nwl_transport(dagmc_geom, source_mesh, tor_ext, ss_file, num_parts):
     """
     tor_ext = np.deg2rad(tor_ext)
 
-    strengths = extract_ss(ss_file)
-
     # Initialize OpenMC model
     model = openmc.model.Model()
 
     dag_univ = openmc.DAGMCUniverse(dagmc_geom, auto_geom_ids=False)
 
     # Define problem boundaries
-    per_init = openmc.YPlane(boundary_type="periodic", surface_id=9991)
+    per_init = openmc.YPlane(boundary_type="periodic", surface_id=9990)
     per_fin = openmc.Plane(
         a=np.sin(tor_ext),
         b=-np.cos(tor_ext),
         c=0,
         d=0,
         boundary_type="periodic",
-        surface_id=9990,
+        surface_id=9991,
     )
 
     # Define first period of geometry
-    region = +per_init & +per_fin
+    vacuum_surface = openmc.Sphere(
+        r=10_000, surface_id=9992, boundary_type="vacuum"
+    )
+    region = -vacuum_surface & +per_init & +per_fin
     period = openmc.Cell(cell_id=9996, region=region, fill=dag_univ)
     geometry = openmc.Geometry([period])
     model.geometry = geometry
@@ -232,10 +234,10 @@ def plot(nwl_mat, phi_pts, theta_pts, num_levels):
     fig, ax = plt.subplots()
     CF = ax.contourf(phi_pts, theta_pts, nwl_mat.T, levels=levels)
     cbar = plt.colorbar(CF)
-    cbar.ax.set_ylabel("NWL (MW/m2)")
-    plt.xlabel("Toroidal Angle (degrees)")
-    plt.ylabel("Poloidal Angle (degrees)")
-    fig.savefig("NWL.png")
+    cbar.ax.set_ylabel(r"Neutron wall loading (MW/m$^2$)")
+    plt.xlabel("Toroidal Angle [deg]")
+    plt.ylabel("Poloidal Angle [deg]")
+    fig.savefig("nwl.png")
 
 
 def area_from_corners(corners):
@@ -272,7 +274,7 @@ def area_from_corners(corners):
 
 def nwl_plot(
     source_file,
-    ss_file,
+    strengths,
     plas_eq,
     tor_ext,
     pol_ext,
@@ -368,7 +370,6 @@ def nwl_plot(
     # Define eV to joules constant
     eV2J = 1.60218e-19
     # Compute total neutron source strength (n/s)
-    strengths = extract_ss(ss_file)
     SS = sum(strengths)
     # Define joules to megajoules constant
     J2MJ = 1e-6
