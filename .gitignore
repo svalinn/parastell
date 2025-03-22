@@ -153,3 +153,6 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+
+# Viva la vim!
+*.sw*
