@@ -442,11 +442,12 @@ class Filament(object):
         """
         # Define small value
         eps = 1e-10
-        # Shift coordinates by small amount to compute appropriate midplane flags
+        # Shift some coordinates by eps to compute appropriate midplane flags
         # If z = 0 => midplane flag = 0 => incorrect maximum radius computed
         # => incorrect OB midplane index
-        # Perturb z-coordinate to avoid z = 0
-        coords = self.coords + np.array([0.0, 0.0, eps])
+        # Replace z-coordinates at 0 with eps
+        coords = self.coords
+        np.place(coords[:, 2], coords[:, 2] == 0.0, [eps])
 
         # Compute radial distance of coordinates from z-axis
         radii = np.linalg.norm(coords[:, :2], axis=1)
