@@ -308,6 +308,11 @@ class MagnetSetFromFilaments(MagnetSet):
         for coil in self.magnet_coils:
             cut_coil = coil.solid.intersect(toroidal_region)
             coil.solid = cut_coil
+            # print(coil.solid.Volume())
+            # if cut_coil.Volume() == 0:
+            #     self.magnet_coils.remove(coil)
+            # else:
+            #     coil.solid = cut_coil
 
     def export_step(self, step_filename="magnet_set.step", export_dir=""):
         """Export CAD solids as a STEP file via CadQuery.
@@ -355,7 +360,11 @@ class MagnetSetFromFilaments(MagnetSet):
 
         self._cut_magnets()
 
-        self.coil_solids = [coil.solid for coil in self.magnet_coils]
+        self.coil_solids = [
+            coil.solid
+            for coil in self.magnet_coils
+            if coil.solid.Volume() != 0
+        ]
 
 
 class MagnetSetFromGeometry(MagnetSet):
