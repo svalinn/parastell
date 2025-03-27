@@ -1,8 +1,8 @@
 import yaml
 import tempfile
-from pathlib import Path
 from functools import cached_property
 import tempfile
+from pathlib import Path
 
 import numpy as np
 import math
@@ -389,3 +389,61 @@ def dagmc_volume_to_step(
         )
 
     cq_solid.exportStep(str(Path(step_file_path).with_suffix(".step")))
+
+
+def ribs_from_kisslinger_format(filename, start_line=2, scale=m2cm):
+    """Reads a Kisslinger format file and extracts the R, Z data, the number of
+    periods, and the toroidal angles at which the R, Z data is specified.
+
+    Arguments:
+        filename (str): Path to the file to be read.
+        start_line (int): Line at which the data should start being read. This
+            should be the line that includes the number of toroidal angles,
+            number of points per toroidal angle, and number of periods.
+            Defaults to 2.
+        scale (float): Amount to scale the r-z coordinates by. Defaults to 100.
+    Returns:
+        toroidal_angles (numpy array): Toroidal angles in the
+            angles in the input file in degrees.
+        num_toroidal_angles (int): Number of toroidal angles as specified in
+            the file header.
+        num_poloidal_angles (int): Number of points at each toroidal angle as
+            specified in the file header.
+        periods (int): Number of periods as specified in the file header.
+        profiles (numpy array): 3 dimensional numpy array where the first
+            dimension corresponds to individual ribs, the second to the
+            position on a rib, and the third to the R,Z coordinates of the
+            point.
+    """
+
+    with open(file=filename) as file:
+        data = file.readlines()[start_line - 1 :]
+
+    profiles = []
+    toroidal_angles = []
+    num_toroidal_angles, num_poloidal_angles, periods = (
+        int(x) for x in data[0].rstrip().split("\t")
+    )
+
+    ribs = [
+        data[1:][x : x + num_poloidal_angles + 1]
+        for x in range(0, len(data[1:]), num_poloidal_angles + 1)
+    ]
+
+    for rib in ribs:
+        toroidal_angle = float(rib[0].rstrip())
+        toroidal_angles.append(toroidal_angle)
+        profile = []
+        for loci in rib[1:]:
+            loci = loci.rstrip()
+            r_z_coords = [float(coord) * scale for coord in loci.split("\t")]
+            profile.append(r_z_coords)
+        profiles.append(profile)
+
+    return (
+        np.array(toroidal_angles),
+        num_toroidal_angles,
+        num_poloidal_angles,
+        periods,
+        np.array(profiles),
+    )
