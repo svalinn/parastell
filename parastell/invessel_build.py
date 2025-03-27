@@ -68,17 +68,15 @@ class ReferenceSurface(ABC):
     def __init__():
         pass
 
-    def angles_to_xyz(self, toroidal_angles, poloidal_angles, s, scale):
+    def angles_to_xyz(self, toroidal_angle, poloidal_angles, s, scale):
         """Method to go from a location defined by two angles and some
         constant to x, y, z coordinates.
 
         Arguments:
-            toroidal_angles (iterable of float): Toroidal angles at which to
-                evaluate cartesian coordinates. Measured in radians. Must be
-                of the same length as poloidal_angles.
+            toroidal_angles (float): Toroidal angle at which to
+                evaluate cartesian coordinates. Measured in radians.
             poloidal_angles (iterable of float): Poloidal angles at which to
-                evaluate cartesian coordinates. Measured in radians. Must be
-                of the same length as toroidal_angles].
+                evaluate cartesian coordinates. Measured in radians.
             s (float): Generic parameter which may affect the evaluation of
                 the cartesian coordinate at a given angle pair.
             scale (float): Amount to scale resulting coordinates by.
@@ -105,17 +103,15 @@ class VMECSurface(ReferenceSurface):
     def __init__(self, vmec_obj):
         self.vmec_obj = vmec_obj
 
-    def angles_to_xyz(self, toroidal_angles, poloidal_angles, s, scale):
+    def angles_to_xyz(self, toroidal_angle, poloidal_angles, s, scale):
         """Evaluate the cartesian coordinates for a set of toroidal and
         poloidal angles and flux surface label.
 
         Arguments:
-            toroidal_angles (iterable of float): Toroidal angles at which to
-                    evaluate cartesian coordinates. Measured in radians. Must
-                    be of the same length as poloidal_angles.
+            toroidal_angles (float): Toroidal angle at which to
+                    evaluate cartesian coordinates. Measured in radians.
             poloidal_angles (iterable of float): Poloidal angles at which to
-                    evaluate cartesian coordinates. Measured in radians. Must
-                    be of the same length as toroidal_angles].
+                    evaluate cartesian coordinates. Measured in radians.
             s (float): the normalized closed flux surface label defining the
                 point of reference for offset.
             scale (float): Amount to scale resulting coordinates by.
@@ -125,9 +121,7 @@ class VMECSurface(ReferenceSurface):
                 angle pair specified.
         """
         coords = []
-        for toroidal_angle, poloidal_angle in zip(
-            toroidal_angles, poloidal_angles
-        ):
+        for poloidal_angle in poloidal_angles:
             x, y, z = self.vmec_obj.vmec2xyz(s, poloidal_angle, toroidal_angle)
             coords.append([x, y, z])
         return np.array(coords) * scale
@@ -238,18 +232,16 @@ class RibBasedSurface(ReferenceSurface):
             self.grid_points, self.z_data
         )
 
-    def angles_to_xyz(self, toroidal_angles, poloidal_angles, s, scale):
-        """Return the cartesian coordinates from the interpolators for a set of
-        toroidal and poloidal angle pairs. Takes s as a argument for
+    def angles_to_xyz(self, toroidal_angle, poloidal_angles, s, scale):
+        """Return the cartesian coordinates from the interpolators for a
+        toroidal angle and a set of poloidal angles. Takes s as a argument for
         compatibility, but does nothing with it.
 
         Arguments:
-            toroidal_angles (iterable of float): Toroidal angles at which to
-                    evaluate cartesian coordinates. Measured in radians. Must
-                    be of the same length as poloidal_angles.
+            toroidal_angles (float): Toroidal angle at which to
+                    evaluate cartesian coordinates. Measured in radians.
             poloidal_angles (iterable of float): Poloidal angles at which to
-                    evaluate cartesian coordinates. Measured in radians. Must
-                    be of the same length as toroidal_angles].
+                    evaluate cartesian coordinates. Measured in radians.
             s (float): Not used.
             scale (float): Amount to scale resulting coordinates by.
 
@@ -258,11 +250,9 @@ class RibBasedSurface(ReferenceSurface):
                 angle pair specified.
         """
         coords = []
-        toroidal_angles = np.rad2deg(toroidal_angles)
+        toroidal_angle = np.rad2deg(toroidal_angle)
         poloidal_angles = np.rad2deg(poloidal_angles)
-        for toroidal_angle, poloidal_angle in zip(
-            toroidal_angles, poloidal_angles
-        ):
+        for poloidal_angle in poloidal_angles:
             r = self.r_interp(toroidal_angle, poloidal_angle)
             z = self.z_interp(toroidal_angle, poloidal_angle)
             x = r * np.cos(np.deg2rad(toroidal_angle))
@@ -867,9 +857,8 @@ class Rib(object):
                 poloidal angles for evaluating the location of the Cartesian
                 points (optional, defaults to 0).
         """
-        toroidal_angles = np.ones(len(self.theta_list)) * self.phi
         return self.ref_surf.angles_to_xyz(
-            toroidal_angles,
+            self.phi,
             self.theta_list + poloidal_offset,
             self.s,
             self.scale,
