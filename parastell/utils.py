@@ -438,9 +438,6 @@ def ribs_from_kisslinger_format(filename, start_line=2, scale=m2cm):
         for loci in rib[1:]:
             loci = loci.rstrip()
             r_z_coords = [float(coord) * scale for coord in loci.split("\t")]
-            x_coord = r_z_coords[0] * np.cos(np.deg2rad(toroidal_angle))
-            y_coord = r_z_coords[0] * np.sin(np.deg2rad(toroidal_angle))
-            z_coord = r_z_coords[1]
             profile.append(r_z_coords)
         profiles.append(profile)
 
