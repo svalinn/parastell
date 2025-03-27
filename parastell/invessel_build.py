@@ -6,6 +6,7 @@ import numpy as np
 from scipy.interpolate import (
     RegularGridInterpolator,
     CloughTocher2DInterpolator,
+    RBFInterpolator,
 )
 
 
@@ -26,7 +27,6 @@ from .utils import (
     normalize,
     expand_list,
     read_yaml_config,
-    rotate_ribs,
     m2cm,
 )
 
@@ -134,16 +134,16 @@ class VMECSurface(ReferenceSurface):
 
 
 class RibBasedSurface(ReferenceSurface):
-    """An object that uses closed loops of cartesian points (ribs) on planes of
+    """An object that uses closed loops of R, Z points (ribs) on planes of
     constant toroidal angle to approximate the innermost surface of an in
     vessel build. This class must be used with split_chamber = False.
 
     Arguments:
-        rib_data (numpy array): NxMx3 array of of cartesian points. The first
+        rib_data (numpy array): NxMx2 array of of R, Z points. The first
             dimension corresponds to the plane of constant toroidal angle on
             which the closed loop of points lies. The second dimension is the
             location on the closed loop at which the point lies, and the third
-            dimension is the x,y,z value of that point.
+            dimension is the R, Z values of that point.
         toroidal_angles (iterable of float): List of toroidal angles
             corresponding to the first dimension of rib_data. Measured in
             degrees.
@@ -164,11 +164,11 @@ class RibBasedSurface(ReferenceSurface):
         angle pairs for use when building the interpolators.
 
         Arguments:
-            ribs: NxMx3 array of of cartesian points. The first
+            ribs (np array): NxMx2 array of of R, Z points. The first
                 dimension corresponds to the plane of constant toroidal angle
                 on which the closed loop of points lies. The second dimension
                 is the location on the closed loop at which the point lies, and
-                the third dimension is the x,y,z value of that point.
+                the third dimension is the R, Z values of that point.
             toroidal_angles (iterable of float): List of toroidal angles
                 corresponding to the first dimension of rib_data. Measured in
                 degrees.
@@ -178,37 +178,31 @@ class RibBasedSurface(ReferenceSurface):
         """
         for phi, rib in zip(toroidal_angles, ribs):
             for theta, rib_locus in zip(poloidal_angles, rib):
-                self.x_data.append(rib_locus[0])
-                self.y_data.append(rib_locus[1])
-                self.z_data.append(rib_locus[2])
+                self.r_data.append(rib_locus[0])
+                self.z_data.append(rib_locus[1])
                 self.grid_points.append([phi, theta])
 
     def build_analytic_surface(self):
-        """Build interpolators for x,y,z coordinates using provided
+        """Build interpolators for R, Z coordinates using provided
         rib_data, toroidal_angles, and poloidal_angles. Adds copies of the data
         shifted by one period ahead of and behind provided data in the toroidal
         and poloidal directions to preserve periodicity.
         """
-        self.x_data = []
-        self.y_data = []
+        self.r_data = []
         self.z_data = []
         self.grid_points = []
 
-        # Toroidal Periodicity
-        rotated_ribs = rotate_ribs(self.rib_data, -max(self.toroidal_angles))[
-            0:-1
-        ]
-        shifted_toroidal_angles = self.toroidal_angles[0:-1] - max(
-            self.toroidal_angles
-        )
+        # Toroidal Periodicity Before Period
+        toroidal_shift = -max(self.toroidal_angles)
+        shifted_toroidal_angles = self.toroidal_angles[0:-1] + toroidal_shift
+        rib_subset = self.rib_data[0:-1]
         self._extract_rib_data(
-            rotated_ribs, shifted_toroidal_angles, self.poloidal_angles
+            rib_subset, shifted_toroidal_angles, self.poloidal_angles
         )
 
-        # Poloidal Periodicity
-        shifted_poloidal_angles = self.poloidal_angles[0:-1] - max(
-            self.poloidal_angles
-        )
+        # Poloidal Periodicity Before Period
+        poloidal_shift = -max(self.poloidal_angles)
+        shifted_poloidal_angles = self.poloidal_angles[0:-1] - poloidal_shift
         rib_subset = self.rib_data[:, 0:-1, :]
         self._extract_rib_data(
             rib_subset, self.toroidal_angles, shifted_poloidal_angles
@@ -221,34 +215,24 @@ class RibBasedSurface(ReferenceSurface):
             self.poloidal_angles,
         )
 
-        # Toroidal Periodicity
-        rotated_ribs = rotate_ribs(self.rib_data, max(self.toroidal_angles))[
-            1:
-        ]
-        shifted_toroidal_angles = self.toroidal_angles[1:] + max(
-            self.toroidal_angles
-        )
-
+        # Toroidal Periodicity After Period
+        toroidal_shift = max(self.toroidal_angles)
+        shifted_toroidal_angles = self.toroidal_angles[1:] + toroidal_shift
+        rib_subset = self.rib_data[1:]
         self._extract_rib_data(
-            rotated_ribs,
-            shifted_toroidal_angles,
-            self.poloidal_angles,
+            rib_subset, shifted_toroidal_angles, self.poloidal_angles
         )
 
-        # Poloidal Periodicity
-        shifted_poloidal_angles = self.poloidal_angles[1:] + max(
-            self.poloidal_angles
-        )
+        # Poloidal Periodicity After Period
+        poloidal_shift = max(self.poloidal_angles)
+        shifted_poloidal_angles = self.poloidal_angles[1:] + poloidal_shift
         rib_subset = self.rib_data[:, 1:, :]
         self._extract_rib_data(
             rib_subset, self.toroidal_angles, shifted_poloidal_angles
         )
 
-        self.x_interp = CloughTocher2DInterpolator(
-            self.grid_points, self.x_data
-        )
-        self.y_interp = CloughTocher2DInterpolator(
-            self.grid_points, self.y_data
+        self.r_interp = CloughTocher2DInterpolator(
+            self.grid_points, self.r_data
         )
         self.z_interp = CloughTocher2DInterpolator(
             self.grid_points, self.z_data
@@ -279,24 +263,13 @@ class RibBasedSurface(ReferenceSurface):
         for toroidal_angle, poloidal_angle in zip(
             toroidal_angles, poloidal_angles
         ):
-            x = self.x_interp(toroidal_angle, poloidal_angle)
-            y = self.y_interp(toroidal_angle, poloidal_angle)
+            r = self.r_interp(toroidal_angle, poloidal_angle)
             z = self.z_interp(toroidal_angle, poloidal_angle)
+            x = r * np.cos(np.deg2rad(toroidal_angle))
+            y = r * np.sin(np.deg2rad(toroidal_angle))
             coord = np.array([x, y, z])
-            # need to force the point to lie directly on the plane for
-            # future cad operations
-            plane_norm = np.array(
-                [
-                    -np.sin(np.deg2rad(toroidal_angle)),
-                    np.cos(np.deg2rad(toroidal_angle)),
-                    0,
-                ]
-            )
-            delta_alpha = (plane_norm * coord).sum() / np.sqrt(
-                np.sum(np.square(plane_norm))
-            )
-            coord += -delta_alpha * plane_norm
             coords.append(coord)
+
         return np.array(coords) * scale
 
 

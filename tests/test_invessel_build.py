@@ -30,7 +30,7 @@ def remove_files():
 vmec_file = Path("files_for_tests") / "wout_vmec.nc"
 vmec_surface = ivb.VMECSurface(read_vmec.VMECData(vmec_file))
 
-ribs_file = Path("files_for_tests") / "custom_surface_ribs.npy"
+ribs_file = Path("files_for_tests") / "custom_surface_rz_ribs.npy"
 custom_surface_ribs = np.load(ribs_file) / ivb.m2cm
 num_toroidal_angles, num_poloidal_angles, _ = custom_surface_ribs.shape
 toroidal_angles = np.linspace(0, 90, num_toroidal_angles)

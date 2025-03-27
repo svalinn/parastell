@@ -421,7 +421,7 @@ def rotate_ribs(ribs, angle):
 
 def ribs_from_kisslinger_format(filename, start_line=2, scale=m2cm):
     """Reads a Kisslinger format file and returns a list of toroidal angles,
-    along with a list of lists of the rib loci (in x,y,z) at each toroidal
+    along with a list of lists of the rib loci (in R, Z) at each toroidal
     angle. It is expected that toroidal angles are provided in degrees.
 
     Arguments:
@@ -441,8 +441,8 @@ def ribs_from_kisslinger_format(filename, start_line=2, scale=m2cm):
         periods (int): Number of periods as specified in the file header.
         profiles (numpy array): 3 dimensional numpy array where the first
             dimension corresponds to individual ribs, the second to the
-            position on a rib, and the third to the actual x,y,z coordinate
-            of the point.
+            position on a rib, and the third to the R,Z coordinates of the
+            point.
     """
 
     with open(file=filename) as file:
@@ -469,7 +469,7 @@ def ribs_from_kisslinger_format(filename, start_line=2, scale=m2cm):
             x_coord = r_z_coords[0] * np.cos(np.deg2rad(toroidal_angle))
             y_coord = r_z_coords[0] * np.sin(np.deg2rad(toroidal_angle))
             z_coord = r_z_coords[1]
-            profile.append([x_coord, y_coord, z_coord])
+            profile.append(r_z_coords)
         profiles.append(profile)
 
     return (
