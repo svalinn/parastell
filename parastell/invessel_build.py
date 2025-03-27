@@ -6,7 +6,6 @@ import numpy as np
 from scipy.interpolate import (
     RegularGridInterpolator,
     CloughTocher2DInterpolator,
-    RBFInterpolator,
 )
 
 
@@ -90,7 +89,7 @@ class ReferenceSurface(ABC):
 
 class VMECSurface(ReferenceSurface):
     """An object that uses VMEC data to represent the innermost surface
-    of an in vessel build
+    of an in vessel build.
 
     Arguments:
         vmec_obj (object): plasma equilibrium VMEC object as defined by the
@@ -118,7 +117,7 @@ class VMECSurface(ReferenceSurface):
 
         Returns:
             coords (numpy array): Nx3 array of Cartesian coordinates at each
-                angle pair specified.
+                poloidal angle specified.
         """
         coords = []
         for poloidal_angle in poloidal_angles:
@@ -154,7 +153,7 @@ class RibBasedSurface(ReferenceSurface):
 
     def _extract_rib_data(self, ribs, toroidal_angles, poloidal_angles):
         """Internal function, not intended for use externally. Updates
-        member variables that track x, y, and z values corresponding to
+        member variables that track R, Z values corresponding to
         angle pairs for use when building the interpolators.
 
         Arguments:

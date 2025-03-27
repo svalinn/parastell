@@ -392,9 +392,8 @@ def dagmc_volume_to_step(
 
 
 def ribs_from_kisslinger_format(filename, start_line=2, scale=m2cm):
-    """Reads a Kisslinger format file and returns a list of toroidal angles,
-    along with a list of lists of the rib loci (in R, Z) at each toroidal
-    angle. It is expected that toroidal angles are provided in degrees.
+    """Reads a Kisslinger format file and extracts the R, Z data, the number of
+    periods, and the toroidal angles at which the R, Z data is specified.
 
     Arguments:
         filename (str): Path to the file to be read.
