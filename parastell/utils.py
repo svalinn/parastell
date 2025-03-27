@@ -2,6 +2,7 @@ import yaml
 import tempfile
 from functools import cached_property
 import tempfile
+from pathlib import Path
 
 import numpy as np
 import math
@@ -388,35 +389,6 @@ def dagmc_volume_to_step(
         )
 
     cq_solid.exportStep(str(Path(step_file_path).with_suffix(".step")))
-
-
-def rotate_ribs(ribs, angle):
-    """Rotate a set of NxMx3 set of loci about the Z axis in the
-    counter-clockwise direction.
-
-    Arguments:
-        ribs (numpy array): NxMx3 array of of cartesian points. The first
-            dimension corresponds to the plane of constant toroidal angle on
-            which the closed loop of points lies. The second dimension is the
-            location on the closed loop at which the point lies, and the third
-            dimension is the x,y,z value of that point.
-        angle (float): Amount by which to rotate the points in ribs. Measured
-            in degrees, positive in right hand direction about the Z axis.
-
-    Return:
-        ribs (numpy array): Array of the same shape as the ribs argument,
-            with each point rotated by angle about the Z axis.
-    """
-    angle = np.deg2rad(angle)
-    rotation_mat = np.array(
-        [
-            [np.cos(angle), -np.sin(angle), 0],
-            [np.sin(angle), np.cos(angle), 0],
-            [0, 0, 1],
-        ]
-    )
-    ribs = np.dot(ribs, rotation_mat.T)
-    return ribs
 
 
 def ribs_from_kisslinger_format(filename, start_line=2, scale=m2cm):
