@@ -115,9 +115,11 @@ def solve_poloidal_angles(data):
 
     Arguments:
         data (iterable): data for root-finding algorithm. Entries in order:
-            1) plasma equilibrium VMEC object (object)
-            2) first wall CFS reference value (float)
-            3) convergence tolerance for root-finding (float)
+            1) path to plasma equilibrium VMEC file (str). Because the VMEC
+               dataset is not picklable, a separate object is created for each
+               thread.
+            2) first wall CFS reference value (float).
+            3) convergence tolerance for root-finding (float).
             4) toroidal angles at which to solve for poloidal angles
                (iterable). Must be in same order as Cartesian coordinates.
             5) Cartesian coordinates at which to solve for poloidal angles
@@ -127,7 +129,7 @@ def solve_poloidal_angles(data):
         poloidal_angles (list): poloidal angles corresponding to supplied
             coordinates [rad].
     """
-    vmec_obj = data[0]
+    vmec_obj = read_vmec.VMECData(data[0])
     wall_s = data[1]
     conv_tol = data[2]
     toroidal_angles = data[3]
@@ -147,11 +149,11 @@ def solve_poloidal_angles(data):
     return poloidal_angles
 
 
-def compute_flux_coordinates(vmec_obj, wall_s, coords, num_threads, conv_tol):
+def compute_flux_coordinates(vmec_file, wall_s, coords, num_threads, conv_tol):
     """Computes flux coordinates of specified Cartesian coordinates.
 
     Arguments:
-        vmec_obj (object): plasma equilibrium VMEC object.
+        vmec_file (str): path to plasma equilibrium VMEC file.
         wall_s (float): closed flux surface extrapolation at first wall.
         coords (numpy.array): Cartesian coordinates of surface crossings [cm].
         conv_tol (float): convergence tolerance for root-finding.
@@ -168,7 +170,7 @@ def compute_flux_coordinates(vmec_obj, wall_s, coords, num_threads, conv_tol):
     for i in range(num_threads):
         chunks.append(
             (
-                vmec_obj,
+                vmec_file,
                 wall_s,
                 conv_tol,
                 toroidal_angles[i * chunk_size : (i + 1) * chunk_size],
@@ -257,7 +259,7 @@ def compute_nwl(
 
     Arguments:
         source_file (str): path to OpenMC surface source file.
-        vmec_file (str): path to plasma equilibrium NetCDF file.
+        vmec_file (str): path to plasma equilibrium VMEC file.
         wall_s (float): closed flux surface label extrapolation at wall.
         toroidal_extent (float): toroidal extent of model [deg].
         neutron_power (float): reference neutron power [MW].
@@ -293,8 +295,6 @@ def compute_nwl(
     if num_crossings is not None:
         coords = coords[0:num_crossings]
 
-    vmec_obj = read_vmec.VMECData(vmec_file)
-
     toroidal_angles = []
     poloidal_angles = []
 
@@ -304,7 +304,7 @@ def compute_nwl(
         logger.info(f"Processing batch {i + 1}")
 
         toroidal_angle_batch, poloidal_angle_batch = compute_flux_coordinates(
-            vmec_obj,
+            vmec_file,
             wall_s,
             coords[i * batch_size : (i + 1) * batch_size],
             num_threads,
@@ -353,6 +353,7 @@ def compute_nwl(
     nwl_mat = count_mat * neutron_power / num_particles
 
     # Construct matrix of bin boundaries
+    vmec_obj = read_vmec.VMECData(vmec_file)
     bin_mat = np.zeros((num_toroidal_bins + 1, num_poloidal_bins + 1, 3))
     for toroidal_id, toroidal_edge in enumerate(toroidal_bin_edges):
         for poloidal_id, poloidal_edge in enumerate(poloidal_bin_edges):
