@@ -1,13 +1,7 @@
 from pathlib import Path
 
 import pytest
-from parastell import parastell
 from parastell.nwl_utils import *
-from parastell.cubit_utils import tag_surface
-import matplotlib
-
-matplotlib.use("agg")
-import matplotlib.pyplot as plt
 
 
 files_to_remove = [
