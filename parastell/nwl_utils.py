@@ -83,6 +83,8 @@ def fire_rays(dagmc_geom, source_mesh, toroidal_extent, strengths, num_parts):
 
     model.run()
 
+    return "surface_source.h5"
+
 
 def compute_residual(poloidal_guess, vmec_obj, wall_s, toroidal_angle, point):
     """Minimization problem to solve for the poloidal angle.
