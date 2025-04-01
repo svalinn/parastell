@@ -1,6 +1,7 @@
 import math
 from pathlib import Path
 import concurrent.futures
+import os
 
 import openmc
 from scipy.optimize import direct
@@ -252,7 +253,7 @@ def compute_nwl(
     conv_tol=1e-6,
     num_batches=1,
     num_crossings=None,
-    num_threads=1,
+    num_threads=None,
     logger=None,
 ):
     """Computes and plots NWL. Assumes toroidal extent is less than 360 degrees.
@@ -277,7 +278,8 @@ def compute_nwl(
         num_crossings (int): number of crossings to use from the surface source
             (defaults to None). If None, all crossings will be used.
         num_threads (int): number of threads to use for parallelizing
-            coordinate-solving routine (defaults to 1).
+            coordinate-solving routine (defaults to None). If None, the maximum
+            number of threads will be used.
 
     Returns:
         nwl_mat (numpy array): array used to create the NWL plot
@@ -290,8 +292,10 @@ def compute_nwl(
     toroidal_extent = np.deg2rad(toroidal_extent)
     poloidal_extent = 2 * np.pi
 
-    coords = extract_surface_crossings(source_file)
+    if not num_threads:
+        num_threads = os.cpu_count()
 
+    coords = extract_surface_crossings(source_file)
     if num_crossings is not None:
         coords = coords[0:num_crossings]
 
