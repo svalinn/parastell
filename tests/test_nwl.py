@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 
 import pytest
 from parastell.nwl_utils import *
@@ -17,6 +18,13 @@ def remove_files():
     for file in files_to_remove:
         if Path(file).exists():
             Path.unlink(file)
+
+
+def allclose_periodic(a, b, period=360.0):
+    difference = np.abs(a - b)
+    difference = np.minimum(difference, period - difference)
+
+    return np.allclose(difference, np.zeros(difference.shape), atol=1e-3)
 
 
 @pytest.fixture
@@ -92,5 +100,101 @@ def test_nwl_io(parastell_model):
     plot_nwl(nwl_mat, toroidal_bins, poloidal_bins, filename=plot_filename_exp)
 
     assert Path(plot_filename_exp).exists()
+
+    remove_files()
+
+
+def test_flux_coordinate_calculation(parastell_model):
+    """Tests whether the flux coordinate computation routine is correct, by
+    testing if:
+        * Calculated flux coordinates match known correct answers
+    """
+    toroidal_angles_exp = [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        22.5,
+        22.5,
+        22.5,
+        22.5,
+        45.0,
+        45.0,
+        45.0,
+        45.0,
+        67.5,
+        67.5,
+        67.5,
+        67.5,
+        90.0,
+        90.0,
+        90.0,
+        90.0,
+    ]
+    poloidal_angles_exp = [
+        0.0,
+        90.0,
+        180.0,
+        270.0,
+        0.0,
+        90.0,
+        180.0,
+        270.0,
+        0.0,
+        90.0,
+        180.0,
+        270.0,
+        0.0,
+        90.0,
+        180.0,
+        270.0,
+        0.0,
+        90.0,
+        180.0,
+        270.0,
+    ]
+
+    remove_files()
+
+    vmec_file = parastell_model["vmec_file"]
+    wall_s = parastell_model["wall_s"]
+
+    coords = np.array(
+        [
+            [1425.928700169618, 0.0, 0.0],
+            [1188.3252024887156, 0.0, 358.5064203208586],
+            [1284.4131097301138, 0.0, 4.561644170634904e-14],
+            [1188.3252024887156, 0.0, -358.5064203208586],
+            [1205.03265616365, 499.1408692854585, -108.15593369493526],
+            [1204.5136312392501, 498.9258821225623, 47.80647441319307],
+            [799.5184825738327, 331.17139885003854, -124.09820124422208],
+            [835.9278821816554, 346.2526659654604, -289.45466073509107],
+            [875.5124086972241, 875.5124086972241, -1.231480251650162e-14],
+            [676.2888112463809, 676.2888112463809, 113.96140110315854],
+            [496.74462745068155, 496.74462745068143, 1.349053166093886e-14],
+            [676.2888112463809, 676.2888112463809, -113.9614011031586],
+            [499.1408692854586, 1205.03265616365, 108.15593369493526],
+            [346.25266596546044, 835.9278821816554, 289.45466073509095],
+            [331.1713988500386, 799.5184825738327, 124.09820124422207],
+            [498.92588212256237, 1204.5136312392501, -47.806474413193015],
+            [8.731295092375343e-14, 1425.928700169618, 3.576922228891618e-14],
+            [7.276393277869679e-14, 1188.3252024887156, 358.50642032085864],
+            [
+                7.864762018069409e-14,
+                1284.4131097301138,
+                1.2442992825646506e-13,
+            ],
+            [7.276393277869679e-14, 1188.3252024887156, -358.50642032085864],
+        ]
+    )
+    num_threads = os.cpu_count()
+    conv_tol = 1e-6
+
+    toroidal_angles, poloidal_angles = compute_flux_coordinates(
+        vmec_file, wall_s, coords, num_threads, conv_tol
+    )
+
+    assert allclose_periodic(np.rad2deg(toroidal_angles), toroidal_angles_exp)
+    assert allclose_periodic(np.rad2deg(poloidal_angles), poloidal_angles_exp)
 
     remove_files()
