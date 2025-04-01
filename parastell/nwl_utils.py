@@ -1,4 +1,5 @@
 import math
+from pathlib import Path
 import concurrent.futures
 
 import openmc
@@ -15,12 +16,11 @@ from . import log
 from .utils import m2cm
 
 
-def nwl_transport(
-    dagmc_geom, source_mesh, toroidal_extent, strengths, num_parts
-):
-    """Performs neutron transport on first wall geometry via OpenMC. The
-    first wall should be tagged as a vacuum boundary during the creation of the
-    DAGMC geometry to avoid multiple surface crossings from single histories.
+def fire_rays(dagmc_geom, source_mesh, toroidal_extent, strengths, num_parts):
+    """Fires rays from sampled neutron source mesh to first wall geometry via
+    OpenMC. The first wall should be tagged as a vacuum boundary during the
+    creation of the DAGMC geometry to avoid multiple surface crossings from
+    single histories.
 
     Arguments:
         dagmc_geom (str): path to DAGMC geometry file.
@@ -46,6 +46,10 @@ def nwl_transport(
         boundary_type="periodic",
         surface_id=9991,
     )
+    # A small fraction (<0.005%) of particles tend to escape first wall vacuum
+    # boundary.
+    # Include additional vacuum boundary to avoid lost particles. Note that
+    # this is effectively a cosmetic fix as the particles still escape the FW.
     vacuum_surface = openmc.Sphere(
         r=10_000, surface_id=9992, boundary_type="vacuum"
     )
@@ -80,7 +84,7 @@ def nwl_transport(
     model.run()
 
 
-def min_problem(poloidal_guess, vmec_obj, wall_s, toroidal_angle, point):
+def compute_residual(poloidal_guess, vmec_obj, wall_s, toroidal_angle, point):
     """Minimization problem to solve for the poloidal angle.
 
     Arguments:
@@ -102,7 +106,7 @@ def min_problem(poloidal_guess, vmec_obj, wall_s, toroidal_angle, point):
     return np.linalg.norm(point - fw_guess)
 
 
-def find_coords(data):
+def solve_poloidal_angles(data):
     """Solves for poloidal angle of plasma equilibrium corresponding to
     specified coordinates. Takes a single argument so it works with
     ProcessPoolExecutor.
@@ -131,7 +135,7 @@ def find_coords(data):
 
     for toroidal_angle, point in zip(toroidal_angles, coords):
         result = direct(
-            min_problem,
+            compute_residual,
             bounds=[(0, 2 * np.pi)],
             args=(vmec_obj, wall_s, toroidal_angle, point),
             vol_tol=conv_tol,
@@ -141,7 +145,7 @@ def find_coords(data):
     return poloidal_angles
 
 
-def flux_coords(vmec_obj, wall_s, coords, num_threads, conv_tol):
+def compute_flux_coordinates(vmec_obj, wall_s, coords, num_threads, conv_tol):
     """Computes flux coordinates of specified Cartesian coordinates.
 
     Arguments:
@@ -173,7 +177,7 @@ def flux_coords(vmec_obj, wall_s, coords, num_threads, conv_tol):
     with concurrent.futures.ProcessPoolExecutor(
         max_workers=num_threads
     ) as executor:
-        poloidal_chunks = list(executor.map(find_coords, chunks))
+        poloidal_chunks = list(executor.map(solve_poloidal_angles, chunks))
 
         poloidal_angles = [
             poloidal_angle
@@ -184,7 +188,7 @@ def flux_coords(vmec_obj, wall_s, coords, num_threads, conv_tol):
     return toroidal_angles.tolist(), poloidal_angles
 
 
-def extract_coords(source_file):
+def extract_surface_crossings(source_file):
     """Extracts Cartesian coordinates of particle surface crossings given an
     OpenMC surface source file.
 
@@ -206,39 +210,7 @@ def extract_coords(source_file):
     return coords
 
 
-def plot(nwl_mat, toroidal_centroids, poloidal_centroids, num_levels):
-    """Generates contour plot of NWL.
-
-    Arguments:
-        nwl_mat (np.array): matrix of NWL solutions for each bin [MW/m^2].
-        toroidal_centroids (array of float): centroids of toroidal angle bins [rad].
-        poloidal_centroids (array of float): centroids of poloidal angle bins [rad].
-        num_levels (int): number of contour regions.
-    """
-    toroidal_centroids = np.rad2deg(toroidal_centroids)
-    poloidal_centroids = np.rad2deg(poloidal_centroids)
-    levels = np.linspace(np.min(nwl_mat), np.max(nwl_mat), num=num_levels)
-
-    fig, ax = plt.subplots()
-    CF = ax.contourf(
-        toroidal_centroids, poloidal_centroids, nwl_mat.T, levels=levels
-    )
-    cbar = plt.colorbar(CF)
-
-    cbar.ax.set_ylabel(r"Neutron wall loading (MW/m$^2$)")
-    ax.set_xlabel("Toroidal Angle [deg]")
-    ax.set_ylabel("Poloidal Angle [deg]")
-
-    cbar.ax.set_yticks(levels[::2])
-    ax.set_xticks(
-        [int(i) for i in np.linspace(0.0, np.max(toroidal_centroids), num=11)]
-    )
-    ax.set_yticks([int(i) for i in np.linspace(0.0, 360.0, num=11)])
-
-    fig.savefig("nwl.png")
-
-
-def area_from_corners(corners):
+def compute_quadrilateral_area(corners):
     """Approximates the area of a non-planar region bounded by four points.
 
     Arguments:
@@ -265,7 +237,7 @@ def area_from_corners(corners):
     return total_area
 
 
-def nwl_plot(
+def compute_nwl(
     source_file,
     vmec_file,
     wall_s,
@@ -273,7 +245,6 @@ def nwl_plot(
     neutron_power,
     num_toroidal_bins=101,
     num_poloidal_bins=101,
-    num_levels=10,
     conv_tol=1e-6,
     num_batches=1,
     num_crossings=None,
@@ -290,7 +261,6 @@ def nwl_plot(
         neutron_power (float): reference neutron power [MW].
         num_toroidal_bins (int): number of toroidal angle bins (defaults to 101).
         num_poloidal_bins (int): number of poloidal angle bins (defaults to 101).
-        num_levels (int): number of contour regions in plot (defaults to 10).
         conv_tol (float): tolerence for convergence in poloidal angle root-
             finding routine. Must lie in range (0.0, 1.0]. Smaller values
             correspond to a stricter tolerance. This parameter corresponds to
@@ -316,7 +286,7 @@ def nwl_plot(
     toroidal_extent = np.deg2rad(toroidal_extent)
     poloidal_extent = 2 * np.pi
 
-    coords = extract_coords(source_file)
+    coords = extract_surface_crossings(source_file)
 
     if num_crossings is not None:
         coords = coords[0:num_crossings]
@@ -331,7 +301,7 @@ def nwl_plot(
     for i in range(num_batches):
         logger.info(f"Processing batch {i + 1}")
 
-        toroidal_angle_batch, poloidal_angle_batch = flux_coords(
+        toroidal_angle_batch, poloidal_angle_batch = compute_flux_coordinates(
             vmec_obj,
             wall_s,
             coords[i * batch_size : (i + 1) * batch_size],
@@ -397,9 +367,50 @@ def nwl_plot(
             corner_3 = bin_mat[toroidal_id + 1, poloidal_id + 1]
             corner_4 = bin_mat[toroidal_id + 1, poloidal_id]
             corners = np.array([corner_1, corner_2, corner_3, corner_4])
-            area_mat[toroidal_id, poloidal_id] = area_from_corners(corners)
+            area_mat[toroidal_id, poloidal_id] = compute_quadrilateral_area(
+                corners
+            )
 
     nwl_mat = nwl_mat / area_mat
-    plot(nwl_mat, toroidal_centroids, poloidal_centroids, num_levels)
 
     return nwl_mat, toroidal_centroids, poloidal_centroids, area_mat
+
+
+def plot_nwl(
+    nwl_mat,
+    toroidal_centroids,
+    poloidal_centroids,
+    filename="nwl",
+    num_levels=11,
+):
+    """Generates contour plot of NWL.
+
+    Arguments:
+        nwl_mat (np.array): matrix of NWL solutions for each bin [MW/m^2].
+        toroidal_centroids (list): centroids of toroidal angle bins [rad].
+        poloidal_centroids (list): centroids of poloidal angle bins [rad].
+        filename (str): name of plot output file (defaults to 'nwl').
+        num_levels (int): number of contours in plot (defaults to 11).
+    """
+    toroidal_centroids = np.rad2deg(toroidal_centroids)
+    poloidal_centroids = np.rad2deg(poloidal_centroids)
+    levels = np.linspace(np.min(nwl_mat), np.max(nwl_mat), num=num_levels)
+
+    fig, ax = plt.subplots()
+    CF = ax.contourf(
+        toroidal_centroids, poloidal_centroids, nwl_mat.T, levels=levels
+    )
+    cbar = plt.colorbar(CF)
+
+    cbar.ax.set_ylabel(r"Neutron wall loading (MW/m$^2$)")
+    ax.set_xlabel("Toroidal Angle [deg]")
+    ax.set_ylabel("Poloidal Angle [deg]")
+
+    cbar.ax.set_yticks(levels[::2])
+    ax.set_xticks(
+        [int(i) for i in np.linspace(0.0, np.max(toroidal_centroids), num=11)]
+    )
+    ax.set_yticks([int(i) for i in np.linspace(0.0, 360.0, num=11)])
+
+    export_path = Path(filename).with_suffix(".png")
+    fig.savefig(export_path)
