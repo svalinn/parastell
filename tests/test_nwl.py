@@ -74,6 +74,7 @@ def test_nwl_io(parastell_model):
     neutron_energy = 14.1e6 * 1.60218e-19 * 1e-6  # eV to MJ
     neutron_power = neutron_energy * np.sum(strengths)
 
+    # CI needs a functional cross-section library for OpenMC to run
     openmc.Materials.cross_sections = (
         Path("files_for_tests") / "cross_sections" / "cross_sections.xml"
     )
