@@ -26,17 +26,6 @@ def remove_files():
             Path.unlink(file)
 
 
-simple_filament_coords = np.array(
-    [
-        [100, 0, 0],
-        [75, 0, 25],
-        [50, 0, 0],
-        [75, 0, -25],
-        [100, 0, 0],
-    ]
-)
-
-
 @pytest.fixture
 def coil_set_from_filaments():
     coils_file = Path("files_for_tests") / "coils.example"
@@ -62,18 +51,40 @@ def coil_set_from_geometry():
 
 
 @pytest.fixture
-def single_filament():
-    return magnet_coils.Filament(simple_filament_coords)
+def filament_crossing_mp():
+    coords = np.array(
+        [
+            [100, 0, 0],
+            [75, 0, 25],
+            [50, 0, 0],
+            [75, 0, -25],
+            [100, 0, 0],
+        ]
+    )
+    return magnet_coils.Filament(coords)
 
 
 @pytest.fixture
-def single_coil(single_filament):
-    return magnet_coils.MagnetCoil(single_filament, 10, 20, 1)
+def filament_not_crossing_mp():
+    coords = np.array(
+        [
+            [0, 0, 0],
+            [200, 300, 0],
+            [0, 0, 100],
+            [0, 0, 0],
+        ]
+    )
+    return magnet_coils.Filament(coords)
 
 
-def test_single_filament(single_filament):
-    """Tests whether the data for a Filament object is generated as expected,
-    by testing if:
+@pytest.fixture
+def single_coil(filament_crossing_mp):
+    return magnet_coils.MagnetCoil(filament_crossing_mp, 10, 20, 1)
+
+
+def test_filament_crossing_mp(filament_crossing_mp):
+    """Tests whether the data for a Filament object that crosses the midplane
+    is generated as expected, by testing if:
         * the expected tangent vectors are computed
         * the expected center of mass is computed
         * the expected center of mass toroidal angle is computed
@@ -92,12 +103,40 @@ def test_single_filament(single_filament):
     com_toroidal_angle_exp = 0.0
     ob_mp_idx_exp = 0
 
-    assert np.allclose(tangents_exp, single_filament.tangents)
-    assert np.allclose(com_exp, single_filament.com)
+    assert np.allclose(tangents_exp, filament_crossing_mp.tangents)
+    assert np.allclose(com_exp, filament_crossing_mp.com)
     assert np.isclose(
-        com_toroidal_angle_exp, single_filament.com_toroidal_angle
+        com_toroidal_angle_exp, filament_crossing_mp.com_toroidal_angle
     )
-    assert single_filament.get_ob_mp_index() == ob_mp_idx_exp
+    assert filament_crossing_mp.get_ob_mp_index() == ob_mp_idx_exp
+
+
+def test_filament_not_crossing_mp(filament_not_crossing_mp):
+    """Tests whether the data for a Filament object that does not cross the
+    midplane is generated as expected, by testing if:
+        * the expected tangent vectors are computed
+        * the expected center of mass is computed
+        * the expected center of mass toroidal angle is computed
+    """
+    tangents_exp = np.array(
+        [
+            [0.53452248, 0.80178373, -0.26726124],
+            [0.0, 0.0, 1.0],
+            [-0.5547002, -0.83205029, 0.0],
+            [0.53452248, 0.80178373, -0.26726124],
+        ]
+    )
+
+    com_exp = np.array([66.66666667, 100.0, 33.33333333])
+    com_toroidal_angle_exp = 0.982793723247329
+    ob_mp_idx_exp = 0
+
+    assert np.allclose(tangents_exp, filament_not_crossing_mp.tangents)
+    assert np.allclose(com_exp, filament_not_crossing_mp.com)
+    assert np.isclose(
+        com_toroidal_angle_exp, filament_not_crossing_mp.com_toroidal_angle
+    )
+    assert filament_not_crossing_mp.get_ob_mp_index() == ob_mp_idx_exp
 
 
 def test_single_coil(single_coil):
