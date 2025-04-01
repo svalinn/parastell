@@ -88,6 +88,7 @@ def test_filament_crossing_mp(filament_crossing_mp):
         * the expected tangent vectors are computed
         * the expected center of mass is computed
         * the expected center of mass toroidal angle is computed
+        * the expected outboard midplane index is computed
     """
     tangents_exp = np.array(
         [
@@ -117,6 +118,7 @@ def test_filament_not_crossing_mp(filament_not_crossing_mp):
         * the expected tangent vectors are computed
         * the expected center of mass is computed
         * the expected center of mass toroidal angle is computed
+        * the expected outboard midplane index is computed
     """
     tangents_exp = np.array(
         [
