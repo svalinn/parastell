@@ -2,7 +2,9 @@ from pathlib import Path
 import os
 
 import pytest
-from parastell.nwl_utils import *
+import openmc
+from parastell import nwl_utils
+import numpy as np
 
 
 files_to_remove = [
@@ -72,7 +74,11 @@ def test_nwl_io(parastell_model):
     neutron_energy = 14.1e6 * 1.60218e-19 * 1e-6  # eV to MJ
     neutron_power = neutron_energy * np.sum(strengths)
 
-    source_file = fire_rays(
+    openmc.Materials.cross_sections = (
+        Path("files_for_tests") / "cross_sections" / "cross_sections.xml"
+    )
+
+    source_file = nwl_utils.fire_rays(
         dagmc_filename,
         source_mesh_filename,
         toroidal_extent,
@@ -82,7 +88,7 @@ def test_nwl_io(parastell_model):
 
     assert Path(source_file_exp).exists()
 
-    nwl_mat, toroidal_bins, poloidal_bins, area_mat = compute_nwl(
+    nwl_mat, toroidal_bins, poloidal_bins, area_mat = nwl_utils.compute_nwl(
         source_file,
         vmec_file,
         wall_s,
@@ -97,7 +103,9 @@ def test_nwl_io(parastell_model):
     assert len(poloidal_bins) == num_bins_exp
     assert area_mat.shape == (num_bins_exp, num_bins_exp)
 
-    plot_nwl(nwl_mat, toroidal_bins, poloidal_bins, filename=plot_filename_exp)
+    nwl_utils.plot_nwl(
+        nwl_mat, toroidal_bins, poloidal_bins, filename=plot_filename_exp
+    )
 
     assert Path(plot_filename_exp).exists()
 
@@ -190,7 +198,7 @@ def test_flux_coordinate_calculation(parastell_model):
     num_threads = os.cpu_count()
     conv_tol = 1e-6
 
-    toroidal_angles, poloidal_angles = compute_flux_coordinates(
+    toroidal_angles, poloidal_angles = nwl_utils.compute_flux_coordinates(
         vmec_file, wall_s, coords, num_threads, conv_tol
     )
 
