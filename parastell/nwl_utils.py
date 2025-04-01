@@ -2,19 +2,22 @@ import math
 from pathlib import Path
 import concurrent.futures
 import os
+import sys
+import inspect
 
 import openmc
 from scipy.optimize import direct
 import numpy as np
 import h5py
 from pystell import read_vmec
-import matplotlib
-
-matplotlib.use("agg")
 import matplotlib.pyplot as plt
 
 from . import log
 from .utils import m2cm
+
+import contourpy
+
+contourpy_path = inspect.getfile(contourpy)
 
 
 def fire_rays(dagmc_geom, source_mesh, toroidal_extent, strengths, num_parts):
@@ -399,6 +402,10 @@ def plot_nwl(
         filename (str): name of plot output file (defaults to 'nwl').
         num_levels (int): number of contours in plot (defaults to 11).
     """
+    # Ensure correct contourpy in on Python's path; if Cubit is imported during
+    # process, Cubit's version will replace environment's
+    sys.path.append(contourpy_path)
+
     toroidal_centroids = np.rad2deg(toroidal_centroids)
     poloidal_centroids = np.rad2deg(poloidal_centroids)
     levels = np.linspace(np.min(nwl_mat), np.max(nwl_mat), num=num_levels)
