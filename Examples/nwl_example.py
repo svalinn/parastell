@@ -5,6 +5,7 @@ from parastell.cubit_utils import tag_surface
 from parastell import nwl_utils
 import numpy as np
 
+
 # Define plasma equilibrium VMEC file
 vmec_file = "wout_vmec.nc"
 
