@@ -710,25 +710,16 @@ class InVesselBuild(object):
 
         return solids, mat_tags
 
-    def mesh_components_moab(
-        self, component, remesh=False, min_mesh_size=5.0, max_mesh_size=20.0
-    ):
-        """Creates a tetrahedral mesh of in-vessel component volumes via MOAB
-        and, optionally, Gmsh. If the initial MOAB mesh, created using the
-        point clouds of the specified components, is not subsequently remeshed
-        in Gmsh, each component in the mesh will be one tetrahedron thick.
+    def mesh_components_moab(self, component):
+        """Creates a tetrahedral mesh of a single in-vessel component volume
+        via MOAB. This mesh is created using the point cloud of the specified
+        component and as such, the mesh will be one tetrahedron thick.
 
         Arguments:
-            component (str): name of the in-vessel component to be meshed.
-            remesh (bool): remesh/refine the initial MOAB mesh in Gmsh
-                (defaults to False).
-            min_mesh_size (float): minimum size of mesh elements for a Gmsh
-                remesh (defaults to 5.0).
-            max_mesh_size (float): maximum size of mesh elements for a Gmsh
-                remesh (defaults to 20.0).
+            component (str): name of in-vessel component to be meshed.
         """
         self._logger.info(
-            "Generating tetrahedral mesh of in-vessel component(s) via MOAB..."
+            f"Generating tetrahedral mesh of {component} volume via MOAB..."
         )
 
         self.mesh_mbc = core.Core()
@@ -737,6 +728,8 @@ class InVesselBuild(object):
         surface_keys = list(self.Surfaces.keys())
 
         for i, key in enumerate(surface_keys[:-1]):
+            # Inner surface of given component = outer surface of inner
+            # component
             if surface_keys[i + 1] == component:
                 surfaces.append(self.Surfaces[key])
         surfaces.append(self.Surfaces[component])
@@ -764,7 +757,7 @@ class InVesselBuild(object):
             poloidal_idx (int): index defining location along poloidal angle axis.
             toroidal_idx (int): index defining location along toroidal angle axis.
         """
-        # relative offsets of vertices in a 3-D index space
+        # Relative offsets of vertices in a 3-D index space
         hex_vertex_stencil = np.array(
             [
                 [0, 0, 0],
@@ -778,7 +771,7 @@ class InVesselBuild(object):
             ]
         )
 
-        # Ids of hex vertices applying offset stencil to current point
+        # IDs of hex vertices applying offset stencil to current point
         hex_idx_data = (
             np.array([0, poloidal_idx, toroidal_idx]) + hex_vertex_stencil
         )
@@ -790,9 +783,9 @@ class InVesselBuild(object):
         # Define MOAB canonical ordering of hexahedron vertex indices
         # Ordering follows right hand rule such that the fingers curl around
         # one side of the tetrahedron and the thumb points to the remaining
-        # vertex. The vertices are ordered such that those on the side are
-        # first, ordered clockwise relative to the thumb, followed by the
-        # remaining vertex at the end of the thumb.
+        # vertex. The vertices are ordered such that those on a face are first,
+        # ordered clockwise relative to the thumb, followed by the remaining
+        # vertex at the end of the thumb.
         # See Moreno, Bader, Wilson 2024 for hexahedron splitting
         hex_to_tets_mapping = [
             [idx_list[0], idx_list[3], idx_list[1], idx_list[4]],
@@ -811,8 +804,8 @@ class InVesselBuild(object):
         (Internal function not intended to be called externally)
 
         Arguments:
-            vert_idx (list of int): list of vertex
-                [flux surface index, poloidal angle index, toroidal angle index]
+            vertex_idx (list): vertex's 3-D grid indices in order
+                [surface index, poloidal angle index, toroidal angle index]
 
         Returns:
             id (int): vertex index in row-major order as stored by MOAB
@@ -853,6 +846,10 @@ class InVesselBuild(object):
             export_dir (str): directory to which to export the h5m output file
                 (defaults to empty string).
         """
+        self._logger.info(
+            "Exporting mesh H5M file for in-vessel component(s)..."
+        )
+
         export_path = Path(export_dir) / Path(filename).with_suffix(".h5m")
         self.mesh_mbc.write_file(str(export_path))
 
