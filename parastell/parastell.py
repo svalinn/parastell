@@ -190,8 +190,7 @@ class Stellarator(object):
             export_dir (str): directory to which to export the h5m output file
                 (defaults to empty string).
         """
-        self._logger.info("Exporting in-vessel components mesh via MOAB...")
-        self.invessel_build.mesh_components_moab(component)
+        self.invessel_build.mesh_component_moab(component)
         self.invessel_build.export_mesh_moab(filename, export_dir=export_dir)
 
     def export_invessel_build_mesh_gmsh(
@@ -216,7 +215,6 @@ class Stellarator(object):
             export_dir (str): directory to which to export the h5m
                 output file (optional, defaults to empty string).
         """
-        self._logger.info("Exporting in-vessel components mesh via Gmsh...")
         self.invessel_build.mesh_components_gmsh(
             components,
             min_mesh_size=min_mesh_size,
@@ -239,9 +237,6 @@ class Stellarator(object):
             export_dir (str): directory to which to export the h5m
                 output file (optional, defaults to empty string).
         """
-        self._logger.info(
-            "Exporting in-vessel components mesh via Coreform Cubit..."
-        )
         self.invessel_build.mesh_components_cubit(
             components,
             mesh_size=mesh_size,
