@@ -355,11 +355,9 @@ class MagnetSetFromFilaments(MagnetSet):
 
         self._cut_magnets()
 
-        self.coil_solids = [
-            coil.solid
-            for coil in self.magnet_coils
-            if coil.solid.Volume() != 0
-        ]
+        self.magnet_coils = [coil for coil in self.magnet_coils if coil.solid.Volume() != 0]
+        
+        self.coil_solids = [coil.solid for coil in self.magnet_coils]
 
 
 class MagnetSetFromGeometry(MagnetSet):
