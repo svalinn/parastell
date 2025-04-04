@@ -339,16 +339,16 @@ class Stellarator(object):
         exports the mesh as a H5M file.
 
         Arguments:
-            filename (str): name of tetrahedral mesh H5M file (optional,
-                defaults to 'magnet_mesh').
+            filename (str): name of H5M output file (defaults to
+                'magnet_mesh').
             min_size (float): minimum size of magnet mesh elements (defaults to
                 20.0).
             max_size (float): maximum size of magnet mesh elements (defaults to
                 50.0).
             max_gradient (float): maximum transition in magnet mesh element
                 size (defaults to 1.5).
-            export_dir (str): directory to which to export output files
-                (optional, defaults to empty string).
+            export_dir (str): directory to which to export the h5m output file
+                (defaults to empty string).
         """
         self.magnet_set.mesh_magnets_cubit(
             min_size=min_size,
@@ -356,6 +356,34 @@ class Stellarator(object):
             max_gradient=max_gradient,
         )
         self.magnet_set.export_mesh_cubit(
+            filename=filename, export_dir=export_dir
+        )
+
+    def export_magnet_mesh_gmsh(
+        self,
+        filename="magnet_mesh",
+        min_mesh_size=20.0,
+        max_mesh_size=50.0,
+        export_dir="",
+    ):
+        """Creates a tetrahedral mesh of magnet volumes via Coreform Cubit and
+        exports the mesh as a H5M file.
+
+        Arguments:
+            filename (str): name of H5M output file (defaults to
+                'magnet_mesh').
+            min_mesh_size (float): minimum size of mesh elements (defaults to
+                5.0).
+            max_mesh_size (float): maximum size of mesh elements (defaults to
+                20.0).
+            export_dir (str): directory to which to export the h5m output file
+                (defaults to empty string).
+        """
+        self.magnet_set.mesh_magnets_gmsh(
+            min_mesh_size=min_mesh_size,
+            max_mesh_size=max_mesh_size,
+        )
+        self.magnet_set.export_mesh_gmsh(
             filename=filename, export_dir=export_dir
         )
 

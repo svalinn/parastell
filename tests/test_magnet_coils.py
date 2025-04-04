@@ -225,6 +225,12 @@ def test_magnet_exports_from_filaments(coil_set_from_filaments):
         coil_set_from_filaments.export_mesh_cubit()
         assert Path("magnet_mesh.h5m").exists()
 
+        remove_files()
+
+    coil_set_from_filaments.mesh_magnets_gmsh()
+    coil_set_from_filaments.export_mesh_gmsh()
+    assert Path("magnet_mesh.h5m").exists()
+
     remove_files()
 
 
@@ -242,12 +248,19 @@ def test_magnet_exports_from_geometry(coil_set_from_geometry):
 
     volume_ids_exp = list(range(1, 2))
 
-    create_new_cubit_instance()
+    if check_cubit_installation():
+        create_new_cubit_instance()
 
-    coil_set_from_geometry.mesh_magnets_cubit()
-    assert coil_set_from_geometry.volume_ids == volume_ids_exp
+        coil_set_from_geometry.mesh_magnets_cubit()
+        assert coil_set_from_geometry.volume_ids == volume_ids_exp
 
-    coil_set_from_geometry.export_mesh_cubit()
+        coil_set_from_geometry.export_mesh_cubit()
+        assert Path("magnet_mesh.h5m").exists()
+
+        remove_files()
+
+    coil_set_from_geometry.mesh_magnets_gmsh()
+    coil_set_from_geometry.export_mesh_gmsh()
     assert Path("magnet_mesh.h5m").exists()
 
     remove_files()

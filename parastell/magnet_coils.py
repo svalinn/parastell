@@ -1,10 +1,11 @@
 import argparse
 from pathlib import Path
 from abc import ABC
+import os
 
 import numpy as np
-
 import cadquery as cq
+import gmsh
 
 from . import log
 from .cubit_utils import (
@@ -98,10 +99,10 @@ class MagnetSet(ABC):
         Coreform Cubit and MOAB.
 
         Arguments:
-            mesh_filename (str): name of H5M output file (optional, defaults to
+            filename (str): name of H5M output file (defaults to
                 'magnet_mesh').
             export_dir (str): directory to which to export the H5M output file
-                (optional, defaults to empty string).
+                (defaults to empty string).
         """
         self._logger.info("Exporting mesh H5M file for magnet coils...")
 
@@ -110,6 +111,52 @@ class MagnetSet(ABC):
             export_dir=export_dir,
             delete_upon_export=True,
         )
+
+    def mesh_magnets_gmsh(self, min_mesh_size=5.0, max_mesh_size=20.0):
+        """Creates tetrahedral mesh of magnet volumes via Gmsh.
+
+        Arguments:
+            min_mesh_size (float): minimum size of mesh elements (defaults to
+                5.0).
+            max_mesh_size (float): maximum size of mesh elements (defaults to
+                20.0).
+        """
+        self._logger.info("Generating tetrahedral mesh of magnets via Gmsh...")
+
+        gmsh.initialize()
+
+        for solid in self.coil_solids:
+            gmsh.model.occ.importShapesNativePointer(solid.wrapped._address())
+
+        gmsh.model.occ.synchronize()
+
+        gmsh.option.setNumber("Mesh.MeshSizeMin", min_mesh_size)
+        gmsh.option.setNumber("Mesh.MeshSizeMax", max_mesh_size)
+
+        gmsh.model.mesh.generate(3)
+
+    def export_mesh_gmsh(self, filename="magnet_mesh", export_dir=""):
+        """Exports a tetrahedral mesh of magnet volumes in H5M format via Gmsh
+        and MOAB.
+
+        Arguments:
+            filename (str): name of H5M output file (defaults to
+                'magnet_mesh').
+            export_dir (str): directory to which to export the h5m output file
+                (defaults to empty string).
+        """
+        self._logger.info("Exporting mesh H5M file for magnets...")
+
+        vtk_path = str(Path(export_dir) / Path(filename).with_suffix(".vtk"))
+        moab_path = Path(export_dir) / Path(filename).with_suffix(".h5m")
+
+        gmsh.write(vtk_path)
+
+        gmsh.clear()
+        gmsh.finalize()
+
+        os.system(f"mbconvert {vtk_path} {moab_path}")
+        Path(vtk_path).unlink()
 
 
 class MagnetSetFromFilaments(MagnetSet):

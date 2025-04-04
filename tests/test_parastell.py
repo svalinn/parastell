@@ -13,6 +13,7 @@ from parastell.cubit_utils import (
 files_to_remove = [
     "chamber.step",
     "component.step",
+    "component.h5m",
     "magnet_set.step",
     "magnet_mesh.exo",
     "magnet_mesh.h5m",
@@ -219,16 +220,19 @@ def test_magnet_set(stellarator):
     )
 
     step_filename_exp = "magnet_set.step"
-    export_mesh = check_cubit_installation()
-    mesh_filename_exp = "magnet_mesh"
 
     stellarator.export_magnets_step(filename=step_filename_exp)
 
     assert Path(step_filename_exp).with_suffix(".step").exists()
 
-    if export_mesh:
-        stellarator.export_magnet_mesh_cubit(filename=mesh_filename_exp)
-        assert Path(mesh_filename_exp).with_suffix(".h5m").exists()
+    if check_cubit_installation():
+        stellarator.export_magnet_mesh_cubit()
+        assert Path("magnet_mesh").with_suffix(".h5m").exists()
+
+        remove_files()
+
+    stellarator.export_magnet_mesh_gmsh()
+    assert Path("magnet_mesh").with_suffix(".h5m").exists()
 
     remove_files()
 
