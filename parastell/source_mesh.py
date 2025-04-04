@@ -93,8 +93,8 @@ class SourceMesh(object):
             of toroidal angles for planes of vertices.
         toroidal_extent (float): extent of source mesh in toroidal direction
             [deg].
-        logger (object): logger object (optional, defaults to None). If no
-            logger is supplied, a default logger will be instantiated.
+        logger (object): logger object (defaults to None). If no logger is
+            supplied, a default logger will be instantiated.
 
     Optional attributes:
         scale (float): a scaling factor between the units of VMEC and [cm]
@@ -532,9 +532,9 @@ class SourceMesh(object):
 
         Arguments:
             filename: name of H5M output file, excluding '.h5m' extension
-                (optional, defaults to 'source_mesh').
+                (defaults to 'source_mesh').
             export_dir (str): directory to which to export the H5M output file
-                (optional, defaults to empty string).
+                (defaults to empty string).
         """
         self._logger.info("Exporting source mesh H5M file...")
 
