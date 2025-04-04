@@ -591,7 +591,7 @@ class Stellarator(object):
         Arguments:
             filename (str): name of DAGMC output file, defaults to 'dagmc'
             export_dir (str): directory to save the output file, defaults to
-            current directory
+                current directory
         """
 
         export_path = Path(export_dir) / Path(filename).with_suffix(".h5m")
