@@ -176,6 +176,7 @@ def test_ivb_exports(invessel_build):
     imported.
     """
     remove_files()
+
     invessel_build.populate_surfaces()
     invessel_build.calculate_loci()
     invessel_build.generate_components()
@@ -190,5 +191,17 @@ def test_ivb_exports(invessel_build):
         invessel_build.mesh_components_cubit(components=["component"])
         invessel_build.export_mesh_cubit("component")
         assert Path("component.h5m").exists()
+
+    remove_files()
+
+    invessel_build.mesh_components_moab("component")
+    invessel_build.export_mesh_moab("component")
+    assert Path("component.h5m").exists()
+
+    remove_files()
+
+    invessel_build.mesh_components_gmsh(["component"])
+    invessel_build.export_mesh_gmsh("component")
+    assert Path("component.h5m").exists()
 
     remove_files()

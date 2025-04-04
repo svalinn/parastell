@@ -88,7 +88,7 @@ def create_ivb_cad_magnets_from_filaments(stellarator_obj):
         stellarator_obj (object): parastell.Stellarator class object.
     """
     construct_invessel_build(stellarator_obj)
-    stellarator_obj.export_invessel_build_step_step()
+    stellarator_obj.export_invessel_build_step()
 
     coils_file = Path("files_for_tests") / "coils.example"
     width = 40.0
@@ -174,16 +174,28 @@ def test_invessel_build(stellarator):
     """
     remove_files()
 
-    component_name_exp = "component"
     construct_invessel_build(stellarator)
 
-    chamber_filename_exp = Path("chamber").with_suffix(".step")
-    component_filename_exp = Path(component_name_exp).with_suffix(".step")
+    chamber_step_filename_exp = Path("chamber").with_suffix(".step")
+    component_step_filename_exp = Path("component").with_suffix(".step")
+    component_h5m_filename_exp = Path("component").with_suffix(".h5m")
 
     stellarator.export_invessel_build_step()
+    stellarator.export_invessel_build_mesh_cubit("component", ["components"])
 
-    assert chamber_filename_exp.exists()
-    assert component_filename_exp.exists()
+    assert chamber_step_filename_exp.exists()
+    assert component_step_filename_exp.exists()
+    assert component_h5m_filename_exp.exists()
+
+    remove_files()
+
+    stellarator.export_invessel_build_mesh_moab("component", "component")
+    assert component_h5m_filename_exp.exists()
+
+    remove_files()
+
+    stellarator.export_invessel_build_mesh_gmsh("component", ["components"])
+    assert component_h5m_filename_exp.exists()
 
     remove_files()
 
