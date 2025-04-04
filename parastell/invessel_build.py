@@ -892,6 +892,8 @@ class InVesselBuild(object):
             components (array of str): array containing the names of the
                 in-vessel components to be meshed.
         """
+        # These parameters are taken directly from Gmsh documentation (see
+        # tutorial t13)
         gmsh.onelab.set(
             """[
             {
