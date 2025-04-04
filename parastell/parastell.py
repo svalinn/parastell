@@ -213,6 +213,36 @@ class Stellarator(object):
         self.invessel_build.mesh_components_moab(component)
         self.invessel_build.export_mesh_moab(filename, export_dir=export_dir)
 
+    def export_invessel_build_mesh_gmsh(
+        self,
+        filename,
+        components,
+        min_mesh_size=5.0,
+        max_mesh_size=20.0,
+        export_dir="",
+    ):
+        """Creates a tetrahedral mesh of in-vessel component volumes via
+        Gmsh and exports the mesh as a H5M file.
+
+        Arguments:
+            filename (str): name of H5M output file.
+            components (array of str): array containing the names of the
+                in-vessel components to be meshed.
+            min_mesh_size (float): minimum size of mesh elements (defaults to
+                5.0).
+            max_mesh_size (float): maximum size of mesh elements (defaults to
+                20.0).
+            export_dir (str): directory to which to export the h5m
+                output file (optional, defaults to empty string).
+        """
+        self._logger.info("Exporting in-vessel components mesh via Gmsh...")
+        self.invessel_build.mesh_components_gmsh(
+            components,
+            min_mesh_size=min_mesh_size,
+            max_mesh_size=max_mesh_size,
+        )
+        self.invessel_build.export_mesh_gmsh(filename, export_dir=export_dir)
+
     def export_invessel_build_mesh_cubit(
         self, filename, components, mesh_size=5, export_dir=""
     ):
@@ -221,12 +251,10 @@ class Stellarator(object):
 
         Arguments:
             filename (str): name of H5M output file.
-            components (array of strings): array containing the name
-                of the in-vessel components to be meshed.
+            components (array of str): array containing the names of the
+                in-vessel components to be meshed.
             mesh_size (int): controls the size of the mesh. Takes values
                 between 1 (finer) and 10 (coarser) (optional, defaults to 5).
-            import_dir (str): directory containing the STEP file of
-                the in-vessel component (optional, defaults to empty string).
             export_dir (str): directory to which to export the h5m
                 output file (optional, defaults to empty string).
         """
