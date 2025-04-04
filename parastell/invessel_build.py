@@ -1,6 +1,7 @@
 import argparse
 from pathlib import Path
 from abc import ABC
+import os
 
 import numpy as np
 from scipy.interpolate import (
@@ -13,6 +14,7 @@ import cadquery as cq
 import pystell.read_vmec as read_vmec
 import pydagmc
 from pymoab import core, types
+import gmsh
 
 from . import log
 from .cubit_utils import (
@@ -853,13 +855,141 @@ class InVesselBuild(object):
         export_path = Path(export_dir) / Path(filename).with_suffix(".h5m")
         self.mesh_mbc.write_file(str(export_path))
 
+    def mesh_components_gmsh(
+        self, components, min_mesh_size=5.0, max_mesh_size=20.0
+    ):
+        """Creates a tetrahedral mesh of in-vessel component volumes via Gmsh.
+
+        Arguments:
+            components (array of str): array containing the names of the
+                in-vessel components to be meshed.
+            min_mesh_size (float): minimum size of mesh elements (defaults to
+                5.0).
+            max_mesh_size (float): maximum size of mesh elements (defaults to
+                20.0).
+        """
+        self._logger.info(
+            "Generating tetrahedral mesh of in-vessel component(s) via Gmsh..."
+        )
+
+        gmsh.initialize()
+
+        if self._use_pydagmc:
+            self._gmsh_from_pydagmc(components)
+        else:
+            self._gmsh_from_cadquery(components)
+
+        gmsh.option.setNumber("Mesh.MeshSizeMin", min_mesh_size)
+        gmsh.option.setNumber("Mesh.MeshSizeMax", max_mesh_size)
+
+        gmsh.model.mesh.generate(3)
+
+    def _gmsh_from_pydagmc(self, components):
+        """Adds PyDAGMC geometry to Gmsh instance.
+        (Internal function not intended to be called externally)
+
+        Arguments:
+            components (array of str): array containing the names of the
+                in-vessel components to be meshed.
+        """
+        gmsh.onelab.set(
+            """[
+            {
+                "type": "number",
+                "name": "Parameters/Angle for surface detection",
+                "values": [40],
+                "min": 20,
+                "max": 120,
+                "step": 1
+            },
+            {
+                "type": "number",
+                "name": "Parameters/Create surfaces guaranteed to be parametrizable",
+                "values": [0],
+                "choices": [0, 1]
+            }
+            ]"""
+        )
+
+        for component in components:
+            volume_id = self.radial_build.radial_build[component]["vol_id"]
+
+            vtk_path = str(Path(f"volume_{volume_id}_tmp").with_suffix(".vtk"))
+            self.dag_model.volumes_by_id[volume_id].to_vtk(vtk_path)
+
+            gmsh.merge(vtk_path)
+
+        angle = gmsh.onelab.getNumber(
+            "Parameters/Angle for surface detection"
+        )[0]
+        includeBoundary = True
+        forceParameterizablePatches = gmsh.onelab.getNumber(
+            "Parameters/Create surfaces guaranteed to be parametrizable"
+        )[0]
+        curveAngle = 180.0
+
+        gmsh.model.mesh.classifySurfaces(
+            np.deg2rad(angle),
+            includeBoundary,
+            forceParameterizablePatches,
+            np.deg2rad(curveAngle),
+        )
+
+        gmsh.model.mesh.create_geometry()
+
+        surfaces = gmsh.model.getEntities(2)
+        surface_tags = [s[1] for s in surfaces]
+        surface_loop = gmsh.model.geo.addSurfaceLoop(surface_tags)
+        gmsh.model.geo.addVolume([surface_loop])
+
+        gmsh.model.geo.synchronize()
+
+    def _gmsh_from_cadquery(self, components):
+        """Adds CadQuery geometry to Gmsh instance.
+        (Internal function not intended to be called externally)
+
+        Arguments:
+            components (array of str): array containing the names of the
+                in-vessel components to be meshed.
+        """
+        for component in components:
+            gmsh.model.occ.importShapesNativePointer(
+                self.Components[component].wrapped._address()
+            )
+
+        gmsh.model.occ.synchronize()
+
+    def export_mesh_gmsh(self, filename, export_dir=""):
+        """Exports a tetrahedral mesh of in-vessel component volumes in H5M
+        format via Gmsh and MOAB.
+
+        Arguments:
+            filename (str): name of H5M output file.
+            export_dir (str): directory to which to export the h5m output file
+                (defaults to empty string).
+        """
+        self._logger.info(
+            "Exporting mesh H5M file for in-vessel component(s)..."
+        )
+
+        vtk_path = str(Path(export_dir) / Path(filename).with_suffix(".vtk"))
+        moab_path = Path(export_dir) / Path(filename).with_suffix(".h5m")
+
+        gmsh.write(vtk_path)
+
+        gmsh.clear()
+        gmsh.finalize()
+
+        os.system(f"mbconvert {vtk_path} {moab_path}")
+        Path(vtk_path).unlink()
+
     def mesh_components_cubit(self, components, mesh_size=5, import_dir=""):
         """Creates a tetrahedral mesh of in-vessel component volumes via
         Coreform Cubit.
 
         Arguments:
-            components (array of strings): array containing the name
-                of the in-vessel components to be meshed.
+            components (array of str): array containing the names of the
+                in-vessel components to be meshed.
             mesh_size (float): controls the size of the mesh. Takes values
                 between 1.0 (finer) and 10.0 (coarser) (defaults to 5.0).
             import_dir (str): directory containing the STEP file of
