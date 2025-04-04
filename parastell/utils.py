@@ -391,7 +391,9 @@ def dagmc_volume_to_step(
     cq_solid.exportStep(str(Path(step_file_path).with_suffix(".step")))
 
 
-def ribs_from_kisslinger_format(filename, start_line=2, scale=m2cm):
+def ribs_from_kisslinger_format(
+    filename, start_line=2, scale=m2cm, delimiter="\t"
+):
     """Reads a Kisslinger format file and extracts the R, Z data, the number of
     periods, and the toroidal angles at which the R, Z data is specified.
 
@@ -422,7 +424,7 @@ def ribs_from_kisslinger_format(filename, start_line=2, scale=m2cm):
     profiles = []
     toroidal_angles = []
     num_toroidal_angles, num_poloidal_angles, periods = (
-        int(x) for x in data[0].rstrip().split("\t")
+        int(x) for x in data[0].rstrip().split(delimiter)
     )
 
     ribs = [
@@ -436,7 +438,9 @@ def ribs_from_kisslinger_format(filename, start_line=2, scale=m2cm):
         profile = []
         for loci in rib[1:]:
             loci = loci.rstrip()
-            r_z_coords = [float(coord) * scale for coord in loci.split("\t")]
+            r_z_coords = [
+                float(coord) * scale for coord in loci.split(delimiter)
+            ]
             profile.append(r_z_coords)
         profiles.append(profile)
 
