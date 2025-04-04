@@ -181,7 +181,7 @@ def test_invessel_build(stellarator):
     component_h5m_filename_exp = Path("component").with_suffix(".h5m")
 
     stellarator.export_invessel_build_step()
-    stellarator.export_invessel_build_mesh_cubit("component", ["components"])
+    stellarator.export_invessel_build_mesh_cubit("component", ["component"])
 
     assert chamber_step_filename_exp.exists()
     assert component_step_filename_exp.exists()
@@ -194,7 +194,7 @@ def test_invessel_build(stellarator):
 
     remove_files()
 
-    stellarator.export_invessel_build_mesh_gmsh("component", ["components"])
+    stellarator.export_invessel_build_mesh_gmsh("component", ["component"])
     assert component_h5m_filename_exp.exists()
 
     remove_files()

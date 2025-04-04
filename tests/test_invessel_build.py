@@ -91,7 +91,7 @@ def test_ivb_basics(invessel_build):
     wall_s_exp = 1.08
     repeat_exp = 0
     num_ribs_exp = 11
-    num_rib_pts_exp = 67
+    num_rib_pts_exp = 61
     scale_exp = 100
     chamber_mat_tag_exp = "Vacuum"
 
@@ -194,7 +194,7 @@ def test_ivb_exports(invessel_build):
 
     remove_files()
 
-    invessel_build.mesh_components_moab("component")
+    invessel_build.mesh_component_moab("component")
     invessel_build.export_mesh_moab("component")
     assert Path("component.h5m").exists()
 

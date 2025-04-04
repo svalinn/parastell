@@ -305,7 +305,7 @@ class InVesselBuild(object):
 
         self.repeat = 0
         self.num_ribs = 61
-        self.num_rib_pts = 67
+        self.num_rib_pts = 61
         self.scale = m2cm
         self.use_pydagmc = False
 
@@ -409,6 +409,10 @@ class InVesselBuild(object):
         self._poloidal_angles_exp = np.deg2rad(
             expand_list(self.radial_build.poloidal_angles, self.num_rib_pts)
         )
+
+        # Store actual number of ribs and rib points
+        self._num_ribs = len(self._toroidal_angles_exp)
+        self._num_rib_pts = len(self._poloidal_angles_exp)
 
         offset_mat = np.zeros(
             (
@@ -712,7 +716,7 @@ class InVesselBuild(object):
 
         return solids, mat_tags
 
-    def mesh_components_moab(self, component):
+    def mesh_component_moab(self, component):
         """Creates a tetrahedral mesh of a single in-vessel component volume
         via MOAB. This mesh is created using the point cloud of the specified
         component and as such, the mesh will be one tetrahedron thick.
@@ -747,8 +751,8 @@ class InVesselBuild(object):
         self.mesh_set = self.mesh_mbc.create_meshset()
         self.mesh_mbc.add_entity(self.mesh_set, self.verts)
 
-        for toroidal_idx in range(self.num_ribs - 1):
-            for poloidal_idx in range(self.num_rib_pts - 1):
+        for toroidal_idx in range(self._num_ribs - 1):
+            for poloidal_idx in range(self._num_rib_pts - 1):
                 self._create_tets_from_hex(poloidal_idx, toroidal_idx)
 
     def _create_tets_from_hex(self, poloidal_idx, toroidal_idx):
@@ -814,14 +818,14 @@ class InVesselBuild(object):
         """
         surface_idx, poloidal_idx, toroidal_idx = vertex_idx
 
-        verts_per_surface = self.num_ribs * self.num_rib_pts
+        verts_per_surface = self._num_ribs * self._num_rib_pts
         surface_offset = surface_idx * verts_per_surface
 
-        toroidal_offset = toroidal_idx * self.num_rib_pts
+        toroidal_offset = toroidal_idx * self._num_rib_pts
 
         poloidal_offset = poloidal_idx
         # Wrap around if poloidal angle is 2*pi
-        if poloidal_idx == self.num_rib_pts - 1:
+        if poloidal_idx == self._num_rib_pts - 1:
             poloidal_offset = 0
 
         id = surface_offset + toroidal_offset + poloidal_offset
