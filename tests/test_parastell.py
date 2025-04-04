@@ -182,20 +182,25 @@ def test_invessel_build(stellarator):
     component_h5m_filename_exp = Path("component").with_suffix(".h5m")
 
     stellarator.export_invessel_build_step()
-    stellarator.export_invessel_build_mesh_cubit("component", ["component"])
 
     assert chamber_step_filename_exp.exists()
     assert component_step_filename_exp.exists()
-    assert component_h5m_filename_exp.exists()
 
-    remove_files()
+    if check_cubit_installation():
+        stellarator.export_invessel_build_mesh_cubit(
+            ["component"], "component"
+        )
+
+        assert component_h5m_filename_exp.exists()
+
+        remove_files()
 
     stellarator.export_invessel_build_mesh_moab("component", "component")
     assert component_h5m_filename_exp.exists()
 
     remove_files()
 
-    stellarator.export_invessel_build_mesh_gmsh("component", ["component"])
+    stellarator.export_invessel_build_mesh_gmsh(["component"], "component")
     assert component_h5m_filename_exp.exists()
 
     remove_files()
