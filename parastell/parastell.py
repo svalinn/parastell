@@ -214,8 +214,8 @@ class Stellarator(object):
 
     def export_invessel_build_mesh_gmsh(
         self,
-        filename,
         components,
+        filename,
         min_mesh_size=5.0,
         max_mesh_size=20.0,
         export_dir="",
@@ -224,9 +224,9 @@ class Stellarator(object):
         Gmsh and exports the mesh as a H5M file.
 
         Arguments:
-            filename (str): name of H5M output file.
             components (array of str): array containing the names of the
                 in-vessel components to be meshed.
+            filename (str): name of H5M output file.
             min_mesh_size (float): minimum size of mesh elements (defaults to
                 5.0).
             max_mesh_size (float): maximum size of mesh elements (defaults to
@@ -242,15 +242,15 @@ class Stellarator(object):
         self.invessel_build.export_mesh_gmsh(filename, export_dir=export_dir)
 
     def export_invessel_build_mesh_cubit(
-        self, filename, components, mesh_size=5, export_dir=""
+        self, components, filename, mesh_size=5, export_dir=""
     ):
         """Creates a tetrahedral mesh of in-vessel component volumes via
         Coreform Cubit and exports the mesh as a H5M file.
 
         Arguments:
-            filename (str): name of H5M output file.
             components (array of str): array containing the names of the
                 in-vessel components to be meshed.
+            filename (str): name of H5M output file.
             mesh_size (int): controls the size of the mesh. Takes values
                 between 1 (finer) and 10 (coarser) (optional, defaults to 5).
             export_dir (str): directory to which to export the h5m

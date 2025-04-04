@@ -49,6 +49,17 @@ stellarator.construct_invessel_build(
 )
 # Export in-vessel component files
 stellarator.export_invessel_build_step(export_dir=export_dir)
+stellarator.export_invessel_build_mesh_cubit(
+    [
+        "chamber",
+        "first_wall",
+        "breeder",
+        "back_wall",
+        "shield",
+        "vacuum_vessel",
+    ],
+    "weight_window_mesh",
+)
 
 # Define build parameters for magnet coils
 coils_file = "coils.example"
