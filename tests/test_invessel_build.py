@@ -17,6 +17,7 @@ import pystell.read_vmec as read_vmec
 files_to_remove = [
     "chamber.step",
     "component.step",
+    "component.h5m",
     "stellarator.log",
 ]
 
