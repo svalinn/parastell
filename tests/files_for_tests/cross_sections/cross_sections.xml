@@ -1,0 +1,7 @@
+<!--Minimal cross-sections file for NWL utility testing-->
+<?xml version='1.0' encoding='UTF-8'?>
+<cross_sections>
+  <library materials="H1" path="01H_001.h5" type="neutron"/>
+  <library materials="H2" path="01H_002.h5" type="neutron"/>
+  <library materials="H3" path="01H_003.h5" type="neutron"/>
+</cross_sections>
