@@ -200,3 +200,16 @@ def test_magnet_exports_from_geometry(coil_set_from_geometry):
     assert Path("magnet_mesh.h5m").exists()
 
     remove_files()
+
+
+def test_zero_volume_volumes():
+    """Tests to make sure zero volume coil solids are not being added to
+    MagnetSetFromFilament.coil_solids by testing if:
+        * Any coil solids in the specially designed test set are zero
+    """
+    test_filaments = "files_for_tests/circular_coils.example"
+    ms = magnet_coils.MagnetSetFromFilaments(test_filaments, 40, 40, 89.8)
+    ms.populate_magnet_coils()
+    ms.build_magnet_coils()
+    for solid in ms.coil_solids:
+        assert not np.isclose(solid.Volume(), 0)
