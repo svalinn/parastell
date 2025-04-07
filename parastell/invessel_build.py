@@ -1,5 +1,6 @@
 import argparse
 from pathlib import Path
+import os
 
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
@@ -8,9 +9,11 @@ import cadquery as cq
 import pystell.read_vmec as read_vmec
 import dagmc
 from pymoab import core, types
+import gmsh
 
 from . import log
 from .cubit_utils import (
+    create_new_cubit_instance,
     import_step_cubit,
     export_mesh_cubit,
     orient_spline_surfaces,
@@ -66,8 +69,8 @@ class InVesselBuild(object):
             toroidal angle, phi.
         radial_build (object): RadialBuild class object with all attributes
             defined.
-        logger (object): logger object (optional, defaults to None). If no
-            logger is supplied, a default logger will be instantiated.
+        logger (object): logger object (defaults to None). If no logger is
+            supplied, a default logger will be instantiated.
 
     Optional attributes:
         repeat (int): number of times to repeat build segment for full model
@@ -83,7 +86,7 @@ class InVesselBuild(object):
         scale (float): a scaling factor between the units of VMEC and [cm]
             (defaults to m2cm = 100).
         use_pydagmc (bool): If True, generate components with pydagmc, rather
-            than CADQuery. Defaults to False.
+            than CadQuery (defaults to False).
     """
 
     def __init__(self, vmec_obj, radial_build, logger=None, **kwargs):
@@ -94,7 +97,7 @@ class InVesselBuild(object):
 
         self.repeat = 0
         self.num_ribs = 61
-        self.num_rib_pts = 67
+        self.num_rib_pts = 61
         self.scale = m2cm
         self.use_pydagmc = False
 
@@ -199,6 +202,10 @@ class InVesselBuild(object):
             expand_list(self.radial_build.poloidal_angles, self.num_rib_pts)
         )
 
+        # Store actual number of ribs and rib points
+        self._num_ribs = len(self._toroidal_angles_exp)
+        self._num_rib_pts = len(self._poloidal_angles_exp)
+
         offset_mat = np.zeros(
             (
                 len(self.radial_build.toroidal_angles),
@@ -283,7 +290,7 @@ class InVesselBuild(object):
             rib1 (Rib object): First of two ribs to be connected.
             rib2 (Rib object): Second of two ribs to be connected.
             reverse (bool): Optional. Whether to reverse the connectivity of
-                the MBTRIs being generated. Defaults to False.
+                the MBTRIs being generated (defaults to False).
 
         Returns:
             mb_tris (list of Entity Handle): List of the entity handles of the
@@ -472,7 +479,7 @@ class InVesselBuild(object):
 
         Arguments:
             export_dir (str): directory to which to export the STEP output files
-                (optional, defaults to empty string).
+                (defaults to empty string).
         """
         self._logger.info("Exporting STEP files for in-vessel components...")
 
@@ -501,31 +508,324 @@ class InVesselBuild(object):
 
         return solids, mat_tags
 
-    def export_component_mesh(
-        self, components, mesh_size=5, import_dir="", export_dir=""
-    ):
-        """Creates a tetrahedral mesh of an in-vessel component volume
-        via Coreform Cubit and exports it as H5M file.
+    def mesh_component_moab(self, component):
+        """Creates a tetrahedral mesh of a single in-vessel component volume
+        via MOAB. This mesh is created using the point cloud of the specified
+        component and as such, the mesh will be one tetrahedron thick.
 
         Arguments:
-            components (array of strings): array containing the name
-                of the in-vessel components to be meshed.
-            mesh_size (float): controls the size of the mesh. Takes values
-                between 1.0 (finer) and 10.0 (coarser) (optional, defaults to
+            component (str): name of in-vessel component to be meshed.
+        """
+        self._logger.info(
+            f"Generating tetrahedral mesh of {component} volume via MOAB..."
+        )
+
+        self.mesh_mbc = core.Core()
+
+        surfaces = []
+        surface_keys = list(self.Surfaces.keys())
+
+        for i, key in enumerate(surface_keys[:-1]):
+            # Inner surface of given component = outer surface of inner
+            # component
+            if surface_keys[i + 1] == component:
+                surfaces.append(self.Surfaces[key])
+        surfaces.append(self.Surfaces[component])
+
+        coords = []
+        for surface in surfaces:
+            for rib in surface.Ribs:
+                coords.extend(rib.rib_loci)
+        coords = np.array(coords)
+
+        self.verts = self.mesh_mbc.create_vertices(coords)
+
+        self.mesh_set = self.mesh_mbc.create_meshset()
+        self.mesh_mbc.add_entity(self.mesh_set, self.verts)
+
+        for toroidal_idx in range(self._num_ribs - 1):
+            for poloidal_idx in range(self._num_rib_pts - 1):
+                self._create_tets_from_hex(poloidal_idx, toroidal_idx)
+
+    def _create_tets_from_hex(self, poloidal_idx, toroidal_idx):
+        """Creates five tetrahedra from defined hexahedron.
+        (Internal function not intended to be called externally)
+
+        Arguments:
+            poloidal_idx (int): index defining location along poloidal angle axis.
+            toroidal_idx (int): index defining location along toroidal angle axis.
+        """
+        # Relative offsets of vertices in a 3-D index space
+        hex_vertex_stencil = np.array(
+            [
+                [0, 0, 0],
+                [1, 0, 0],
+                [1, 1, 0],
+                [0, 1, 0],
+                [0, 0, 1],
+                [1, 0, 1],
+                [1, 1, 1],
+                [0, 1, 1],
+            ]
+        )
+
+        # IDs of hex vertices applying offset stencil to current point
+        hex_idx_data = (
+            np.array([0, poloidal_idx, toroidal_idx]) + hex_vertex_stencil
+        )
+
+        idx_list = [
+            self._get_vertex_id(vertex_idx) for vertex_idx in hex_idx_data
+        ]
+
+        # Define MOAB canonical ordering of hexahedron vertex indices
+        # Ordering follows right hand rule such that the fingers curl around
+        # one side of the tetrahedron and the thumb points to the remaining
+        # vertex. The vertices are ordered such that those on a face are first,
+        # ordered clockwise relative to the thumb, followed by the remaining
+        # vertex at the end of the thumb.
+        # See Moreno, Bader, Wilson 2024 for hexahedron splitting
+        hex_to_tets_mapping = [
+            [idx_list[0], idx_list[3], idx_list[1], idx_list[4]],
+            [idx_list[1], idx_list[3], idx_list[2], idx_list[6]],
+            [idx_list[1], idx_list[4], idx_list[6], idx_list[5]],
+            [idx_list[3], idx_list[6], idx_list[4], idx_list[7]],
+            [idx_list[1], idx_list[3], idx_list[6], idx_list[4]],
+        ]
+
+        for vertex_ids in hex_to_tets_mapping:
+            self._create_tet(vertex_ids)
+
+    def _get_vertex_id(self, vertex_idx):
+        """Computes vertex index in row-major order as stored by MOAB from
+        three-dimensional n x 3 matrix indices.
+        (Internal function not intended to be called externally)
+
+        Arguments:
+            vertex_idx (list): vertex's 3-D grid indices in order
+                [surface index, poloidal angle index, toroidal angle index]
+
+        Returns:
+            id (int): vertex index in row-major order as stored by MOAB
+        """
+        surface_idx, poloidal_idx, toroidal_idx = vertex_idx
+
+        verts_per_surface = self._num_ribs * self._num_rib_pts
+        surface_offset = surface_idx * verts_per_surface
+
+        toroidal_offset = toroidal_idx * self._num_rib_pts
+
+        poloidal_offset = poloidal_idx
+        # Wrap around if poloidal angle is 2*pi
+        if poloidal_idx == self._num_rib_pts - 1:
+            poloidal_offset = 0
+
+        id = surface_offset + toroidal_offset + poloidal_offset
+
+        return id
+
+    def _create_tet(self, tet_ids):
+        """Creates tetrahedron and adds to PyMOAB core.
+        (Internal function not intended to be called externally)
+
+        Arguments:
+            tet_ids (list of int): tetrahedron vertex indices.
+        """
+        tet_verts = [self.verts[int(id)] for id in tet_ids]
+        tet = self.mesh_mbc.create_element(types.MBTET, tet_verts)
+        self.mesh_mbc.add_entity(self.mesh_set, tet)
+
+    def export_mesh_moab(self, filename, export_dir=""):
+        """Exports a tetrahedral mesh of in-vessel component volumes in H5M
+        format via MOAB.
+
+        Arguments:
+            filename (str): name of H5M output file.
+            export_dir (str): directory to which to export the h5m output file
+                (defaults to empty string).
+        """
+        self._logger.info(
+            "Exporting mesh H5M file for in-vessel component(s)..."
+        )
+
+        export_path = Path(export_dir) / Path(filename).with_suffix(".h5m")
+        self.mesh_mbc.write_file(str(export_path))
+
+    def mesh_components_gmsh(
+        self, components, min_mesh_size=5.0, max_mesh_size=20.0
+    ):
+        """Creates a tetrahedral mesh of in-vessel component volumes via Gmsh.
+
+        Arguments:
+            components (array of str): array containing the names of the
+                in-vessel components to be meshed.
+            min_mesh_size (float): minimum size of mesh elements (defaults to
                 5.0).
-            import_dir (str): directory containing the STEP file of
-                the in-vessel component (optional, defaults to empty string).
-            export_dir (str): directory to which to export the h5m
-                output file (optional, defaults to empty string).
+            max_mesh_size (float): maximum size of mesh elements (defaults to
+                20.0).
+        """
+        self._logger.info(
+            "Generating tetrahedral mesh of in-vessel component(s) via Gmsh..."
+        )
+
+        gmsh.initialize()
+
+        if self._use_pydagmc:
+            self._gmsh_from_pydagmc(components)
+        else:
+            self._gmsh_from_cadquery(components)
+
+        gmsh.option.setNumber("Mesh.MeshSizeMin", min_mesh_size)
+        gmsh.option.setNumber("Mesh.MeshSizeMax", max_mesh_size)
+
+        gmsh.model.mesh.generate(3)
+
+    def _gmsh_from_pydagmc(self, components):
+        """Adds PyDAGMC geometry to Gmsh instance.
+        (Internal function not intended to be called externally)
+
+        Arguments:
+            components (array of str): array containing the names of the
+                in-vessel components to be meshed.
+        """
+        # These parameters are taken directly from Gmsh documentation (see
+        # tutorial t13)
+        gmsh.onelab.set(
+            """[
+            {
+                "type": "number",
+                "name": "Parameters/Angle for surface detection",
+                "values": [40],
+                "min": 20,
+                "max": 120,
+                "step": 1
+            },
+            {
+                "type": "number",
+                "name": "Parameters/Create surfaces guaranteed to be parametrizable",
+                "values": [0],
+                "choices": [0, 1]
+            }
+            ]"""
+        )
+
+        for component in components:
+            volume_id = self.radial_build.radial_build[component]["vol_id"]
+
+            vtk_path = str(Path(f"volume_{volume_id}_tmp").with_suffix(".vtk"))
+            self.dag_model.volumes_by_id[volume_id].to_vtk(vtk_path)
+
+            gmsh.merge(vtk_path)
+
+        angle = gmsh.onelab.getNumber(
+            "Parameters/Angle for surface detection"
+        )[0]
+        includeBoundary = True
+        forceParameterizablePatches = gmsh.onelab.getNumber(
+            "Parameters/Create surfaces guaranteed to be parametrizable"
+        )[0]
+        curveAngle = 180.0
+
+        gmsh.model.mesh.classifySurfaces(
+            np.deg2rad(angle),
+            includeBoundary,
+            forceParameterizablePatches,
+            np.deg2rad(curveAngle),
+        )
+
+        gmsh.model.mesh.create_geometry()
+
+        surfaces = gmsh.model.getEntities(2)
+        surface_tags = [s[1] for s in surfaces]
+        surface_loop = gmsh.model.geo.addSurfaceLoop(surface_tags)
+        gmsh.model.geo.addVolume([surface_loop])
+
+        gmsh.model.geo.synchronize()
+
+    def _gmsh_from_cadquery(self, components):
+        """Adds CadQuery geometry to Gmsh instance.
+        (Internal function not intended to be called externally)
+
+        Arguments:
+            components (array of str): array containing the names of the
+                in-vessel components to be meshed.
         """
         for component in components:
-            vol_id = import_step_cubit(component, import_dir)
-            mesh_volume_auto_factor([vol_id], mesh_size=mesh_size)
-            export_mesh_cubit(
-                filename=component,
-                export_dir=export_dir,
-                delete_upon_export=True,
+            gmsh.model.occ.importShapesNativePointer(
+                self.Components[component].wrapped._address()
             )
+
+        gmsh.model.occ.synchronize()
+
+    def export_mesh_gmsh(self, filename, export_dir=""):
+        """Exports a tetrahedral mesh of in-vessel component volumes in H5M
+        format via Gmsh and MOAB.
+
+        Arguments:
+            filename (str): name of H5M output file.
+            export_dir (str): directory to which to export the h5m output file
+                (defaults to empty string).
+        """
+        self._logger.info(
+            "Exporting mesh H5M file for in-vessel component(s)..."
+        )
+
+        vtk_path = str(Path(export_dir) / Path(filename).with_suffix(".vtk"))
+        moab_path = Path(export_dir) / Path(filename).with_suffix(".h5m")
+
+        gmsh.write(vtk_path)
+
+        gmsh.clear()
+        gmsh.finalize()
+
+        os.system(f"mbconvert {vtk_path} {moab_path}")
+        Path(vtk_path).unlink()
+
+    def mesh_components_cubit(self, components, mesh_size=5, import_dir=""):
+        """Creates a tetrahedral mesh of in-vessel component volumes via
+        Coreform Cubit.
+
+        Arguments:
+            components (array of str): array containing the names of the
+                in-vessel components to be meshed.
+            mesh_size (float): controls the size of the mesh. Takes values
+                between 1.0 (finer) and 10.0 (coarser) (defaults to 5.0).
+            import_dir (str): directory containing the STEP file of
+                the in-vessel component (defaults to empty string).
+        """
+        self._logger.info(
+            "Generating tetrahedral mesh of in-vessel component(s) via Coreform"
+            " Cubit..."
+        )
+
+        create_new_cubit_instance()
+
+        volume_ids = []
+
+        for component in components:
+            volume_id = import_step_cubit(component, import_dir)
+            volume_ids.append(volume_id)
+
+        mesh_volume_auto_factor(volume_ids, mesh_size=mesh_size)
+
+    def export_mesh_cubit(self, filename, export_dir=""):
+        """Exports a tetrahedral mesh of in-vessel component volumes in H5M
+        format via Coreform Cubit and MOAB.
+
+        Arguments:
+            filename (str): name of H5M output file.
+            export_dir (str): directory to which to export the h5m output file
+                (defaults to empty string).
+        """
+        self._logger.info(
+            "Exporting mesh H5M file for in-vessel component(s)..."
+        )
+
+        export_mesh_cubit(
+            filename=filename,
+            export_dir=export_dir,
+            delete_upon_export=True,
+        )
 
 
 class Surface(object):
@@ -646,7 +946,7 @@ class Rib(object):
         Arguments:
             poloidal_offset (float) : some offset to apply to the full set of
                 poloidal angles for evaluating the location of the Cartesian
-                points (optional, defaults to 0).
+                points (defaults to 0).
         """
         return self.scale * np.array(
             [
@@ -738,18 +1038,18 @@ class RadialBuild(object):
                         order provided in toroidal_angles and poloidal_angles
                         [cm](ndarray(float)).
                     'mat_tag': DAGMC material tag for component in DAGMC
-                        neutronics model (str, optional, defaults to None). If
-                        none is supplied, the 'component' key will be used.
+                        neutronics model (str, defaults to None). If None is
+                        supplied, the 'component' key will be used.
                 }
             }.
         split_chamber (bool): if wall_s > 1.0, separate interior vacuum
-            chamber into plasma and scrape-off layer components (optional,
-            defaults to False). If an item with a 'sol' key is present in the
-            radial_build dictionary, settting this to False will not combine
-            the resultant 'chamber' with 'sol'. To include a custom scrape-off
-            layer definition for 'chamber', add an item with a 'chamber' key
-            and desired 'thickness_matrix' value to the radial_build dictionary.
-        logger (object): logger object (optional, defaults to None). If no
+            chamber into plasma and scrape-off layer components (defaults to
+            False). If an item with a 'sol' key is present in the radial_build
+            dictionary, settting this to False will not combine the resultant
+            'chamber' with 'sol'. To include a custom scrape-off layer
+            definition for 'chamber', add an item with a 'chamber' key and
+            desired 'thickness_matrix' value to the radial_build dictionary.
+        logger (object): logger object (defaults to None). If no
             logger is supplied, a default logger will be instantiated.
 
     Optional attributes:

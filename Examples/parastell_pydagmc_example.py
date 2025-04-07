@@ -58,6 +58,10 @@ stellarator.construct_invessel_build(
     num_ribs=num_ribs,
     num_rib_pts=num_rib_pts,
 )
+# Export in-vessel component files
+stellarator.export_invessel_build_mesh_moab(
+    "vacuum_vessel", "vacuum_vessel_tally_mesh"
+)
 
 # Define build parameters for magnet coils
 coils_file = "coils.example"
@@ -68,11 +72,7 @@ toroidal_extent = 90.0
 stellarator.construct_magnets_from_filaments(
     coils_file, width, thickness, toroidal_extent, sample_mod=6
 )
-stellarator.export_magnets(
-    step_filename="magnets",
-    export_mesh=False,
-    export_dir=export_dir,
-)
+stellarator.export_magnets_step(filename="magnets", export_dir=export_dir)
 
 stellarator.build_pydagmc_model(
     magnet_exporter="cad_to_dagmc", max_mesh_size=60

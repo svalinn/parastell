@@ -17,6 +17,7 @@ import pystell.read_vmec as read_vmec
 files_to_remove = [
     "chamber.step",
     "component.step",
+    "component.h5m",
     "stellarator.log",
 ]
 
@@ -70,7 +71,7 @@ def test_ivb_basics(invessel_build):
     wall_s_exp = 1.08
     repeat_exp = 0
     num_ribs_exp = 11
-    num_rib_pts_exp = 67
+    num_rib_pts_exp = 61
     scale_exp = 100
     chamber_mat_tag_exp = "Vacuum"
 
@@ -151,6 +152,7 @@ def test_ivb_exports(invessel_build):
     imported.
     """
     remove_files()
+
     invessel_build.populate_surfaces()
     invessel_build.calculate_loci()
     invessel_build.generate_components()
@@ -162,7 +164,20 @@ def test_ivb_exports(invessel_build):
     if check_cubit_installation():
         create_new_cubit_instance()
 
-        invessel_build.export_component_mesh(components=["component"])
+        invessel_build.mesh_components_cubit(components=["component"])
+        invessel_build.export_mesh_cubit("component")
         assert Path("component.h5m").exists()
+
+    remove_files()
+
+    invessel_build.mesh_component_moab("component")
+    invessel_build.export_mesh_moab("component")
+    assert Path("component.h5m").exists()
+
+    remove_files()
+
+    invessel_build.mesh_components_gmsh(["component"])
+    invessel_build.export_mesh_gmsh("component")
+    assert Path("component.h5m").exists()
 
     remove_files()

@@ -25,7 +25,7 @@ stellarator.construct_invessel_build(
     split_chamber=False,
 )
 # Export in-vessel component files
-stellarator.export_invessel_build(export_dir=export_dir)
+stellarator.export_invessel_build_step(export_dir=export_dir)
 
 # Define source mesh parameters
 mesh_size = (11, 81, 61)
