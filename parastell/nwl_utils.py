@@ -177,8 +177,8 @@ def compute_flux_coordinates(vmec_file, wall_s, coords, num_threads, conv_tol):
                 vmec_file,
                 wall_s,
                 conv_tol,
-                toroidal_angles[i * chunk_size : (i + 1) * chunk_size],
-                coords[i * chunk_size : (i + 1) * chunk_size],
+                toroidal_angles[chunk_start: chunk_start + chunk_size],
+                coords[chunk_start: chunk_start + chunk_size],
             )
         )
 
@@ -259,7 +259,7 @@ def compute_nwl(
     num_threads=None,
     logger=None,
 ):
-    """Computes and plots NWL. Assumes toroidal extent is less than 360 degrees.
+    """Computes NWL. Assumes toroidal extent is less than 360 degrees.
 
     Arguments:
         source_file (str): path to OpenMC surface source file.
@@ -309,13 +309,13 @@ def compute_nwl(
 
     batch_size = math.ceil(num_particles / num_batches)
 
-    for i in range(num_batches):
+    for batch_start range(0, len(coords), batch_size):
         logger.info(f"Processing batch {i + 1}")
 
         toroidal_angle_batch, poloidal_angle_batch = compute_flux_coordinates(
             vmec_file,
             wall_s,
-            coords[i * batch_size : (i + 1) * batch_size],
+            coords[batch_start : batch_start + batch_size],
             num_threads,
             conv_tol,
         )
