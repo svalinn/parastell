@@ -428,8 +428,8 @@ def ribs_from_kisslinger_format(
     )
 
     ribs = [
-        data[1:][x : x + num_poloidal_angles + 1]
-        for x in range(0, len(data[1:]), num_poloidal_angles + 1)
+        data[x : x + num_poloidal_angles + 1]
+        for x in range(1, len(data[1:]), num_poloidal_angles + 1)
     ]
 
     for rib in ribs:
