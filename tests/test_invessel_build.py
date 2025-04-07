@@ -10,6 +10,7 @@ from parastell.cubit_utils import (
     check_cubit_installation,
     create_new_cubit_instance,
 )
+from parastell.utils import ribs_from_kisslinger_format
 
 import pystell.read_vmec as read_vmec
 
@@ -30,13 +31,21 @@ def remove_files():
 vmec_file = Path("files_for_tests") / "wout_vmec.nc"
 vmec_surface = ivb.VMECSurface(read_vmec.VMECData(vmec_file))
 
-ribs_file = Path("files_for_tests") / "custom_surface_rz_ribs.npy"
-custom_surface_ribs = np.load(ribs_file) / ivb.m2cm
-num_toroidal_angles, num_poloidal_angles, _ = custom_surface_ribs.shape
-toroidal_angles = np.linspace(0, 90, num_toroidal_angles)
+ribs_file = Path("files_for_tests") / "kisslinger_file_example.txt"
+(
+    custom_surface_toroidal_angles,
+    num_toroidal_angles,
+    num_poloidal_angles,
+    periods,
+    custom_surface_rz_ribs,
+) = ribs_from_kisslinger_format(
+    ribs_file,
+    delimiter=" ",
+    scale=1 / ivb.m2cm,
+)
 poloidal_angles = np.linspace(0, 360, num_poloidal_angles)
 rib_based_surface = ivb.RibBasedSurface(
-    custom_surface_ribs, toroidal_angles, poloidal_angles
+    custom_surface_rz_ribs, custom_surface_toroidal_angles, poloidal_angles
 )
 
 

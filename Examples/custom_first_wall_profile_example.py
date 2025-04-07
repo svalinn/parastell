@@ -1,23 +1,31 @@
 import parastell.invessel_build as ivb
 import parastell.parastell as ps
+from parastell.utils import ribs_from_kisslinger_format
 import numpy as np
 
 # Get a predefined set of points representing the first wall.
-custom_surface_rz_ribs = np.load(
-    "../tests/files_for_tests/custom_surface_rz_ribs.npy"
+(
+    custom_surface_toroidal_angles,
+    num_toroidal_angles,
+    num_poloidal_angles,
+    periods,
+    custom_surface_rz_ribs,
+) = ribs_from_kisslinger_format(
+    "../tests/files_for_tests/kisslinger_file_example.txt",
+    delimiter=" ",
+    scale=1,
 )
 
 # For this example, the ribs and points on the ribs are evenly spaced, which
 # is not required.
-num_toroidal_angles, num_poloidal_angles, _ = custom_surface_rz_ribs.shape
-
-toroidal_angles = np.linspace(0, 90, num_toroidal_angles)
-poloidal_angles = np.linspace(0, 360, num_poloidal_angles)
+custom_surface_poloidal_angles = np.linspace(0, 360, num_poloidal_angles)
 
 # Create a ReferenceSurface object from the known points and corresponding
 # toroidal and poloidal angles.
 ks = ivb.RibBasedSurface(
-    custom_surface_rz_ribs, toroidal_angles, poloidal_angles
+    custom_surface_rz_ribs,
+    custom_surface_toroidal_angles,
+    custom_surface_poloidal_angles,
 )
 
 # Define directory to export all output files to
@@ -57,7 +65,7 @@ radial_build_dict = {
         )
     },
     "back_wall": {"thickness_matrix": uniform_unit_thickness * 5},
-    "shield": {"thickness_matrix": uniform_unit_thickness * 40},
+    "shield": {"thickness_matrix": uniform_unit_thickness * 30},
     "vacuum_vessel": {
         "thickness_matrix": uniform_unit_thickness * 10,
         "mat_tag": "vac_vessel",
