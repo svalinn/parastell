@@ -6,7 +6,7 @@ from scipy.interpolate import RegularGridInterpolator
 
 import cadquery as cq
 import pystell.read_vmec as read_vmec
-import dagmc
+import pydagmc
 from pymoab import core, types
 
 from . import log
@@ -151,7 +151,7 @@ class InVesselBuild(object):
         self._use_pydagmc = value
         if self._use_pydagmc:
             self.mbc = core.Core()
-            self.dag_model = dagmc.DAGModel(self.mbc)
+            self.dag_model = pydagmc.DAGModel(self.mbc)
 
     def _interpolate_offset_matrix(self, offset_mat):
         """Interpolates total offset for expanded angle lists using cubic spline
@@ -404,7 +404,7 @@ class InVesselBuild(object):
         ):
 
             mat = layer_data.get("mat_tag", layer_name)
-            group = dagmc.Group.create(self.dag_model, name="mat:" + mat)
+            group = pydagmc.Group.create(self.dag_model, name="mat:" + mat)
             group.add_set(vol)
             layer_data["vol_id"] = vol.id
 
