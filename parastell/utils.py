@@ -397,6 +397,28 @@ def ribs_from_kisslinger_format(
     """Reads a Kisslinger format file and extracts the R, Z data, the number of
     periods, and the toroidal angles at which the R, Z data is specified.
 
+    The expected format is as follows:
+
+    Comments up to start line.
+
+    Start line: A single line containing:
+        3 delimiter separated ints, representing:
+            - the number of toroidal angles
+            - the number of points per toroidal angle
+            - the number of periods in the device
+        Only the first 3 ints will be read from this line.
+
+    Toroidal angle block: A set of lines of length points per toroidal angle
+        plus 1, where:
+            - The first line is the corresponding toroidal angle, in degrees
+            - The subsequent lines are the delimiter separated R, Z values
+                of each point on the toroidal angle
+
+    There should be the same number of toroidal angle blocks as the number
+    of toroidal angles specified in the start line.
+
+    This file is expected not to have any blank lines.
+
     Arguments:
         filename (str): Path to the file to be read.
         start_line (int): Line at which the data should start being read. This
@@ -424,7 +446,7 @@ def ribs_from_kisslinger_format(
     profiles = []
     toroidal_angles = []
     num_toroidal_angles, num_poloidal_angles, periods = (
-        int(x) for x in data[0].rstrip().split(delimiter)
+        int(x) for x in data[0].rstrip().split(delimiter)[0:3]
     )
 
     ribs = [
