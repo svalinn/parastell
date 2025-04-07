@@ -171,7 +171,7 @@ def compute_flux_coordinates(vmec_file, wall_s, coords, num_threads, conv_tol):
 
     chunks = []
 
-    for i in range(num_threads):
+    for chunk_start in range(0, len(phi_coords), chunk_size):
         chunks.append(
             (
                 vmec_file,
