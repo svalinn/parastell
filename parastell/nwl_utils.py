@@ -309,11 +309,10 @@ def compute_nwl(
 
     batch_size = math.ceil(num_particles / num_batches)
 
-    iterator = 1
-
-    for batch_start in range(0, num_particles, batch_size):
-        iterator += 1
-        logger.info(f"Processing batch {iterator}")
+    for batch_num, batch_start in enumerate(
+        range(0, num_particles, batch_size), 1
+    ):
+        logger.info(f"Processing batch {batch_num}")
 
         toroidal_angle_batch, poloidal_angle_batch = compute_flux_coordinates(
             vmec_file,
