@@ -302,10 +302,12 @@ def compute_nwl(
     if num_crossings is not None:
         coords = coords[0:num_crossings]
 
+    num_particles = len(coords)
+
     toroidal_angles = []
     poloidal_angles = []
 
-    batch_size = math.ceil(len(coords) / num_batches)
+    batch_size = math.ceil(num_particles / num_batches)
 
     for i in range(num_batches):
         logger.info(f"Processing batch {i + 1}")
@@ -356,7 +358,6 @@ def compute_nwl(
         0.0, poloidal_extent, num=num_poloidal_bins
     )
 
-    num_particles = len(coords)
     nwl_mat = count_mat * neutron_power / num_particles
 
     # Construct matrix of bin boundaries
