@@ -6,7 +6,7 @@ from scipy.interpolate import RegularGridInterpolator
 
 import cadquery as cq
 import pystell.read_vmec as read_vmec
-import dagmc
+import pydagmc
 from pymoab import core, types
 
 from . import log

@@ -2,7 +2,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-import dagmc
+import pydagmc
 
 import parastell.parastell as ps
 from parastell.cubit_utils import (

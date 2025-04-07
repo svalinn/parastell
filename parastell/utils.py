@@ -8,7 +8,7 @@ import numpy as np
 import math
 from scipy.ndimage import gaussian_filter
 from pymoab import core, types
-import dagmc
+import pydagmc
 import cadquery as cq
 from OCP.BRepBuilderAPI import BRepBuilderAPI_Sewing
 from OCP.StlAPI import StlAPI_Reader
