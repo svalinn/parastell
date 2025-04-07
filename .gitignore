@@ -22,6 +22,10 @@
 !wout_vmec.nc
 !one_cube.h5m
 !two_cubes.h5m
+!nwl_geom.h5m
+!source_mesh.h5m
+!strengths.npy
+!01H_*.h5
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
