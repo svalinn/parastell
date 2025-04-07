@@ -305,7 +305,7 @@ def combine_dagmc_models(models_to_merge):
         models_to_merge (list of PyMOAB core): List of DAGMC models to be
             merged.
     Returns:
-        combined_model (dagmc.DAGModel): Single DAGMC model containing the
+        combined_model (pydagmc.DAGModel): Single DAGMC model containing the
             combined individual models.
     """
     renumberizer = DAGMCRenumberizer()
@@ -317,7 +317,7 @@ def combine_dagmc_models(models_to_merge):
             model.write_file(temp_filename)
             renumberizer.load_file(temp_filename)
     renumberizer.renumber_ids()
-    return dagmc.DAGModel(renumberizer.mb)
+    return pydagmc.DAGModel(renumberizer.mb)
 
 
 def stl_to_cq_solid(stl_path, tolerance=0.001):

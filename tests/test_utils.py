@@ -94,7 +94,7 @@ def test_stl_surfaces_to_cq_solid():
         solid (using math.isclose()).
     """
     vol_id = 1
-    dagmc_model = dagmc.DAGModel("files_for_tests/one_cube.h5m")
+    dagmc_model = pydagmc.DAGModel("files_for_tests/one_cube.h5m")
     volume = dagmc_model.volumes_by_id[vol_id]
     dagmc_volume_volume = volume.volume
 
