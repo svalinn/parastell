@@ -171,14 +171,14 @@ def compute_flux_coordinates(vmec_file, wall_s, coords, num_threads, conv_tol):
 
     chunks = []
 
-    for chunk_start in range(0, len(phi_coords), chunk_size):
+    for chunk_start in range(0, len(toroidal_angles), chunk_size):
         chunks.append(
             (
                 vmec_file,
                 wall_s,
                 conv_tol,
-                toroidal_angles[chunk_start: chunk_start + chunk_size],
-                coords[chunk_start: chunk_start + chunk_size],
+                toroidal_angles[chunk_start : chunk_start + chunk_size],
+                coords[chunk_start : chunk_start + chunk_size],
             )
         )
 
@@ -309,8 +309,11 @@ def compute_nwl(
 
     batch_size = math.ceil(num_particles / num_batches)
 
-    for batch_start range(0, len(coords), batch_size):
-        logger.info(f"Processing batch {i + 1}")
+    iterator = 1
+
+    for batch_start in range(0, num_particles, batch_size):
+        iterator += 1
+        logger.info(f"Processing batch {iterator}")
 
         toroidal_angle_batch, poloidal_angle_batch = compute_flux_coordinates(
             vmec_file,
