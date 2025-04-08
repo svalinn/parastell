@@ -1,8 +1,13 @@
 import argparse
 from pathlib import Path
+from abc import ABC
 
 import numpy as np
-from scipy.interpolate import RegularGridInterpolator
+from scipy.interpolate import (
+    RegularGridInterpolator,
+    CloughTocher2DInterpolator,
+)
+
 
 import cadquery as cq
 import pystell.read_vmec as read_vmec
@@ -54,9 +59,37 @@ def create_moab_tris_from_verts(corners, mbc, reverse=False):
     return [tri_1, tri_2]
 
 
-class InVesselBuild(object):
-    """Parametrically models fusion stellarator in-vessel components using
-    plasma equilibrium VMEC data and a user-defined radial build.
+class ReferenceSurface(ABC):
+    """An object representing the innermost surface from which subsequent
+    layers are built.
+    """
+
+    def __init__():
+        pass
+
+    def angles_to_xyz(self, toroidal_angle, poloidal_angles, s, scale):
+        """Method to go from a location defined by two angles and some
+        constant to x, y, z coordinates.
+
+        Arguments:
+            toroidal_angles (float): Toroidal angle at which to
+                evaluate cartesian coordinates. Measured in radians.
+            poloidal_angles (iterable of float): Poloidal angles at which to
+                evaluate cartesian coordinates. Measured in radians.
+            s (float): Generic parameter which may affect the evaluation of
+                the cartesian coordinate at a given angle pair.
+            scale (float): Amount to scale resulting coordinates by.
+
+        Returns:
+            coords (numpy array): Nx3 array of Cartesian coordinates at each
+                angle pair specified.
+        """
+        pass
+
+
+class VMECSurface(ReferenceSurface):
+    """An object that uses VMEC data to represent the innermost surface
+    of an in vessel build.
 
     Arguments:
         vmec_obj (object): plasma equilibrium VMEC object as defined by the
@@ -64,6 +97,181 @@ class InVesselBuild(object):
             'vmec2xyz(s, theta, phi)' that returns an (x,y,z) coordinate for
             any closed flux surface label, s, poloidal angle, theta, and
             toroidal angle, phi.
+    """
+
+    def __init__(self, vmec_obj):
+        self.vmec_obj = vmec_obj
+
+    def angles_to_xyz(self, toroidal_angle, poloidal_angles, s, scale):
+        """Evaluate the cartesian coordinates for a set of toroidal and
+        poloidal angles and flux surface label.
+
+        Arguments:
+            toroidal_angles (float): Toroidal angle at which to
+                    evaluate cartesian coordinates. Measured in radians.
+            poloidal_angles (iterable of float): Poloidal angles at which to
+                    evaluate cartesian coordinates. Measured in radians.
+            s (float): the normalized closed flux surface label defining the
+                point of reference for offset.
+            scale (float): Amount to scale resulting coordinates by.
+
+        Returns:
+            coords (numpy array): Nx3 array of Cartesian coordinates at each
+                poloidal angle specified.
+        """
+        coords = []
+        for poloidal_angle in poloidal_angles:
+            x, y, z = self.vmec_obj.vmec2xyz(s, poloidal_angle, toroidal_angle)
+            coords.append([x, y, z])
+        return np.array(coords) * scale
+
+
+class RibBasedSurface(ReferenceSurface):
+    """An object that uses closed loops of R, Z points (ribs) on planes of
+    constant toroidal angle to approximate the innermost surface of an in
+    vessel build. This class must be used with split_chamber = False.
+
+    Arguments:
+        rib_data (numpy array): NxMx2 array of of R, Z points. The first
+            dimension corresponds to the plane of constant toroidal angle on
+            which the closed loop of points lies. The second dimension is the
+            location on the closed loop at which the point lies, and the third
+            dimension is the R, Z values of that point.
+        toroidal_angles (iterable of float): List of toroidal angles
+            corresponding to the first dimension of rib_data. Measured in
+            degrees.
+        poloidal_angles (iterable of float): List of poloidal angles
+            corresponding to the second dimension of rib_data. Measured in
+            degrees. Should start at 0 degrees and end at 360 degrees.
+    """
+
+    def __init__(self, rib_data, toroidal_angles, poloidal_angles):
+        self.rib_data = rib_data
+        self.toroidal_angles = toroidal_angles
+        self.poloidal_angles = poloidal_angles
+        self.build_analytic_surface()
+
+    def _extract_rib_data(self, ribs, toroidal_angles, poloidal_angles):
+        """Internal function, not intended for use externally. Updates
+        member variables that track R, Z values corresponding to
+        angle pairs for use when building the interpolators.
+
+        Arguments:
+            ribs (np array): NxMx2 array of of R, Z points. The first
+                dimension corresponds to the plane of constant toroidal angle
+                on which the closed loop of points lies. The second dimension
+                is the location on the closed loop at which the point lies, and
+                the third dimension is the R, Z values of that point.
+            toroidal_angles (iterable of float): List of toroidal angles
+                corresponding to the first dimension of rib_data. Measured in
+                degrees.
+            poloidal_angles (iterable of float): List of poloidal angles
+                corresponding to the second dimension of rib_data. Measured in
+                degrees.
+        """
+        for phi, rib in zip(toroidal_angles, ribs):
+            for theta, rib_locus in zip(poloidal_angles, rib):
+                self.r_data.append(rib_locus[0])
+                self.z_data.append(rib_locus[1])
+                self.grid_points.append([phi, theta])
+
+    def build_analytic_surface(self):
+        """Build interpolators for R, Z coordinates using provided
+        rib_data, toroidal_angles, and poloidal_angles. Adds copies of the data
+        shifted by one period ahead of and behind provided data in the toroidal
+        and poloidal directions to preserve periodicity.
+        """
+        self.r_data = []
+        self.z_data = []
+        self.grid_points = []
+
+        # Toroidal Periodicity Before Period
+        toroidal_shift = -max(self.toroidal_angles)
+        shifted_toroidal_angles = self.toroidal_angles[0:-1] + toroidal_shift
+        rib_subset = self.rib_data[0:-1]
+        self._extract_rib_data(
+            rib_subset, shifted_toroidal_angles, self.poloidal_angles
+        )
+
+        # Poloidal Periodicity Before Period
+        poloidal_shift = -max(self.poloidal_angles)
+        shifted_poloidal_angles = self.poloidal_angles[0:-1] - poloidal_shift
+        rib_subset = self.rib_data[:, 0:-1, :]
+        self._extract_rib_data(
+            rib_subset, self.toroidal_angles, shifted_poloidal_angles
+        )
+
+        # Provided data
+        self._extract_rib_data(
+            self.rib_data,
+            self.toroidal_angles,
+            self.poloidal_angles,
+        )
+
+        # Toroidal Periodicity After Period
+        toroidal_shift = max(self.toroidal_angles)
+        shifted_toroidal_angles = self.toroidal_angles[1:] + toroidal_shift
+        rib_subset = self.rib_data[1:]
+        self._extract_rib_data(
+            rib_subset, shifted_toroidal_angles, self.poloidal_angles
+        )
+
+        # Poloidal Periodicity After Period
+        poloidal_shift = max(self.poloidal_angles)
+        shifted_poloidal_angles = self.poloidal_angles[1:] + poloidal_shift
+        rib_subset = self.rib_data[:, 1:, :]
+        self._extract_rib_data(
+            rib_subset, self.toroidal_angles, shifted_poloidal_angles
+        )
+
+        self.r_interp = CloughTocher2DInterpolator(
+            self.grid_points, self.r_data
+        )
+        self.z_interp = CloughTocher2DInterpolator(
+            self.grid_points, self.z_data
+        )
+
+    def angles_to_xyz(self, toroidal_angle, poloidal_angles, s, scale):
+        """Return the cartesian coordinates from the interpolators for a
+        toroidal angle and a set of poloidal angles. Takes s as a argument for
+        compatibility, but does nothing with it.
+
+        Arguments:
+            toroidal_angles (float): Toroidal angle at which to
+                    evaluate cartesian coordinates. Measured in radians.
+            poloidal_angles (iterable of float): Poloidal angles at which to
+                    evaluate cartesian coordinates. Measured in radians.
+            s (float): Not used.
+            scale (float): Amount to scale resulting coordinates by.
+
+        Returns:
+            coords (numpy array): Nx3 array of Cartesian coordinates at each
+                angle pair specified.
+        """
+        coords = []
+        toroidal_angle = np.rad2deg(toroidal_angle)
+        poloidal_angles = np.rad2deg(poloidal_angles)
+        for poloidal_angle in poloidal_angles:
+            r = self.r_interp(toroidal_angle, poloidal_angle)
+            z = self.z_interp(toroidal_angle, poloidal_angle)
+            x = r * np.cos(np.deg2rad(toroidal_angle))
+            y = r * np.sin(np.deg2rad(toroidal_angle))
+            coord = np.array([x, y, z])
+            coords.append(coord)
+
+        return np.array(coords) * scale
+
+
+class InVesselBuild(object):
+    """Parametrically models fusion stellarator in-vessel components using
+    plasma equilibrium VMEC data and a user-defined radial build.
+
+    Arguments:
+        ref_surf (object): ReferenceSurface object. Must have a method
+            'angles_to_xyz(toroidal_angles, poloidal_angles, s, scale)' that
+            returns an Nx3 numpy array of cartesian coordinates for any closed
+            flux surface label, s, poloidal angle (theta), and toroidal angle
+            (phi).
         radial_build (object): RadialBuild class object with all attributes
             defined.
         logger (object): logger object (optional, defaults to None). If no
@@ -86,10 +294,10 @@ class InVesselBuild(object):
             than CADQuery. Defaults to False.
     """
 
-    def __init__(self, vmec_obj, radial_build, logger=None, **kwargs):
+    def __init__(self, ref_surf, radial_build, logger=None, **kwargs):
 
         self.logger = logger
-        self.vmec_obj = vmec_obj
+        self.ref_surf = ref_surf
         self.radial_build = radial_build
 
         self.repeat = 0
@@ -111,12 +319,12 @@ class InVesselBuild(object):
         self.Components = {}
 
     @property
-    def vmec_obj(self):
-        return self._vmec_obj
+    def ref_surf(self):
+        return self._ref_surf
 
-    @vmec_obj.setter
-    def vmec_obj(self, vmec_object):
-        self._vmec_obj = vmec_object
+    @ref_surf.setter
+    def ref_surf(self, ref_surf):
+        self._ref_surf = ref_surf
 
     @property
     def logger(self):
@@ -218,7 +426,7 @@ class InVesselBuild(object):
             )
 
             self.Surfaces[name] = Surface(
-                self._vmec_obj,
+                self._ref_surf,
                 s,
                 self._poloidal_angles_exp,
                 self._toroidal_angles_exp,
@@ -534,11 +742,11 @@ class Surface(object):
     surface.
 
     Arguments:
-        vmec_obj (object): plasma equilibrium VMEC object as defined by the
-            PyStell-UW VMEC reader. Must have a method
-            'vmec2xyz(s, theta, phi)' that returns an (x,y,z) coordinate for
-            any closed flux surface label, s, poloidal angle, theta, and
-            toroidal angle, phi.
+        ref_surf (object): ReferenceSurface object. Must have a method
+            'angles_to_xyz(toroidal_angles, poloidal_angles, s, scale)' that
+            returns an Nx3 numpy array of cartesian coordinates for any closed
+            flux surface label, s, poloidal angle (theta), and toroidal angle
+            (phi).
         s (float): the normalized closed flux surface label defining the point
             of reference for offset.
         theta_list (np.array(double)): the set of poloidal angles specified for
@@ -551,9 +759,9 @@ class Surface(object):
         scale (float): a scaling factor between the units of VMEC and [cm].
     """
 
-    def __init__(self, vmec_obj, s, theta_list, phi_list, offset_mat, scale):
+    def __init__(self, ref_surf, s, theta_list, phi_list, offset_mat, scale):
 
-        self.vmec_obj = vmec_obj
+        self.ref_surf = ref_surf
         self.s = s
         self.theta_list = theta_list
         self.phi_list = phi_list
@@ -568,7 +776,7 @@ class Surface(object):
         """
         self.Ribs = [
             Rib(
-                self.vmec_obj,
+                self.ref_surf,
                 self.s,
                 self.theta_list,
                 phi,
@@ -611,11 +819,11 @@ class Rib(object):
     angles and offset from a reference curve.
 
     Arguments:
-        vmec_obj (object): plasma equilibrium VMEC object as defined by the
-            PyStell-UW VMEC reader. Must have a method
-            'vmec2xyz(s, theta, phi)' that returns an (x,y,z) coordinate for
-            any closed flux surface label, s, poloidal angle, theta, and
-            toroidal angle, phi.
+        ref_surf (object): ReferenceSurface object. Must have a method
+            'angles_to_xyz(toroidal_angles, poloidal_angles, s, scale)' that
+            returns an Nx3 numpy array of cartesian coordinates for any closed
+            flux surface label, s, poloidal angle (theta), and toroidal angle
+            (phi).
         s (float): the normalized closed flux surface label defining the point
             of reference for offset.
         phi (np.array(double)): the toroidal angle defining the plane in which
@@ -628,16 +836,16 @@ class Rib(object):
         scale (float): a scaling factor between the units of VMEC and [cm].
     """
 
-    def __init__(self, vmec_obj, s, theta_list, phi, offset_list, scale):
+    def __init__(self, ref_surf, s, theta_list, phi, offset_list, scale):
 
-        self.vmec_obj = vmec_obj
+        self.ref_surf = ref_surf
         self.s = s
         self.theta_list = theta_list
         self.phi = phi
         self.offset_list = offset_list
         self.scale = scale
 
-    def _vmec2xyz(self, poloidal_offset=0):
+    def _calculate_cartesian_coordinates(self, poloidal_offset=0):
         """Return an N x 3 NumPy array containing the Cartesian coordinates of
         the points at this toroidal angle and N different poloidal angles, each
         offset slightly.
@@ -648,11 +856,11 @@ class Rib(object):
                 poloidal angles for evaluating the location of the Cartesian
                 points (optional, defaults to 0).
         """
-        return self.scale * np.array(
-            [
-                self.vmec_obj.vmec2xyz(self.s, theta, self.phi)
-                for theta in (self.theta_list + poloidal_offset)
-            ]
+        return self.ref_surf.angles_to_xyz(
+            self.phi,
+            self.theta_list + poloidal_offset,
+            self.s,
+            self.scale,
         )
 
     def _normals(self):
@@ -667,7 +875,7 @@ class Rib(object):
                 surface rib [cm].
         """
         eps = 1e-4
-        next_pt_loci = self._vmec2xyz(eps)
+        next_pt_loci = self._calculate_cartesian_coordinates(eps)
 
         tangent = next_pt_loci - self.rib_loci
 
@@ -678,11 +886,14 @@ class Rib(object):
         return normalize(norm)
 
     def calculate_loci(self):
-        """Generates Cartesian point-loci for stellarator rib."""
-        self.rib_loci = self._vmec2xyz()
-
+        """Generates Cartesian point-loci for stellarator rib. Sets the last
+        element to the value of the first to ensure the loop is closed exactly.
+        """
+        self.rib_loci = self._calculate_cartesian_coordinates()
         if not np.all(self.offset_list == 0):
             self.rib_loci += self.offset_list[:, np.newaxis] * self._normals()
+
+        self.rib_loci[-1] = self.rib_loci[0]
 
     def _generate_pymoab_verts(self, mbc):
         """Converts point-loci to MBVERTEX and adds them to a PyMOAB

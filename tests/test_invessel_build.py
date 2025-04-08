@@ -10,6 +10,7 @@ from parastell.cubit_utils import (
     check_cubit_installation,
     create_new_cubit_instance,
 )
+from parastell.utils import ribs_from_kisslinger_format
 
 import pystell.read_vmec as read_vmec
 
@@ -25,6 +26,27 @@ def remove_files():
     for file in files_to_remove:
         if Path(file).exists():
             Path.unlink(file)
+
+
+vmec_file = Path("files_for_tests") / "wout_vmec.nc"
+vmec_surface = ivb.VMECSurface(read_vmec.VMECData(vmec_file))
+
+ribs_file = Path("files_for_tests") / "kisslinger_file_example.txt"
+(
+    custom_surface_toroidal_angles,
+    num_toroidal_angles,
+    num_poloidal_angles,
+    periods,
+    custom_surface_rz_ribs,
+) = ribs_from_kisslinger_format(
+    ribs_file,
+    delimiter=" ",
+    scale=1 / ivb.m2cm,
+)
+poloidal_angles = np.linspace(0, 360, num_poloidal_angles)
+rib_based_surface = ivb.RibBasedSurface(
+    custom_surface_rz_ribs, custom_surface_toroidal_angles, poloidal_angles
+)
 
 
 @pytest.fixture
@@ -49,16 +71,15 @@ def radial_build():
 
 
 @pytest.fixture
-def invessel_build(radial_build):
-    vmec_file = Path("files_for_tests") / "wout_vmec.nc"
-    vmec = read_vmec.VMECData(vmec_file)
+def invessel_build(radial_build, ref_surf):
     num_ribs = 11
 
-    ivb_obj = ivb.InVesselBuild(vmec, radial_build, num_ribs=num_ribs)
+    ivb_obj = ivb.InVesselBuild(ref_surf, radial_build, num_ribs=num_ribs)
 
     return ivb_obj
 
 
+@pytest.mark.parametrize("ref_surf", [vmec_surface, rib_based_surface])
 def test_ivb_basics(invessel_build):
     """Tests whether InVesselBuild arguments are instantiated as expected, by
     testing if:
@@ -99,6 +120,7 @@ def test_ivb_basics(invessel_build):
     remove_files()
 
 
+@pytest.mark.parametrize("ref_surf", [vmec_surface, rib_based_surface])
 def test_ivb_cadquery_construction(invessel_build):
     """Tests whether the InVesselBuild CadQuery workflow functions as
     expected, by testing if:
@@ -124,6 +146,7 @@ def test_ivb_cadquery_construction(invessel_build):
     remove_files()
 
 
+@pytest.mark.parametrize("ref_surf", [vmec_surface, rib_based_surface])
 def test_ivb_pydagmc_construction(invessel_build):
     """Tests whether the InVesselBuild PyDAGMC workflow functions as
     expected, by testing if:
@@ -141,11 +164,13 @@ def test_ivb_pydagmc_construction(invessel_build):
     assert num_volumes_exp == len(invessel_build.dag_model.volumes)
 
 
+@pytest.mark.parametrize("ref_surf", [vmec_surface, rib_based_surface])
 def test_ivb_exports(invessel_build):
     """Tests whether the InVesselBuild CadQuery workflow's export
     functionality behaves as expected, by testing if:
         * the expected STEP are produced
         * if Cubit is correctly installed, the expected H5M file is produced
+    For the ReferenceSurface types paramaterized above.
 
     The Cubit-enabled portion of this test is skipped if Cubit cannot be
     imported.

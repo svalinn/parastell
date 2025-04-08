@@ -111,3 +111,48 @@ def test_stl_surfaces_to_cq_solid():
 
     assert num_faces == num_tris
     assert np.isclose(dagmc_volume_volume, cq_solid_volume)
+
+
+def test_ribs_from_kisslinger_format():
+    """Tests that the example kisslinger format file is being read correctly by
+    checking if:
+      * The values for the toroidal angles match the original values, which
+        are 64 evenly spaced values between 0 and 90.
+      * The number of toroidal angles read from the file is correct.
+      * The number of poloidal locations is correct.
+      * The number of periods has been read correctly.
+      * The shape of the custom rib data matches with the number of toroidal
+        and poloidal angles expected.
+      * The first and last ribs have the same R, Z data.
+      * The first and second ribs do not have the same R, Z data.
+    """
+    ribs_file = Path("files_for_tests") / "kisslinger_file_example.txt"
+
+    (
+        custom_surface_toroidal_angles,
+        num_toroidal_angles,
+        num_poloidal_angles,
+        periods,
+        custom_surface_rz_ribs,
+    ) = ribs_from_kisslinger_format(
+        ribs_file,
+        delimiter=" ",
+        scale=1,
+    )
+
+    num_toroidal_angles_exp = 64
+    num_poloidal_angles_exp = 128
+    periods_exp = 4
+    custom_surface_rz_ribs_shape_exp = (64, 128, 2)
+
+    assert np.allclose(np.linspace(0, 90, 64), custom_surface_toroidal_angles)
+    assert num_toroidal_angles_exp == num_toroidal_angles
+    assert num_poloidal_angles_exp == num_poloidal_angles
+    assert periods_exp == periods
+    assert custom_surface_rz_ribs_shape_exp == custom_surface_rz_ribs.shape
+    assert np.allclose(
+        custom_surface_rz_ribs[0] - custom_surface_rz_ribs[-1], 0
+    )
+    assert not np.allclose(
+        custom_surface_rz_ribs[0], custom_surface_rz_ribs[1]
+    )
