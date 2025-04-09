@@ -8,7 +8,7 @@ import numpy as np
 import math
 from scipy.ndimage import gaussian_filter
 from pymoab import core, types
-import dagmc
+import pydagmc
 import cadquery as cq
 from OCP.BRepBuilderAPI import BRepBuilderAPI_Sewing
 from OCP.StlAPI import StlAPI_Reader
@@ -317,7 +317,7 @@ def combine_dagmc_models(models_to_merge):
             model.write_file(temp_filename)
             renumberizer.load_file(temp_filename)
     renumberizer.renumber_ids()
-    return dagmc.DAGModel(renumberizer.mb)
+    return pydagmc.DAGModel(renumberizer.mb)
 
 
 def stl_to_cq_solid(stl_path, tolerance=0.001):
