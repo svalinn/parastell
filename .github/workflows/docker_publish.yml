@@ -42,9 +42,6 @@ jobs:
         run: |
           echo "EXTRA_TAG=-${{ github.ref_name }}" >> $GITHUB_ENV
           echo "EXTRA_TAG_CI=:${{ github.ref_name }}" >> $GITHUB_ENV
-      - name: Set cache option if workflow was manually triggered
-        if: github.event_name == 'workflow_dispatch'
-        run: echo "NO_CACHE=${{ github.event.inputs.no_cache }}" >> $GITHUB_ENV
       - id: output_tag
         run: echo "image_tag=$EXTRA_TAG_CI" >> $GITHUB_OUTPUT
       - name: Build and push ParaStell Docker image (with cache)
