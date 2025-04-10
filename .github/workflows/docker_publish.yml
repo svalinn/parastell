@@ -19,7 +19,7 @@ on:
 env:
   EXTRA_TAG: ""
   EXTRA_TAG_CI: ""
-  USE_CACHE: "true"
+  NO_CACHE: "false"
 jobs:
   build-dependency-img:
     runs-on: ubuntu-latest
