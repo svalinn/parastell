@@ -1,53 +1,52 @@
 name: Build & publish Docker image for ParaStell CI
-
 on:
   # allows us to run workflows manually
   workflow_dispatch:
+    inputs:
+      use_cache:
+        description: 'Use cache for build'
+        required: true
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
   push:
     paths:
       - 'Dockerfile'
       - '.github/workflows/docker_publish.yml'
       - 'environment.yml'
-
 env:
   EXTRA_TAG: ""
   EXTRA_TAG_CI: ""
   USE_CACHE: "true"
-
 jobs:
   build-dependency-img:
     runs-on: ubuntu-latest
-
     name: Install Dependencies
-
     outputs: 
       image_tag: ${{ steps.output_tag.outputs.image_tag }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
       - name: Log into GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Add extra tag if NOT on the main branch
         if: github.ref_name != 'main'
         run: |
           echo "EXTRA_TAG=-${{ github.ref_name }}" >> $GITHUB_ENV
           echo "EXTRA_TAG_CI=:${{ github.ref_name }}" >> $GITHUB_ENV
-      - name: Disable cache if workflow was manually triggered
+      - name: Set cache option if workflow was manually triggered
         if: github.event_name == 'workflow_dispatch'
-        run: echo "USE_CACHE=false" >> $GITHUB_ENV
+        run: echo "USE_CACHE=${{ github.event.inputs.use_cache }}" >> $GITHUB_ENV
       - id: output_tag
         run: echo "image_tag=$EXTRA_TAG_CI" >> $GITHUB_OUTPUT
-
       - name: Build and push ParaStell Docker image (with cache)
         id: build-parastell-with-cache
         if: env.USE_CACHE == 'true'
