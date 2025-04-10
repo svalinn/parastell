@@ -44,8 +44,8 @@ jobs:
           echo "EXTRA_TAG_CI=:${{ github.ref_name }}" >> $GITHUB_ENV
       - id: output_tag
         run: echo "image_tag=$EXTRA_TAG_CI" >> $GITHUB_OUTPUT
-      - name: Build and push ParaStell Docker image (with cache)
-        id: build-parastell-with-cache
+      - name: Build and push ParaStell Docker image
+        id: build-parastell
         uses: docker/build-push-action@v5
         with:
           no-cache: ${{ github.event.inputs.no_cache == 'true' }}
