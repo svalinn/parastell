@@ -3,10 +3,10 @@ on:
   # allows us to run workflows manually
   workflow_dispatch:
     inputs:
-      use_cache:
-        description: 'Use cache for build'
+      no_cache:
+        description: "Don't Use Cache for Build"
         required: true
-        default: 'true'
+        default: 'false'
         type: choice
         options:
           - 'true'
@@ -44,27 +44,16 @@ jobs:
           echo "EXTRA_TAG_CI=:${{ github.ref_name }}" >> $GITHUB_ENV
       - name: Set cache option if workflow was manually triggered
         if: github.event_name == 'workflow_dispatch'
-        run: echo "USE_CACHE=${{ github.event.inputs.use_cache }}" >> $GITHUB_ENV
+        run: echo "NO_CACHE=${{ github.event.inputs.no_cache }}" >> $GITHUB_ENV
       - id: output_tag
         run: echo "image_tag=$EXTRA_TAG_CI" >> $GITHUB_OUTPUT
       - name: Build and push ParaStell Docker image (with cache)
         id: build-parastell-with-cache
-        if: env.USE_CACHE == 'true'
         uses: docker/build-push-action@v5
         with:
+          no-cache: env.NO_CACHE
           cache-from: type=registry,ref=ghcr.io/svalinn/parastell:ci-layer-cache${{ env.EXTRA_TAG }}
           cache-to: type=registry,ref=ghcr.io/svalinn/parastell:ci-layer-cache${{ env.EXTRA_TAG }},mode=max
-          file: Dockerfile
-          push: true
-          target: parastell-deps
-          tags: ghcr.io/svalinn/parastell-ci${{ env.EXTRA_TAG_CI }}
-          
-      - name: Build and push ParaStell Docker image (no cache)
-        id: build-parastell-no-cache
-        if: env.USE_CACHE == 'false'
-        uses: docker/build-push-action@v5
-        with:
-          no-cache: true
           file: Dockerfile
           push: true
           target: parastell-deps
