@@ -3,8 +3,8 @@ on:
   # allows us to run workflows manually
   workflow_dispatch:
     inputs:
-      no_cache:
-        description: "Don't Use Cache for Build"
+      use_cache:
+        description: "Use Cache for Build"
         required: true
         default: 'false'
         type: choice
@@ -48,7 +48,7 @@ jobs:
         id: build-parastell
         uses: docker/build-push-action@v5
         with:
-          no-cache: ${{ github.event.inputs.no_cache == 'true' }}
+          no-cache: ${{ github.event.inputs.use_cache == 'false' }}
           cache-from: type=registry,ref=ghcr.io/svalinn/parastell:ci-layer-cache${{ env.EXTRA_TAG }}
           cache-to: type=registry,ref=ghcr.io/svalinn/parastell:ci-layer-cache${{ env.EXTRA_TAG }},mode=max
           file: Dockerfile
