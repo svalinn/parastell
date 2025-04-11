@@ -1,5 +1,6 @@
 from pathlib import Path
-import subprocess
+
+from pymoab import core
 
 initialized = False
 
@@ -127,7 +128,11 @@ def export_mesh_cubit(filename, export_dir="", delete_upon_export=True):
     h5m_path = Path(export_dir) / Path(filename).with_suffix(".h5m")
 
     cubit.cmd(f'export mesh "{exo_path}" overwrite')
-    subprocess.run(f"mbconvert {exo_path} {h5m_path}", shell=True)
+
+    mesh_mbc = core.Core()
+    mesh_mbc.load_file(str(exo_path))
+    mesh_mbc.write_file(str(h5m_path))
+
     Path.unlink(exo_path)
 
     # Delete any meshes present to prevent inclusion in future Cubit mesh
