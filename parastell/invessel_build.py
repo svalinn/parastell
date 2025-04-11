@@ -526,7 +526,7 @@ class InVesselBuild(object):
         surface_keys = list(self.Surfaces.keys())
 
         component_index = surface_keys.index(component)
-        surfaces = [self.Surfaces(surface_keys[component_index - 1])]
+        surfaces = [self.Surfaces[surface_keys[component_index - 1]]]
         surfaces.append(self.Surfaces[component])
 
         coords = []
