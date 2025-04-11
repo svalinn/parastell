@@ -148,7 +148,7 @@ class MagnetSet(ABC):
         self._logger.info("Exporting mesh H5M file for magnets...")
 
         vtk_path = str(Path(export_dir) / Path(filename).with_suffix(".vtk"))
-        moab_path = Path(export_dir) / Path(filename).with_suffix(".h5m")
+        moab_path = vtk_path.with_suffix(".h5m")
 
         gmsh.write(vtk_path)
 
