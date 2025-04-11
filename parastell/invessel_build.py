@@ -733,11 +733,8 @@ class InVesselBuild(object):
         surfaces = []
         surface_keys = list(self.Surfaces.keys())
 
-        for i, key in enumerate(surface_keys[:-1]):
-            # Inner surface of given component = outer surface of inner
-            # component
-            if surface_keys[i + 1] == component:
-                surfaces.append(self.Surfaces[key])
+        component_index = surface_keys.index(component)
+        surfaces = [self.Surfaces(surface_keys[component_index - 1])]
         surfaces.append(self.Surfaces[component])
 
         coords = []
@@ -979,7 +976,7 @@ class InVesselBuild(object):
         )
 
         vtk_path = str(Path(export_dir) / Path(filename).with_suffix(".vtk"))
-        moab_path = Path(export_dir) / Path(filename).with_suffix(".h5m")
+        moab_path = vtk_path.with_suffix(".h5m")
 
         gmsh.write(vtk_path)
 
