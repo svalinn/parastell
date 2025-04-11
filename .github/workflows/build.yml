@@ -1,0 +1,34 @@
+name: Test packaging and installing
+
+on:
+  # allows us to run workflows manually
+  workflow_dispatch:
+  pull_request:
+    paths-ignore:
+      - 'Dockerfile'
+      - '.github/workflows/docker_publish.yml'
+      - 'environment.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: set up python ${{ matrix.python-version }}
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          python-version: ${{ matrix.python-version }}       
+      - run:  conda config --set pip_interop_enabled true
+        name: config pip-conda interop
+      - run: conda install -c conda-forge conda-build cadquery
+        name: Install conda dependencies
+      - run: conda develop .
+        name: Install locally with conda
+      - name: Install with pip
+        run: pip install .[develop]
+      - name: Test building wheels
+        run: python -m build --sdist --wheel
