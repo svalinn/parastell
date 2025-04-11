@@ -1,7 +1,6 @@
 import argparse
 from pathlib import Path
 from abc import ABC
-import os
 
 import numpy as np
 from scipy.interpolate import (
@@ -411,8 +410,8 @@ class InVesselBuild(object):
         )
 
         # Store actual number of ribs and rib points
-        self._num_ribs = len(self._toroidal_angles_exp)
-        self._num_rib_pts = len(self._poloidal_angles_exp)
+        self._actual_num_ribs = len(self._toroidal_angles_exp)
+        self._actual_num_rib_pts = len(self._poloidal_angles_exp)
 
         offset_mat = np.zeros(
             (
@@ -748,8 +747,8 @@ class InVesselBuild(object):
         self.mesh_set = self.mesh_mbc.create_meshset()
         self.mesh_mbc.add_entity(self.mesh_set, self.verts)
 
-        for toroidal_idx in range(self._num_ribs - 1):
-            for poloidal_idx in range(self._num_rib_pts - 1):
+        for toroidal_idx in range(self._actual_num_ribs - 1):
+            for poloidal_idx in range(self._actual_num_rib_pts - 1):
                 self._create_tets_from_hex(poloidal_idx, toroidal_idx)
 
     def _create_tets_from_hex(self, poloidal_idx, toroidal_idx):
@@ -815,14 +814,14 @@ class InVesselBuild(object):
         """
         surface_idx, poloidal_idx, toroidal_idx = vertex_idx
 
-        verts_per_surface = self._num_ribs * self._num_rib_pts
+        verts_per_surface = self._actual_num_ribs * self._actual_num_rib_pts
         surface_offset = surface_idx * verts_per_surface
 
-        toroidal_offset = toroidal_idx * self._num_rib_pts
+        toroidal_offset = toroidal_idx * self._actual_num_rib_pts
 
         poloidal_offset = poloidal_idx
         # Wrap around if poloidal angle is 2*pi
-        if poloidal_idx == self._num_rib_pts - 1:
+        if poloidal_idx == self._actual_num_rib_pts - 1:
             poloidal_offset = 0
 
         id = surface_offset + toroidal_offset + poloidal_offset
@@ -883,7 +882,7 @@ class InVesselBuild(object):
         gmsh.option.setNumber("Mesh.MeshSizeMin", min_mesh_size)
         gmsh.option.setNumber("Mesh.MeshSizeMax", max_mesh_size)
 
-        gmsh.model.mesh.generate(3)
+        gmsh.model.mesh.generate(dim=3)
 
     def _gmsh_from_pydagmc(self, components):
         """Adds PyDAGMC geometry to Gmsh instance.
@@ -940,7 +939,7 @@ class InVesselBuild(object):
 
         gmsh.model.mesh.create_geometry()
 
-        surfaces = gmsh.model.getEntities(2)
+        surfaces = gmsh.model.getEntities(dim=2)
         surface_tags = [s[1] for s in surfaces]
         surface_loop = gmsh.model.geo.addSurfaceLoop(surface_tags)
         gmsh.model.geo.addVolume([surface_loop])
@@ -975,15 +974,18 @@ class InVesselBuild(object):
             "Exporting mesh H5M file for in-vessel component(s)..."
         )
 
-        vtk_path = str(Path(export_dir) / Path(filename).with_suffix(".vtk"))
+        vtk_path = Path(export_dir) / Path(filename).with_suffix(".vtk")
         moab_path = vtk_path.with_suffix(".h5m")
 
-        gmsh.write(vtk_path)
+        gmsh.write(str(vtk_path))
 
         gmsh.clear()
         gmsh.finalize()
 
-        os.system(f"mbconvert {vtk_path} {moab_path}")
+        self.mesh_mbc = core.Core()
+        self.mesh_mbc.load_file(str(vtk_path))
+        self.mesh_mbc.write_file(str(moab_path))
+
         Path(vtk_path).unlink()
 
     def mesh_components_cubit(self, components, mesh_size=5, import_dir=""):

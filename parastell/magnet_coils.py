@@ -1,11 +1,11 @@
 import argparse
 from pathlib import Path
 from abc import ABC
-import os
 
 import numpy as np
 import cadquery as cq
 import gmsh
+from pymoab import core
 
 from . import log
 from .cubit_utils import (
@@ -133,7 +133,7 @@ class MagnetSet(ABC):
         gmsh.option.setNumber("Mesh.MeshSizeMin", min_mesh_size)
         gmsh.option.setNumber("Mesh.MeshSizeMax", max_mesh_size)
 
-        gmsh.model.mesh.generate(3)
+        gmsh.model.mesh.generate(dim=3)
 
     def export_mesh_gmsh(self, filename="magnet_mesh", export_dir=""):
         """Exports a tetrahedral mesh of magnet volumes in H5M format via Gmsh
@@ -147,15 +147,18 @@ class MagnetSet(ABC):
         """
         self._logger.info("Exporting mesh H5M file for magnets...")
 
-        vtk_path = str(Path(export_dir) / Path(filename).with_suffix(".vtk"))
+        vtk_path = Path(export_dir) / Path(filename).with_suffix(".vtk")
         moab_path = vtk_path.with_suffix(".h5m")
 
-        gmsh.write(vtk_path)
+        gmsh.write(str(vtk_path))
 
         gmsh.clear()
         gmsh.finalize()
 
-        os.system(f"mbconvert {vtk_path} {moab_path}")
+        self.mesh_mbc = core.Core()
+        self.mesh_mbc.load_file(str(vtk_path))
+        self.mesh_mbc.write_file(str(moab_path))
+
         Path(vtk_path).unlink()
 
 
