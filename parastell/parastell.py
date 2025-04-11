@@ -200,8 +200,10 @@ class Stellarator(object):
     def export_invessel_build_mesh_moab(
         self, component, filename, export_dir=""
     ):
-        """Creates a tetrahedral mesh of in-vessel component volumes via
-        MOAB and exports the mesh as a H5M file.
+        """Creates a tetrahedral mesh of a single in-vessel component volume
+        via MOAB and exports the mesh as a H5M file. Note that if this method
+        is used for adjacent components, the resultant meshes may have
+        overlapping tetrahedra.
 
         Arguments:
             component (str): name of the in-vessel component to be meshed.
