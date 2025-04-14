@@ -3,6 +3,7 @@ import tempfile
 from functools import cached_property
 import tempfile
 from pathlib import Path
+from abc import ABC
 
 import numpy as np
 import math
@@ -16,6 +17,7 @@ from OCP.TopoDS import TopoDS_Shape
 from OCP.TopExp import TopExp_Explorer
 from OCP.TopAbs import TopAbs_SHELL
 
+from . import log
 
 m2cm = 100
 m3tocm3 = m2cm * m2cm * m2cm
@@ -473,3 +475,183 @@ def ribs_from_kisslinger_format(
         periods,
         np.array(profiles),
     )
+
+
+class ToroidalMesh(ABC):
+    """An abstract class to facilitate generation of structured toroidal meshes
+    in MOAB. The inheriting class must have a "_get_vertex_id" method that maps
+    vertex IDs in (surface ID, poloidal ID, toroidal ID) space to row-major
+    order, as given in the "add_vertices" method. It is also expected that the
+    inheriting class has some method that iteratively calls
+    "_create_tets_from_hex" and/or "_create_tets_from_wedge" to generate the
+    mesh.
+    """
+
+    def __init__(self):
+        self.mbc = core.Core()
+
+    def add_vertices(self, coords):
+        """Creates vertices and adds to PyMOAB core.
+
+        Arguments:
+            coords (Nx3 array of float): Cartesian coordinates of mesh
+                vertices.
+        """
+        self.verts = self.mbc.create_vertices(coords)
+        self.mesh_set = self.mbc.create_meshset()
+        self.mbc.add_entity(self.mesh_set, self.verts)
+
+    def _create_tet(self, tet_ids):
+        """Creates tetrahedron and adds to PyMOAB core.
+        (Internal function not intended to be called externally)
+
+        Arguments:
+            tet_ids (list of int): tetrahedron vertex indices.
+
+        Returns:
+            tet (object): pymoab.EntityHandle of tetrahedron.
+        """
+        tet_verts = [self.verts[int(id)] for id in tet_ids]
+        tet = self.mbc.create_element(types.MBTET, tet_verts)
+        self.mbc.add_entity(self.mesh_set, tet)
+
+        return tet
+
+    def _create_tets_from_hex(self, surface_idx, poloidal_idx, toroidal_idx):
+        """Creates five tetrahedra from defined hexahedron.
+        (Internal function not intended to be called externally)
+
+        Arguments:
+            surface_idx (int): index defining location along surface axis.
+            poloidal_idx (int): index defining location along poloidal angle
+                axis.
+            toroidal_idx (int): index defining location along toroidal angle
+                axis.
+        """
+        # relative offsets of vertices in a 3-D index space
+        hex_vertex_stencil = np.array(
+            [
+                [0, 0, 0],
+                [1, 0, 0],
+                [1, 1, 0],
+                [0, 1, 0],
+                [0, 0, 1],
+                [1, 0, 1],
+                [1, 1, 1],
+                [0, 1, 1],
+            ]
+        )
+
+        # IDs of hex vertices applying offset stencil to current point
+        hex_idx_data = (
+            np.array([surface_idx, poloidal_idx, toroidal_idx])
+            + hex_vertex_stencil
+        )
+
+        idx_list = [
+            self._get_vertex_id(vertex_idx) for vertex_idx in hex_idx_data
+        ]
+
+        # Define MOAB canonical ordering of hexahedron vertex indices
+        # Ordering follows right hand rule such that the fingers curl around
+        # one side of the tetrahedron and the thumb points to the remaining
+        # vertex. The vertices are ordered such that those on the side are
+        # first, ordered clockwise relative to the thumb, followed by the
+        # remaining vertex at the end of the thumb.
+        # See Moreno, Bader, Wilson 2024 for hexahedron splitting
+        canonical_ordering_schemes = [
+            [
+                [idx_list[0], idx_list[3], idx_list[1], idx_list[4]],
+                [idx_list[1], idx_list[3], idx_list[2], idx_list[6]],
+                [idx_list[1], idx_list[4], idx_list[6], idx_list[5]],
+                [idx_list[3], idx_list[6], idx_list[4], idx_list[7]],
+                [idx_list[1], idx_list[3], idx_list[6], idx_list[4]],
+            ],
+            [
+                [idx_list[0], idx_list[2], idx_list[1], idx_list[5]],
+                [idx_list[0], idx_list[3], idx_list[2], idx_list[7]],
+                [idx_list[0], idx_list[7], idx_list[5], idx_list[4]],
+                [idx_list[7], idx_list[2], idx_list[5], idx_list[6]],
+                [idx_list[0], idx_list[2], idx_list[5], idx_list[7]],
+            ],
+        ]
+
+        # Alternate canonical ordering schemes defining hexahedron splitting to
+        # avoid gaps and overlaps between non-planar hexahedron faces
+        scheme_idx = (surface_idx + poloidal_idx + toroidal_idx) % 2
+
+        vertex_id_list = canonical_ordering_schemes[scheme_idx]
+
+        tets = [self._create_tet(vertex_ids) for vertex_ids in vertex_id_list]
+
+        return tets, vertex_id_list
+
+    def _create_tets_from_wedge(self, poloidal_idx, toroidal_idx):
+        """Creates three tetrahedra from defined wedge.
+        (Internal function not intended to be called externally)
+
+        Arguments:
+            poloidal_idx (int): index defining location along poloidal angle
+                axis.
+            toroidal_idx (int): index defining location along toroidal angle
+                axis.
+        """
+        # relative offsets of wedge vertices in a 3-D index space
+        wedge_vertex_stencil = np.array(
+            [
+                [0, 0, 0],
+                [1, poloidal_idx, 0],
+                [1, poloidal_idx + 1, 0],
+                [0, 0, 1],
+                [1, poloidal_idx, 1],
+                [1, poloidal_idx + 1, 1],
+            ]
+        )
+
+        # Ids of wedge vertices applying offset stencil to current point
+        wedge_idx_data = np.array([0, 0, toroidal_idx]) + wedge_vertex_stencil
+
+        idx_list = [
+            self._get_vertex_id(vertex_idx) for vertex_idx in wedge_idx_data
+        ]
+
+        # Define MOAB canonical ordering of wedge vertex indices
+        # Ordering follows right hand rule such that the fingers curl around
+        # one side of the tetrahedron and the thumb points to the remaining
+        # vertex. The vertices are ordered such that those on the side are
+        # first, ordered clockwise relative to the thumb, followed by the
+        # remaining vertex at the end of the thumb.
+        # See Moreno, Bader, Wilson 2024 for wedge splitting
+        canonical_ordering_schemes = [
+            [
+                [idx_list[0], idx_list[2], idx_list[1], idx_list[3]],
+                [idx_list[1], idx_list[3], idx_list[5], idx_list[4]],
+                [idx_list[1], idx_list[3], idx_list[2], idx_list[5]],
+            ],
+            [
+                [idx_list[0], idx_list[2], idx_list[1], idx_list[3]],
+                [idx_list[3], idx_list[2], idx_list[4], idx_list[5]],
+                [idx_list[3], idx_list[2], idx_list[1], idx_list[4]],
+            ],
+        ]
+
+        # Alternate canonical ordering schemes defining wedge splitting to
+        # avoid gaps and overlaps between non-planar wedge faces
+        scheme_idx = (poloidal_idx + toroidal_idx) % 2
+
+        vertex_id_list = canonical_ordering_schemes[scheme_idx]
+
+        tets = [self._create_tet(vertex_ids) for vertex_ids in vertex_id_list]
+
+        return tets, vertex_id_list
+
+    def export(self, filename, export_dir=""):
+        """Exports a tetrahedral mesh in H5M format via MOAB.
+
+        Arguments:
+            filename (str): name of H5M output file.
+            export_dir (str): directory to which to export the h5m output file
+                (defaults to empty string).
+        """
+        export_path = Path(export_dir) / Path(filename).with_suffix(".h5m")
+        self.mbc.write_file(str(export_path))

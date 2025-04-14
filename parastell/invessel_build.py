@@ -25,6 +25,7 @@ from .cubit_utils import (
     mesh_volume_auto_factor,
 )
 from .utils import (
+    ToroidalMesh,
     normalize,
     expand_list,
     read_yaml_config,
@@ -409,10 +410,6 @@ class InVesselBuild(object):
             expand_list(self.radial_build.poloidal_angles, self.num_rib_pts)
         )
 
-        # Store actual number of ribs and rib points
-        self._actual_num_ribs = len(self._toroidal_angles_exp)
-        self._actual_num_rib_pts = len(self._poloidal_angles_exp)
-
         offset_mat = np.zeros(
             (
                 len(self.radial_build.toroidal_angles),
@@ -727,117 +724,17 @@ class InVesselBuild(object):
             f"Generating tetrahedral mesh of {component} volume via MOAB..."
         )
 
-        self.mesh_mbc = core.Core()
-
         surfaces = []
         surface_keys = list(self.Surfaces.keys())
 
-        component_index = surface_keys.index(component)
-        surfaces = [self.Surfaces[surface_keys[component_index - 1]]]
+        component_idx = surface_keys.index(component)
+        surfaces = [self.Surfaces[surface_keys[component_idx - 1]]]
         surfaces.append(self.Surfaces[component])
 
-        coords = []
-        for surface in surfaces:
-            for rib in surface.Ribs:
-                coords.extend(rib.rib_loci)
-        coords = np.array(coords)
+        self.moab_mesh = InVesselComponentMesh(surfaces)
 
-        self.verts = self.mesh_mbc.create_vertices(coords)
-
-        self.mesh_set = self.mesh_mbc.create_meshset()
-        self.mesh_mbc.add_entity(self.mesh_set, self.verts)
-
-        for toroidal_idx in range(self._actual_num_ribs - 1):
-            for poloidal_idx in range(self._actual_num_rib_pts - 1):
-                self._create_tets_from_hex(poloidal_idx, toroidal_idx)
-
-    def _create_tets_from_hex(self, poloidal_idx, toroidal_idx):
-        """Creates five tetrahedra from defined hexahedron.
-        (Internal function not intended to be called externally)
-
-        Arguments:
-            poloidal_idx (int): index defining location along poloidal angle axis.
-            toroidal_idx (int): index defining location along toroidal angle axis.
-        """
-        # Relative offsets of vertices in a 3-D index space
-        hex_vertex_stencil = np.array(
-            [
-                [0, 0, 0],
-                [1, 0, 0],
-                [1, 1, 0],
-                [0, 1, 0],
-                [0, 0, 1],
-                [1, 0, 1],
-                [1, 1, 1],
-                [0, 1, 1],
-            ]
-        )
-
-        # IDs of hex vertices applying offset stencil to current point
-        hex_idx_data = (
-            np.array([0, poloidal_idx, toroidal_idx]) + hex_vertex_stencil
-        )
-
-        idx_list = [
-            self._get_vertex_id(vertex_idx) for vertex_idx in hex_idx_data
-        ]
-
-        # Define MOAB canonical ordering of hexahedron vertex indices
-        # Ordering follows right hand rule such that the fingers curl around
-        # one side of the tetrahedron and the thumb points to the remaining
-        # vertex. The vertices are ordered such that those on a face are first,
-        # ordered clockwise relative to the thumb, followed by the remaining
-        # vertex at the end of the thumb.
-        # See Moreno, Bader, Wilson 2024 for hexahedron splitting
-        hex_to_tets_mapping = [
-            [idx_list[0], idx_list[3], idx_list[1], idx_list[4]],
-            [idx_list[1], idx_list[3], idx_list[2], idx_list[6]],
-            [idx_list[1], idx_list[4], idx_list[6], idx_list[5]],
-            [idx_list[3], idx_list[6], idx_list[4], idx_list[7]],
-            [idx_list[1], idx_list[3], idx_list[6], idx_list[4]],
-        ]
-
-        for vertex_ids in hex_to_tets_mapping:
-            self._create_tet(vertex_ids)
-
-    def _get_vertex_id(self, vertex_idx):
-        """Computes vertex index in row-major order as stored by MOAB from
-        three-dimensional n x 3 matrix indices.
-        (Internal function not intended to be called externally)
-
-        Arguments:
-            vertex_idx (list): vertex's 3-D grid indices in order
-                [surface index, poloidal angle index, toroidal angle index]
-
-        Returns:
-            id (int): vertex index in row-major order as stored by MOAB
-        """
-        surface_idx, poloidal_idx, toroidal_idx = vertex_idx
-
-        verts_per_surface = self._actual_num_ribs * self._actual_num_rib_pts
-        surface_offset = surface_idx * verts_per_surface
-
-        toroidal_offset = toroidal_idx * self._actual_num_rib_pts
-
-        poloidal_offset = poloidal_idx
-        # Wrap around if poloidal angle is 2*pi
-        if poloidal_idx == self._actual_num_rib_pts - 1:
-            poloidal_offset = 0
-
-        id = surface_offset + toroidal_offset + poloidal_offset
-
-        return id
-
-    def _create_tet(self, tet_ids):
-        """Creates tetrahedron and adds to PyMOAB core.
-        (Internal function not intended to be called externally)
-
-        Arguments:
-            tet_ids (list of int): tetrahedron vertex indices.
-        """
-        tet_verts = [self.verts[int(id)] for id in tet_ids]
-        tet = self.mesh_mbc.create_element(types.MBTET, tet_verts)
-        self.mesh_mbc.add_entity(self.mesh_set, tet)
+        self.moab_mesh.create_vertices()
+        self.moab_mesh.create_mesh()
 
     def export_mesh_moab(self, filename, export_dir=""):
         """Exports a tetrahedral mesh of in-vessel component volumes in H5M
@@ -848,12 +745,8 @@ class InVesselBuild(object):
             export_dir (str): directory to which to export the h5m output file
                 (defaults to empty string).
         """
-        self._logger.info(
-            "Exporting mesh H5M file for in-vessel component(s)..."
-        )
-
-        export_path = Path(export_dir) / Path(filename).with_suffix(".h5m")
-        self.mesh_mbc.write_file(str(export_path))
+        self._logger.info("Exporting mesh H5M file for in-vessel component...")
+        self.moab_mesh.export_mesh(filename, export_dir=export_dir)
 
     def mesh_components_gmsh(
         self, components, min_mesh_size=5.0, max_mesh_size=20.0
@@ -1220,6 +1113,92 @@ class Rib(object):
         rib_spline = cq.Wire.assembleEdges([spline]).close()
 
         return rib_spline
+
+
+class InVesselComponentMesh(ToroidalMesh):
+    """Generates a tetrahedral mesh of an in-vessel component volume via MOAB.
+    This mesh is created using the point cloud of the component's Surface class
+    objects and as such, the mesh will be one tetrahedron thick. Inherits from
+    ToroidalMesh.
+
+    Arguments:
+        surfaces (list of object): the component's two Surface class objects,
+            ordered radially outward.
+    """
+
+    def __init__(self, surfaces):
+        super().__init__()
+
+        self.surfaces = surfaces
+
+    @property
+    def surfaces(self):
+        return self._surfaces
+
+    @surfaces.setter
+    def surfaces(self, list):
+        self._surfaces = list
+        # Extract dimensions of surface point cloud
+        self._num_ribs = len(list[0].phi_list)
+        self._num_rib_pts = len(list[0].theta_list)
+
+    def create_vertices(self):
+        """Creates mesh vertices and adds them to PyMOAB core."""
+        coords = []
+        for surface in self.surfaces:
+            for rib in surface.Ribs:
+                coords.extend(rib.rib_loci)
+        coords = np.array(coords)
+        self.add_vertices(coords)
+
+    def create_mesh(self):
+        """Creates volumetric mesh in real space."""
+        surface_idx = 0
+
+        for toroidal_idx in range(self._num_ribs - 1):
+            for poloidal_idx in range(self._num_rib_pts - 1):
+                self._create_tets_from_hex(
+                    surface_idx, poloidal_idx, toroidal_idx
+                )
+
+    def _get_vertex_id(self, vertex_idx):
+        """Computes vertex index in row-major order as stored by MOAB from
+        three-dimensional n x 3 matrix indices.
+        (Internal function not intended to be called externally)
+
+        Arguments:
+            vertex_idx (list): vertex's 3-D grid indices in order
+                [surface index, poloidal angle index, toroidal angle index]
+
+        Returns:
+            id (int): vertex index in row-major order as stored by MOAB
+        """
+        surface_idx, poloidal_idx, toroidal_idx = vertex_idx
+
+        verts_per_surface = self._num_ribs * self._num_rib_pts
+        surface_offset = surface_idx * verts_per_surface
+
+        toroidal_offset = toroidal_idx * self._num_rib_pts
+
+        poloidal_offset = poloidal_idx
+        # Wrap around if poloidal angle is 2*pi
+        if poloidal_idx == self._num_rib_pts - 1:
+            poloidal_offset = 0
+
+        id = surface_offset + toroidal_offset + poloidal_offset
+
+        return id
+
+    def export_mesh(self, filename, export_dir=""):
+        """Exports a tetrahedral mesh of in-vessel component volumes in H5M
+        format via MOAB.
+
+        Arguments:
+            filename (str): name of H5M output file.
+            export_dir (str): directory to which to export the h5m output file
+                (defaults to empty string).
+        """
+        self.export(filename, export_dir=export_dir)
 
 
 class RadialBuild(object):
