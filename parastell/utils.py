@@ -645,7 +645,7 @@ class ToroidalMesh(ABC):
 
         return tets, vertex_id_list
 
-    def export(self, filename, export_dir=""):
+    def export_mesh(self, filename, export_dir=""):
         """Exports a tetrahedral mesh in H5M format via MOAB.
 
         Arguments:

@@ -403,7 +403,8 @@ class SourceMesh(ToroidalMesh):
 
     def export_mesh(self, filename="source_mesh", export_dir=""):
         """Use PyMOAB interface to write source mesh with source strengths
-        tagged.
+        tagged. This method overwrites the "export_mesh" method from the
+        ToroidalMesh class, in order to include logging output.
 
         Arguments:
             filename: name of H5M output file, excluding '.h5m' extension
@@ -413,7 +414,8 @@ class SourceMesh(ToroidalMesh):
         """
         self._logger.info("Exporting source mesh H5M file...")
 
-        self.export(filename, export_dir=export_dir)
+        export_path = Path(export_dir) / Path(filename).with_suffix(".h5m")
+        self.mbc.write_file(str(export_path))
 
 
 def parse_args():

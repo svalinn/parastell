@@ -1189,17 +1189,6 @@ class InVesselComponentMesh(ToroidalMesh):
 
         return id
 
-    def export_mesh(self, filename, export_dir=""):
-        """Exports a tetrahedral mesh of in-vessel component volumes in H5M
-        format via MOAB.
-
-        Arguments:
-            filename (str): name of H5M output file.
-            export_dir (str): directory to which to export the h5m output file
-                (defaults to empty string).
-        """
-        self.export(filename, export_dir=export_dir)
-
 
 class RadialBuild(object):
     """Parametrically defines ParaStell in-vessel component geometries.
