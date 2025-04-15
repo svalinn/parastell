@@ -117,12 +117,14 @@ def test_export(source_mesh):
     testing if:
         * the expected H5M file is produced
     """
+    filename_exp = "source_mesh.h5m"
+
     remove_files()
 
     source_mesh.create_vertices()
     source_mesh.create_mesh()
-    source_mesh.export_mesh()
+    source_mesh.export_mesh(filename_exp)
 
-    assert Path("source_mesh.h5m").exists()
+    assert Path(filename_exp).exists()
 
     remove_files()
