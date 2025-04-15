@@ -284,8 +284,9 @@ class SourceMesh(ToroidalMesh):
         self.add_vertices(self.coords)
 
     def _compute_tet_data(self, tet_ids, tet):
-        """Computes neutron source strength for a tetrahedron using five-node
-        Gaussian quadrature.
+        """Computes tetrahedron neutron source strength, using five-node
+        Gaussian quadrature, and volume, and sets the corresponding values of
+        the respective tags for that tetrahedron.
         (Internal function not intended to be called externally)
 
         Arguments:
