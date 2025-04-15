@@ -39,5 +39,5 @@ source_mesh_obj.create_vertices()
 source_mesh_obj.create_mesh()
 
 # export and convert to vtk for visualization
-source_mesh_obj.export_mesh()
+source_mesh_obj.export_mesh("source_mesh.h5m")
 subprocess.run("mbconvert source_mesh.h5m source_mesh.vtk", shell=True)
