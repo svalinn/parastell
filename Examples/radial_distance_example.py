@@ -90,14 +90,14 @@ stellarator.construct_invessel_build(
     num_rib_pts=61,
 )
 # Export in-vessel component files
-stellarator.export_invessel_build()
+stellarator.export_invessel_build_step()
 
 # Construct magnets
 stellarator.construct_magnets_from_filaments(
     coils_file, width, thickness, toroidal_extent, sample_mod=6
 )
 # Export magnet files
-stellarator.export_magnets()
+stellarator.export_magnets_step()
 
 # Define source mesh parameters
 mesh_size = (11, 81, 61)

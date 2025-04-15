@@ -13,6 +13,7 @@ from parastell.cubit_utils import (
 files_to_remove = [
     "chamber.step",
     "component.step",
+    "component.h5m",
     "magnet_set.step",
     "magnet_mesh.exo",
     "magnet_mesh.h5m",
@@ -88,7 +89,7 @@ def create_ivb_cad_magnets_from_filaments(stellarator_obj):
         stellarator_obj (object): parastell.Stellarator class object.
     """
     construct_invessel_build(stellarator_obj)
-    stellarator_obj.export_invessel_build()
+    stellarator_obj.export_invessel_build_step()
 
     coils_file = Path("files_for_tests") / "coils.example"
     width = 40.0
@@ -100,9 +101,9 @@ def create_ivb_cad_magnets_from_filaments(stellarator_obj):
         coils_file, width, thickness, toroidal_extent, sample_mod=sample_mod
     )
 
-    step_filename_exp = "magnet_set.step"
+    filename_exp = "magnet_set.step"
 
-    stellarator_obj.export_magnets(step_filename=step_filename_exp)
+    stellarator_obj.export_magnets_step(filename=filename_exp)
 
 
 def create_ivb_cad_magnets_from_cad(stellarator_obj):
@@ -113,7 +114,7 @@ def create_ivb_cad_magnets_from_cad(stellarator_obj):
         stellarator_obj (object): parastell.Stellarator class object.
     """
     construct_invessel_build(stellarator_obj)
-    stellarator_obj.export_invessel_build()
+    stellarator_obj.export_invessel_build_step()
 
     geometry_file = Path("files_for_tests") / "magnet_geom.step"
 
@@ -139,9 +140,9 @@ def create_ivb_pydagmc_magnets_from_filaments(stellarator_obj):
         coils_file, width, thickness, toroidal_extent, sample_mod=sample_mod
     )
 
-    step_filename_exp = "magnet_set.step"
+    filename_exp = "magnet_set.step"
 
-    stellarator_obj.export_magnets(step_filename=step_filename_exp)
+    stellarator_obj.export_magnets_step(filename=filename_exp)
 
 
 def create_ivb_pydagmc_magnets_from_cad(stellarator_obj):
@@ -174,16 +175,33 @@ def test_invessel_build(stellarator):
     """
     remove_files()
 
-    component_name_exp = "component"
     construct_invessel_build(stellarator)
 
-    chamber_filename_exp = Path("chamber").with_suffix(".step")
-    component_filename_exp = Path(component_name_exp).with_suffix(".step")
+    chamber_step_filename_exp = Path("chamber").with_suffix(".step")
+    component_step_filename_exp = Path("component").with_suffix(".step")
+    component_h5m_filename_exp = Path("component").with_suffix(".h5m")
 
-    stellarator.export_invessel_build()
+    stellarator.export_invessel_build_step()
 
-    assert chamber_filename_exp.exists()
-    assert component_filename_exp.exists()
+    assert chamber_step_filename_exp.exists()
+    assert component_step_filename_exp.exists()
+
+    if check_cubit_installation():
+        stellarator.export_invessel_build_mesh_cubit(
+            ["component"], "component"
+        )
+
+        assert component_h5m_filename_exp.exists()
+
+        remove_files()
+
+    stellarator.export_invessel_build_mesh_moab("component", "component")
+    assert component_h5m_filename_exp.exists()
+
+    remove_files()
+
+    stellarator.export_invessel_build_mesh_gmsh(["component"], "component")
+    assert component_h5m_filename_exp.exists()
 
     remove_files()
 
@@ -207,18 +225,19 @@ def test_magnet_set(stellarator):
     )
 
     step_filename_exp = "magnet_set.step"
-    export_mesh = check_cubit_installation()
-    mesh_filename_exp = "magnet_mesh"
 
-    stellarator.export_magnets(
-        step_filename=step_filename_exp,
-        export_mesh=export_mesh,
-        mesh_filename=mesh_filename_exp,
-    )
+    stellarator.export_magnets_step(filename=step_filename_exp)
 
     assert Path(step_filename_exp).with_suffix(".step").exists()
-    if export_mesh:
-        assert Path(mesh_filename_exp).with_suffix(".h5m").exists()
+
+    if check_cubit_installation():
+        stellarator.export_magnet_mesh_cubit()
+        assert Path("magnet_mesh").with_suffix(".h5m").exists()
+
+        remove_files()
+
+    stellarator.export_magnet_mesh_gmsh()
+    assert Path("magnet_mesh").with_suffix(".h5m").exists()
 
     remove_files()
 

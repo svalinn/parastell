@@ -76,7 +76,7 @@ stellarator.construct_invessel_build(
     toroidal_angles, poloidal_angles, wall_s, radial_build_dict, scale=1
 )
 # Export in-vessel component files
-stellarator.export_invessel_build(export_dir=export_dir)
+stellarator.export_invessel_build_step(export_dir=export_dir)
 
 # Define build parameters for magnet coils
 coils_file = "coils.example"
@@ -88,11 +88,9 @@ stellarator.construct_magnets_from_filaments(
     coils_file, width, thickness, toroidal_extent, sample_mod=6
 )
 # Export magnet files
-stellarator.export_magnets(
-    step_filename="magnets",
-    export_mesh=True,
-    mesh_filename="magnet_mesh",
-    export_dir=export_dir,
+stellarator.export_magnets_step(filename="magnets", export_dir=export_dir)
+stellarator.export_magnet_mesh_cubit(
+    filename="magnet_mesh", export_dir=export_dir
 )
 
 # Define source mesh parameters

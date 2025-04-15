@@ -3,11 +3,13 @@ from pathlib import Path
 from abc import ABC
 
 import numpy as np
-
 import cadquery as cq
+import gmsh
+from pymoab import core
 
 from . import log
 from .cubit_utils import (
+    create_new_cubit_instance,
     import_geom_to_cubit,
     export_mesh_cubit,
     mesh_volume_skeleton,
@@ -67,7 +69,9 @@ class MagnetSet(ABC):
         )
         self.volume_ids = list(range(first_vol_id, last_vol_id + 1))
 
-    def mesh_magnets(self, min_size=20.0, max_size=50.0, max_gradient=1.5):
+    def mesh_magnets_cubit(
+        self, min_size=20.0, max_size=50.0, max_gradient=1.5
+    ):
         """Creates tetrahedral mesh of magnet volumes via Coreform Cubit.
 
         Arguments:
@@ -77,6 +81,8 @@ class MagnetSet(ABC):
                 (defaults to 1.5).
         """
         self._logger.info("Generating tetrahedral mesh of magnet coils...")
+
+        create_new_cubit_instance()
 
         if not hasattr(self, "volume_ids"):
             self.import_geom_cubit()
@@ -88,19 +94,72 @@ class MagnetSet(ABC):
             max_gradient=max_gradient,
         )
 
-    def export_mesh(self, mesh_filename="magnet_mesh", export_dir=""):
-        """Creates tetrahedral mesh of magnet volumes and exports H5M format
-        via Coreform Cubit and  MOAB.
+    def export_mesh_cubit(self, filename="magnet_mesh", export_dir=""):
+        """Exports a tetrahedral mesh of magnet volumes in H5M format via
+        Coreform Cubit and MOAB.
 
         Arguments:
-            mesh_filename (str): name of H5M output file, excluding '.h5m'
-                extension (optional, defaults to 'magnet_mesh').
+            filename (str): name of H5M output file (defaults to
+                'magnet_mesh').
             export_dir (str): directory to which to export the H5M output file
-                (optional, defaults to empty string).
+                (defaults to empty string).
         """
-        self._logger.info("Exporting mesh H5M file for magnet coils...")
+        self._logger.info("Exporting mesh H5M file...")
 
-        export_mesh_cubit(filename=mesh_filename, export_dir=export_dir)
+        export_mesh_cubit(
+            filename=filename,
+            export_dir=export_dir,
+            delete_upon_export=True,
+        )
+
+    def mesh_magnets_gmsh(self, min_mesh_size=5.0, max_mesh_size=20.0):
+        """Creates tetrahedral mesh of magnet volumes via Gmsh.
+
+        Arguments:
+            min_mesh_size (float): minimum size of mesh elements (defaults to
+                5.0).
+            max_mesh_size (float): maximum size of mesh elements (defaults to
+                20.0).
+        """
+        self._logger.info("Generating tetrahedral mesh of magnets via Gmsh...")
+
+        gmsh.initialize()
+
+        for solid in self.coil_solids:
+            gmsh.model.occ.importShapesNativePointer(solid.wrapped._address())
+
+        gmsh.model.occ.synchronize()
+
+        gmsh.option.setNumber("Mesh.MeshSizeMin", min_mesh_size)
+        gmsh.option.setNumber("Mesh.MeshSizeMax", max_mesh_size)
+
+        gmsh.model.mesh.generate(dim=3)
+
+    def export_mesh_gmsh(self, filename="magnet_mesh", export_dir=""):
+        """Exports a tetrahedral mesh of magnet volumes in H5M format via Gmsh
+        and MOAB.
+
+        Arguments:
+            filename (str): name of H5M output file (defaults to
+                'magnet_mesh').
+            export_dir (str): directory to which to export the h5m output file
+                (defaults to empty string).
+        """
+        self._logger.info("Exporting mesh H5M file...")
+
+        vtk_path = Path(export_dir) / Path(filename).with_suffix(".vtk")
+        moab_path = vtk_path.with_suffix(".h5m")
+
+        gmsh.write(str(vtk_path))
+
+        gmsh.clear()
+        gmsh.finalize()
+
+        self.mesh_mbc = core.Core()
+        self.mesh_mbc.load_file(str(vtk_path))
+        self.mesh_mbc.write_file(str(moab_path))
+
+        Path(vtk_path).unlink()
 
 
 class MagnetSetFromFilaments(MagnetSet):
@@ -309,19 +368,19 @@ class MagnetSetFromFilaments(MagnetSet):
             cut_coil = coil.solid.intersect(toroidal_region)
             coil.solid = cut_coil
 
-    def export_step(self, step_filename="magnet_set.step", export_dir=""):
+    def export_step(self, filename="magnet_set", export_dir=""):
         """Export CAD solids as a STEP file via CadQuery.
 
         Arguments:
-            step_filename (str): name of STEP output file (optional, defaults
-                to 'magnet_set.step').
+            filename (str): name of STEP output file (optional, defaults to
+                'magnet_set').
             export_dir (str): directory to which to export the STEP output file
                 (optional, defaults to empty string).
         """
         self._logger.info("Exporting STEP file for magnet coils...")
 
         self.working_dir = export_dir
-        self.geometry_file = Path(step_filename).with_suffix(".step")
+        self.geometry_file = Path(filename).with_suffix(".step")
 
         export_path = Path(self.working_dir) / self.geometry_file
 

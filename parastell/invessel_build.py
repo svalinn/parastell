@@ -13,9 +13,11 @@ import cadquery as cq
 import pystell.read_vmec as read_vmec
 import pydagmc
 from pymoab import core, types
+import gmsh
 
 from . import log
 from .cubit_utils import (
+    create_new_cubit_instance,
     import_step_cubit,
     export_mesh_cubit,
     orient_spline_surfaces,
@@ -23,6 +25,7 @@ from .cubit_utils import (
     mesh_volume_auto_factor,
 )
 from .utils import (
+    ToroidalMesh,
     normalize,
     expand_list,
     read_yaml_config,
@@ -274,8 +277,8 @@ class InVesselBuild(object):
             (phi).
         radial_build (object): RadialBuild class object with all attributes
             defined.
-        logger (object): logger object (optional, defaults to None). If no
-            logger is supplied, a default logger will be instantiated.
+        logger (object): logger object (defaults to None). If no logger is
+            supplied, a default logger will be instantiated.
 
     Optional attributes:
         repeat (int): number of times to repeat build segment for full model
@@ -291,7 +294,7 @@ class InVesselBuild(object):
         scale (float): a scaling factor between the units of VMEC and [cm]
             (defaults to m2cm = 100).
         use_pydagmc (bool): If True, generate components with pydagmc, rather
-            than CADQuery. Defaults to False.
+            than CadQuery (defaults to False).
     """
 
     def __init__(self, ref_surf, radial_build, logger=None, **kwargs):
@@ -302,7 +305,7 @@ class InVesselBuild(object):
 
         self.repeat = 0
         self.num_ribs = 61
-        self.num_rib_pts = 67
+        self.num_rib_pts = 61
         self.scale = m2cm
         self.use_pydagmc = False
 
@@ -491,7 +494,7 @@ class InVesselBuild(object):
             rib1 (Rib object): First of two ribs to be connected.
             rib2 (Rib object): Second of two ribs to be connected.
             reverse (bool): Optional. Whether to reverse the connectivity of
-                the MBTRIs being generated. Defaults to False.
+                the MBTRIs being generated (defaults to False).
 
         Returns:
             mb_tris (list of Entity Handle): List of the entity handles of the
@@ -680,7 +683,7 @@ class InVesselBuild(object):
 
         Arguments:
             export_dir (str): directory to which to export the STEP output files
-                (optional, defaults to empty string).
+                (defaults to empty string).
         """
         self._logger.info("Exporting STEP files for in-vessel components...")
 
@@ -709,31 +712,215 @@ class InVesselBuild(object):
 
         return solids, mat_tags
 
-    def export_component_mesh(
-        self, components, mesh_size=5, import_dir="", export_dir=""
-    ):
-        """Creates a tetrahedral mesh of an in-vessel component volume
-        via Coreform Cubit and exports it as H5M file.
+    def mesh_component_moab(self, component):
+        """Creates a tetrahedral mesh of a single in-vessel component volume
+        via MOAB. This mesh is created using the point cloud of the specified
+        component and as such, the mesh will be one tetrahedron thick.
 
         Arguments:
-            components (array of strings): array containing the name
-                of the in-vessel components to be meshed.
-            mesh_size (float): controls the size of the mesh. Takes values
-                between 1.0 (finer) and 10.0 (coarser) (optional, defaults to
+            component (str): name of in-vessel component to be meshed.
+        """
+        self._logger.info(
+            f"Generating tetrahedral mesh of {component} volume via MOAB..."
+        )
+
+        surfaces = []
+        surface_keys = list(self.Surfaces.keys())
+
+        component_idx = surface_keys.index(component)
+        surfaces = [self.Surfaces[surface_keys[component_idx - 1]]]
+        surfaces.append(self.Surfaces[component])
+
+        self.moab_mesh = InVesselComponentMesh(surfaces, self._logger)
+
+        self.moab_mesh.create_vertices()
+        self.moab_mesh.create_mesh()
+
+    def export_mesh_moab(self, filename, export_dir=""):
+        """Exports a tetrahedral mesh of in-vessel component volumes in H5M
+        format via MOAB.
+
+        Arguments:
+            filename (str): name of H5M output file.
+            export_dir (str): directory to which to export the h5m output file
+                (defaults to empty string).
+        """
+        self.moab_mesh.export_mesh(filename, export_dir=export_dir)
+
+    def mesh_components_gmsh(
+        self, components, min_mesh_size=5.0, max_mesh_size=20.0
+    ):
+        """Creates a tetrahedral mesh of in-vessel component volumes via Gmsh.
+
+        Arguments:
+            components (array of str): array containing the names of the
+                in-vessel components to be meshed.
+            min_mesh_size (float): minimum size of mesh elements (defaults to
                 5.0).
-            import_dir (str): directory containing the STEP file of
-                the in-vessel component (optional, defaults to empty string).
-            export_dir (str): directory to which to export the h5m
-                output file (optional, defaults to empty string).
+            max_mesh_size (float): maximum size of mesh elements (defaults to
+                20.0).
+        """
+        self._logger.info(
+            "Generating tetrahedral mesh of in-vessel component(s) via Gmsh..."
+        )
+
+        gmsh.initialize()
+
+        if self._use_pydagmc:
+            self._gmsh_from_pydagmc(components)
+        else:
+            self._gmsh_from_cadquery(components)
+
+        gmsh.option.setNumber("Mesh.MeshSizeMin", min_mesh_size)
+        gmsh.option.setNumber("Mesh.MeshSizeMax", max_mesh_size)
+
+        gmsh.model.mesh.generate(dim=3)
+
+    def _gmsh_from_pydagmc(self, components):
+        """Adds PyDAGMC geometry to Gmsh instance.
+        (Internal function not intended to be called externally)
+
+        Arguments:
+            components (array of str): array containing the names of the
+                in-vessel components to be meshed.
+        """
+        # These parameters are taken directly from Gmsh documentation (see
+        # tutorial t13)
+        gmsh.onelab.set(
+            """[
+            {
+                "type": "number",
+                "name": "Parameters/Angle for surface detection",
+                "values": [40],
+                "min": 20,
+                "max": 120,
+                "step": 1
+            },
+            {
+                "type": "number",
+                "name": "Parameters/Create surfaces guaranteed to be parametrizable",
+                "values": [0],
+                "choices": [0, 1]
+            }
+            ]"""
+        )
+
+        for component in components:
+            volume_id = self.radial_build.radial_build[component]["vol_id"]
+
+            vtk_path = str(Path(f"volume_{volume_id}_tmp").with_suffix(".vtk"))
+            self.dag_model.volumes_by_id[volume_id].to_vtk(vtk_path)
+
+            gmsh.merge(vtk_path)
+
+        angle = gmsh.onelab.getNumber(
+            "Parameters/Angle for surface detection"
+        )[0]
+        includeBoundary = True
+        forceParameterizablePatches = gmsh.onelab.getNumber(
+            "Parameters/Create surfaces guaranteed to be parametrizable"
+        )[0]
+        curveAngle = 180.0
+
+        gmsh.model.mesh.classifySurfaces(
+            np.deg2rad(angle),
+            includeBoundary,
+            forceParameterizablePatches,
+            np.deg2rad(curveAngle),
+        )
+
+        gmsh.model.mesh.create_geometry()
+
+        surfaces = gmsh.model.getEntities(dim=2)
+        surface_tags = [s[1] for s in surfaces]
+        surface_loop = gmsh.model.geo.addSurfaceLoop(surface_tags)
+        gmsh.model.geo.addVolume([surface_loop])
+
+        gmsh.model.geo.synchronize()
+
+    def _gmsh_from_cadquery(self, components):
+        """Adds CadQuery geometry to Gmsh instance.
+        (Internal function not intended to be called externally)
+
+        Arguments:
+            components (array of str): array containing the names of the
+                in-vessel components to be meshed.
         """
         for component in components:
-            vol_id = import_step_cubit(component, import_dir)
-            mesh_volume_auto_factor([vol_id], mesh_size=mesh_size)
-            export_mesh_cubit(
-                filename=component,
-                export_dir=export_dir,
-                delete_upon_export=True,
+            gmsh.model.occ.importShapesNativePointer(
+                self.Components[component].wrapped._address()
             )
+
+        gmsh.model.occ.synchronize()
+
+    def export_mesh_gmsh(self, filename, export_dir=""):
+        """Exports a tetrahedral mesh of in-vessel component volumes in H5M
+        format via Gmsh and MOAB.
+
+        Arguments:
+            filename (str): name of H5M output file.
+            export_dir (str): directory to which to export the h5m output file
+                (defaults to empty string).
+        """
+        self._logger.info("Exporting mesh H5M file...")
+
+        vtk_path = Path(export_dir) / Path(filename).with_suffix(".vtk")
+        moab_path = vtk_path.with_suffix(".h5m")
+
+        gmsh.write(str(vtk_path))
+
+        gmsh.clear()
+        gmsh.finalize()
+
+        self.mesh_mbc = core.Core()
+        self.mesh_mbc.load_file(str(vtk_path))
+        self.mesh_mbc.write_file(str(moab_path))
+
+        Path(vtk_path).unlink()
+
+    def mesh_components_cubit(self, components, mesh_size=5, import_dir=""):
+        """Creates a tetrahedral mesh of in-vessel component volumes via
+        Coreform Cubit.
+
+        Arguments:
+            components (array of str): array containing the names of the
+                in-vessel components to be meshed.
+            mesh_size (float): controls the size of the mesh. Takes values
+                between 1.0 (finer) and 10.0 (coarser) (defaults to 5.0).
+            import_dir (str): directory containing the STEP file of
+                the in-vessel component (defaults to empty string).
+        """
+        self._logger.info(
+            "Generating tetrahedral mesh of in-vessel component(s) via Coreform"
+            " Cubit..."
+        )
+
+        create_new_cubit_instance()
+
+        volume_ids = []
+
+        for component in components:
+            volume_id = import_step_cubit(component, import_dir)
+            volume_ids.append(volume_id)
+
+        mesh_volume_auto_factor(volume_ids, mesh_size=mesh_size)
+
+    def export_mesh_cubit(self, filename, export_dir=""):
+        """Exports a tetrahedral mesh of in-vessel component volumes in H5M
+        format via Coreform Cubit and MOAB.
+
+        Arguments:
+            filename (str): name of H5M output file.
+            export_dir (str): directory to which to export the h5m output file
+                (defaults to empty string).
+        """
+        self._logger.info("Exporting mesh H5M file...")
+
+        export_mesh_cubit(
+            filename=filename,
+            export_dir=export_dir,
+            delete_upon_export=True,
+        )
 
 
 class Surface(object):
@@ -854,7 +1041,7 @@ class Rib(object):
         Arguments:
             poloidal_offset (float) : some offset to apply to the full set of
                 poloidal angles for evaluating the location of the Cartesian
-                points (optional, defaults to 0).
+                points (defaults to 0).
         """
         return self.ref_surf.angles_to_xyz(
             self.phi,
@@ -923,6 +1110,83 @@ class Rib(object):
         return rib_spline
 
 
+class InVesselComponentMesh(ToroidalMesh):
+    """Generates a tetrahedral mesh of an in-vessel component volume via MOAB.
+    This mesh is created using the point cloud of the component's Surface class
+    objects and as such, the mesh will be one tetrahedron thick. Inherits from
+    ToroidalMesh.
+
+    Arguments:
+        surfaces (list of object): the component's two Surface class objects,
+            ordered radially outward.
+        logger (object): logger object (defaults to None). If no logger is
+            supplied, a default logger will be instantiated.
+    """
+
+    def __init__(self, surfaces, logger=None):
+        super().__init__(logger=logger)
+
+        self.surfaces = surfaces
+
+    @property
+    def surfaces(self):
+        return self._surfaces
+
+    @surfaces.setter
+    def surfaces(self, list):
+        self._surfaces = list
+        # Extract dimensions of surface point cloud
+        self._num_ribs = len(list[0].phi_list)
+        self._num_rib_pts = len(list[0].theta_list)
+
+    def create_vertices(self):
+        """Creates mesh vertices and adds them to PyMOAB core."""
+        coords = []
+        for surface in self.surfaces:
+            for rib in surface.Ribs:
+                coords.extend(rib.rib_loci)
+        coords = np.array(coords)
+        self.add_vertices(coords)
+
+    def create_mesh(self):
+        """Creates volumetric mesh in real space."""
+        surface_idx = 0
+
+        for toroidal_idx in range(self._num_ribs - 1):
+            for poloidal_idx in range(self._num_rib_pts - 1):
+                self._create_tets_from_hex(
+                    surface_idx, poloidal_idx, toroidal_idx
+                )
+
+    def _get_vertex_id(self, vertex_idx):
+        """Computes vertex index in row-major order as stored by MOAB from
+        three-dimensional n x 3 matrix indices.
+        (Internal function not intended to be called externally)
+
+        Arguments:
+            vertex_idx (list): vertex's 3-D grid indices in order
+                [surface index, poloidal angle index, toroidal angle index]
+
+        Returns:
+            id (int): vertex index in row-major order as stored by MOAB
+        """
+        surface_idx, poloidal_idx, toroidal_idx = vertex_idx
+
+        verts_per_surface = self._num_ribs * self._num_rib_pts
+        surface_offset = surface_idx * verts_per_surface
+
+        toroidal_offset = toroidal_idx * self._num_rib_pts
+
+        poloidal_offset = poloidal_idx
+        # Wrap around if poloidal angle is 2*pi
+        if poloidal_idx == self._num_rib_pts - 1:
+            poloidal_offset = 0
+
+        id = surface_offset + toroidal_offset + poloidal_offset
+
+        return id
+
+
 class RadialBuild(object):
     """Parametrically defines ParaStell in-vessel component geometries.
     In-vessel component thicknesses are defined on a grid of toroidal and
@@ -949,18 +1213,18 @@ class RadialBuild(object):
                         order provided in toroidal_angles and poloidal_angles
                         [cm](ndarray(float)).
                     'mat_tag': DAGMC material tag for component in DAGMC
-                        neutronics model (str, optional, defaults to None). If
-                        none is supplied, the 'component' key will be used.
+                        neutronics model (str, defaults to None). If None is
+                        supplied, the 'component' key will be used.
                 }
             }.
         split_chamber (bool): if wall_s > 1.0, separate interior vacuum
-            chamber into plasma and scrape-off layer components (optional,
-            defaults to False). If an item with a 'sol' key is present in the
-            radial_build dictionary, settting this to False will not combine
-            the resultant 'chamber' with 'sol'. To include a custom scrape-off
-            layer definition for 'chamber', add an item with a 'chamber' key
-            and desired 'thickness_matrix' value to the radial_build dictionary.
-        logger (object): logger object (optional, defaults to None). If no
+            chamber into plasma and scrape-off layer components (defaults to
+            False). If an item with a 'sol' key is present in the radial_build
+            dictionary, settting this to False will not combine the resultant
+            'chamber' with 'sol'. To include a custom scrape-off layer
+            definition for 'chamber', add an item with a 'chamber' key and
+            desired 'thickness_matrix' value to the radial_build dictionary.
+        logger (object): logger object (defaults to None). If no
             logger is supplied, a default logger will be instantiated.
 
     Optional attributes:
