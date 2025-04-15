@@ -731,7 +731,7 @@ class InVesselBuild(object):
         surfaces = [self.Surfaces[surface_keys[component_idx - 1]]]
         surfaces.append(self.Surfaces[component])
 
-        self.moab_mesh = InVesselComponentMesh(surfaces)
+        self.moab_mesh = InVesselComponentMesh(surfaces, self._logger)
 
         self.moab_mesh.create_vertices()
         self.moab_mesh.create_mesh()
@@ -745,7 +745,6 @@ class InVesselBuild(object):
             export_dir (str): directory to which to export the h5m output file
                 (defaults to empty string).
         """
-        self._logger.info("Exporting mesh H5M file for in-vessel component...")
         self.moab_mesh.export_mesh(filename, export_dir=export_dir)
 
     def mesh_components_gmsh(
@@ -863,9 +862,7 @@ class InVesselBuild(object):
             export_dir (str): directory to which to export the h5m output file
                 (defaults to empty string).
         """
-        self._logger.info(
-            "Exporting mesh H5M file for in-vessel component(s)..."
-        )
+        self._logger.info("Exporting mesh H5M file...")
 
         vtk_path = Path(export_dir) / Path(filename).with_suffix(".vtk")
         moab_path = vtk_path.with_suffix(".h5m")
@@ -917,9 +914,7 @@ class InVesselBuild(object):
             export_dir (str): directory to which to export the h5m output file
                 (defaults to empty string).
         """
-        self._logger.info(
-            "Exporting mesh H5M file for in-vessel component(s)..."
-        )
+        self._logger.info("Exporting mesh H5M file...")
 
         export_mesh_cubit(
             filename=filename,
@@ -1124,10 +1119,12 @@ class InVesselComponentMesh(ToroidalMesh):
     Arguments:
         surfaces (list of object): the component's two Surface class objects,
             ordered radially outward.
+        logger (object): logger object (defaults to None). If no logger is
+            supplied, a default logger will be instantiated.
     """
 
-    def __init__(self, surfaces):
-        super().__init__()
+    def __init__(self, surfaces, logger=None):
+        super().__init__(logger=logger)
 
         self.surfaces = surfaces
 

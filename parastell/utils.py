@@ -485,10 +485,24 @@ class ToroidalMesh(ABC):
     inheriting class has some method that iteratively calls
     "_create_tets_from_hex" and/or "_create_tets_from_wedge" to generate the
     mesh.
+
+    Arguments:
+        logger (object): logger object (defaults to None). If no logger is
+            supplied, a default logger will be instantiated.
     """
 
-    def __init__(self):
+    def __init__(self, logger=None):
+        self.logger = logger
+
         self.mbc = core.Core()
+
+    @property
+    def logger(self):
+        return self._logger
+
+    @logger.setter
+    def logger(self, logger_object):
+        self._logger = log.check_init(logger_object)
 
     def add_vertices(self, coords):
         """Creates vertices and adds to PyMOAB core.
@@ -653,5 +667,7 @@ class ToroidalMesh(ABC):
             export_dir (str): directory to which to export the h5m output file
                 (defaults to empty string).
         """
+        self._logger.info("Exporting mesh H5M file...")
+
         export_path = Path(export_dir) / Path(filename).with_suffix(".h5m")
         self.mbc.write_file(str(export_path))

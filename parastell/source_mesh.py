@@ -110,9 +110,8 @@ class SourceMesh(ToroidalMesh):
     def __init__(
         self, vmec_obj, mesh_size, toroidal_extent, logger=None, **kwargs
     ):
-        super().__init__()
+        super().__init__(logger=logger)
 
-        self.logger = logger
         self.vmec_obj = vmec_obj
         self.num_cfs_pts = mesh_size[0]
         self.num_poloidal_pts = mesh_size[1]
@@ -184,14 +183,6 @@ class SourceMesh(ToroidalMesh):
             raise e
 
         self._toroidal_extent = angle
-
-    @property
-    def logger(self):
-        return self._logger
-
-    @logger.setter
-    def logger(self, logger_object):
-        self._logger = log.check_init(logger_object)
 
     def _add_tags_to_core(self):
         """Creates PyMOAB core instance with source strength tag.
@@ -401,22 +392,6 @@ class SourceMesh(ToroidalMesh):
                         self._compute_tet_data(tet_ids, tet)
                         for tet_ids, tet in zip(vertex_id_list, tets)
                     ]
-
-    def export_mesh(self, filename="source_mesh", export_dir=""):
-        """Use PyMOAB interface to write source mesh with source strengths
-        tagged. This method overwrites the "export_mesh" method from the
-        ToroidalMesh class, in order to include logging output.
-
-        Arguments:
-            filename: name of H5M output file, excluding '.h5m' extension
-                (defaults to 'source_mesh').
-            export_dir (str): directory to which to export the H5M output file
-                (defaults to empty string).
-        """
-        self._logger.info("Exporting source mesh H5M file...")
-
-        export_path = Path(export_dir) / Path(filename).with_suffix(".h5m")
-        self.mbc.write_file(str(export_path))
 
 
 def parse_args():

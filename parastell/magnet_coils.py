@@ -104,7 +104,7 @@ class MagnetSet(ABC):
             export_dir (str): directory to which to export the H5M output file
                 (defaults to empty string).
         """
-        self._logger.info("Exporting mesh H5M file for magnet coils...")
+        self._logger.info("Exporting mesh H5M file...")
 
         export_mesh_cubit(
             filename=filename,
@@ -145,7 +145,7 @@ class MagnetSet(ABC):
             export_dir (str): directory to which to export the h5m output file
                 (defaults to empty string).
         """
-        self._logger.info("Exporting mesh H5M file for magnets...")
+        self._logger.info("Exporting mesh H5M file...")
 
         vtk_path = Path(export_dir) / Path(filename).with_suffix(".vtk")
         moab_path = vtk_path.with_suffix(".h5m")
