@@ -766,15 +766,13 @@ class InVesselBuild(object):
 
         gmsh.initialize()
 
+        gmsh.option.setNumber("Mesh.MeshSizeMin", min_mesh_size)
+        gmsh.option.setNumber("Mesh.MeshSizeMax", max_mesh_size)
+
         if self._use_pydagmc:
             self._gmsh_from_pydagmc(components)
         else:
             self._gmsh_from_cadquery(components)
-
-        gmsh.option.setNumber("Mesh.MeshSizeMin", min_mesh_size)
-        gmsh.option.setNumber("Mesh.MeshSizeMax", max_mesh_size)
-
-        gmsh.model.mesh.generate(dim=3)
 
     def _gmsh_from_pydagmc(self, components):
         """Adds PyDAGMC geometry to Gmsh instance.
@@ -805,13 +803,35 @@ class InVesselBuild(object):
             ]"""
         )
 
+        msh_files = []
+
         for component in components:
             volume_id = self.radial_build.radial_build[component]["vol_id"]
 
-            vtk_path = str(Path(f"volume_{volume_id}_tmp").with_suffix(".vtk"))
-            self.dag_model.volumes_by_id[volume_id].to_vtk(vtk_path)
+            vtk_path = Path(f"volume_{volume_id}_tmp").with_suffix(".vtk")
+            self.dag_model.volumes_by_id[volume_id].to_vtk(str(vtk_path))
 
-            gmsh.merge(vtk_path)
+            msh_files.append(self._remesh_gmsh(vtk_path))
+
+        for msh_file in msh_files:
+            gmsh.merge(msh_file)
+
+        [Path(msh_file).unlink() for msh_file in msh_files]
+        [Path(msh_file).with_suffix(".vtk").unlink() for msh_file in msh_files]
+
+    def _remesh_gmsh(self, vtk_path):
+        """Remeshes a mesh in Gmsh by parameterizing the tesselated input
+        geometry, according to preset minimum and maximum mesh element size
+        parameters.
+        (Internal function not intended to be called externally)
+
+        Arguments:
+            vtk_path (object): Path object for VTK file.
+
+        Returns:
+            msh_path (str): path to remeshed mesh MSH file.
+        """
+        msh_path = str(vtk_path.with_suffix(".msh"))
 
         angle = gmsh.onelab.getNumber(
             "Parameters/Angle for surface detection"
@@ -821,6 +841,8 @@ class InVesselBuild(object):
             "Parameters/Create surfaces guaranteed to be parametrizable"
         )[0]
         curveAngle = 180.0
+
+        gmsh.open(str(vtk_path))
 
         gmsh.model.mesh.classifySurfaces(
             np.deg2rad(angle),
@@ -838,6 +860,14 @@ class InVesselBuild(object):
 
         gmsh.model.geo.synchronize()
 
+        gmsh.model.mesh.generate(dim=3)
+
+        gmsh.write(msh_path)
+
+        gmsh.clear()
+
+        return msh_path
+
     def _gmsh_from_cadquery(self, components):
         """Adds CadQuery geometry to Gmsh instance.
         (Internal function not intended to be called externally)
@@ -852,6 +882,8 @@ class InVesselBuild(object):
             )
 
         gmsh.model.occ.synchronize()
+
+        gmsh.model.mesh.generate(dim=3)
 
     def export_mesh_gmsh(self, filename, export_dir=""):
         """Exports a tetrahedral mesh of in-vessel component volumes in H5M
