@@ -87,7 +87,7 @@ class Stellarator(object):
         try:
             self._vmec_obj = read_vmec.VMECData(self._vmec_file)
             if self._ref_surf is None:
-                self._ref_surf = ivb.VMECSurface(self._vmec_obj)
+                self.ref_surf = ivb.VMECSurface(self._vmec_obj)
 
         except Exception as e:
             self._logger.error(e.args[0])

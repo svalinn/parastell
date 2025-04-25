@@ -165,22 +165,26 @@ def measure_surface_coils_separation(surface):
 
 
 def measure_fw_coils_separation(
-    vmec_file,
+    ref_surf,
     toroidal_angles,
     poloidal_angles,
     wall_s,
     coils_file,
     width,
     thickness,
-    sample_mod=1,
     custom_fw_profile=None,
+    sample_mod=1,
 ):
     """Measures the distance between a given first wall definition and a set of
     magnet filaments, at specified angular locations and along the profile
     normal at those angular locations, using ray-firing in Coreform Cubit.
 
     Arguments:
-        vmec_file (str): path to plasma equilibrium VMEC file.
+        ref_surf (ReferenceSurface): ReferenceSurface object. Must have a
+            method 'angles_to_xyz(toroidal_angles, poloidal_angles, s)' that
+            returns an Nx3 numpy array of cartesian coordinates for any closed
+            flux surface label, s, poloidal angle (theta), and toroidal angle
+            (phi).
         toroidal_angles (array of float): toroidal angles at which distances
             should be computed [deg].
         poloidal_angles (array of float): poloidal angles at which distances
@@ -203,7 +207,6 @@ def measure_fw_coils_separation(
             (len(toroidal_angles), len(poloidal_angles))
         )
 
-    vmec = read_vmec.VMECData(vmec_file)
     radial_build_dict = {"chamber": {"thickness_matrix": custom_fw_profile}}
 
     radial_build = ivb.RadialBuild(
@@ -214,7 +217,7 @@ def measure_fw_coils_separation(
         split_chamber=False,
     )
     invessel_build = ivb.InVesselBuild(
-        vmec,
+        ref_surf,
         radial_build,
         # Set num_ribs and num_rib_pts to be less than length of corresponding
         # array to ensure that only defined angular locations are used
