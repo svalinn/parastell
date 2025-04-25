@@ -577,7 +577,7 @@ class InVesselBuild(object):
         first_surface = self.dag_model.surfaces_by_id[
             self.curved_surface_ids[0]
         ]
-        first_surface.surf_sense = [
+        first_surface.senses = [
             self.dag_model.volumes_by_id[first_surface.id],
             None,
         ]
@@ -592,7 +592,7 @@ class InVesselBuild(object):
         last_surface = self.dag_model.surfaces_by_id[
             self.curved_surface_ids[-1]
         ]
-        last_surface.surf_sense = [
+        last_surface.senses = [
             self.dag_model.volumes_by_id[last_surface.id - 1],
             None,
         ]
