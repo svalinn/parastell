@@ -362,7 +362,7 @@ class InVesselBuild(object):
         self._use_pydagmc = value
         if self._use_pydagmc:
             self.mbc = core.Core()
-            self.dag_model = pydagmc.DAGModel(self.mbc)
+            self.dag_model = pydagmc.Model(self.mbc)
 
     def _interpolate_offset_matrix(self, offset_mat):
         """Interpolates total offset for expanded angle lists using cubic spline
