@@ -583,7 +583,7 @@ class InVesselBuild(object):
         ]
 
         for surface_id in self.curved_surface_ids[1:-1]:
-            self.dag_model.surfaces_by_id[surface_id].surf_sense = [
+            self.dag_model.surfaces_by_id[surface_id].senses = [
                 self.dag_model.volumes_by_id[surface_id - 1],
                 self.dag_model.volumes_by_id[surface_id],
             ]
@@ -602,7 +602,7 @@ class InVesselBuild(object):
             self.end_cap_surface_ids, start=1
         ):
             for end_cap_id in end_cap_ids:
-                self.dag_model.surfaces_by_id[end_cap_id].surf_sense = [
+                self.dag_model.surfaces_by_id[end_cap_id].senses = [
                     self.dag_model.volumes_by_id[vol_id],
                     None,
                 ]
