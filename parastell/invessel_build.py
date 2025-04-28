@@ -29,6 +29,7 @@ from .utils import (
     normalize,
     expand_list,
     read_yaml_config,
+    remesh_gmsh,
     m2cm,
 )
 
@@ -766,116 +767,56 @@ class InVesselBuild(object):
 
         gmsh.initialize()
 
-        gmsh.option.setNumber("Mesh.MeshSizeMin", min_mesh_size)
-        gmsh.option.setNumber("Mesh.MeshSizeMax", max_mesh_size)
-
         if self._use_pydagmc:
-            self._gmsh_from_pydagmc(components)
+            self._gmsh_from_pydagmc(components, min_mesh_size, max_mesh_size)
         else:
-            self._gmsh_from_cadquery(components)
+            self._gmsh_from_cadquery(components, min_mesh_size, max_mesh_size)
 
-    def _gmsh_from_pydagmc(self, components):
+    def _gmsh_from_pydagmc(self, components, min_mesh_size, max_mesh_size):
         """Adds PyDAGMC geometry to Gmsh instance.
         (Internal function not intended to be called externally)
 
         Arguments:
             components (array of str): array containing the names of the
                 in-vessel components to be meshed.
+            min_mesh_size (float): minimum size of mesh elements (defaults to
+                5.0).
+            max_mesh_size (float): maximum size of mesh elements (defaults to
+                20.0).
         """
-        # These parameters are taken directly from Gmsh documentation (see
-        # tutorial t13)
-        gmsh.onelab.set(
-            """[
-            {
-                "type": "number",
-                "name": "Parameters/Angle for surface detection",
-                "values": [40],
-                "min": 20,
-                "max": 120,
-                "step": 1
-            },
-            {
-                "type": "number",
-                "name": "Parameters/Create surfaces guaranteed to be parametrizable",
-                "values": [0],
-                "choices": [0, 1]
-            }
-            ]"""
-        )
+        mesh_files = []
 
-        msh_files = []
-
+        # Extract each component from PyDAGMC model and remesh it in Gmsh
         for component in components:
             volume_id = self.radial_build.radial_build[component]["vol_id"]
 
             vtk_path = Path(f"volume_{volume_id}_tmp").with_suffix(".vtk")
             self.dag_model.volumes_by_id[volume_id].to_vtk(str(vtk_path))
 
-            msh_files.append(self._remesh_gmsh(vtk_path))
+            mesh_files.append(
+                remesh_gmsh(vtk_path, min_mesh_size, max_mesh_size)
+            )
 
-        for msh_file in msh_files:
-            gmsh.merge(msh_file)
+        # Combine all component meshes into one
+        [gmsh.merge(mesh_file) for mesh_file in mesh_files]
 
-        [Path(msh_file).unlink() for msh_file in msh_files]
-        [Path(msh_file).with_suffix(".vtk").unlink() for msh_file in msh_files]
+        [Path(mesh_file).unlink() for mesh_file in mesh_files]
 
-    def _remesh_gmsh(self, vtk_path):
-        """Remeshes a mesh in Gmsh by parameterizing the tesselated input
-        geometry, according to preset minimum and maximum mesh element size
-        parameters.
-        (Internal function not intended to be called externally)
-
-        Arguments:
-            vtk_path (object): Path object for VTK file.
-
-        Returns:
-            msh_path (str): path to remeshed mesh MSH file.
-        """
-        msh_path = str(vtk_path.with_suffix(".msh"))
-
-        angle = gmsh.onelab.getNumber(
-            "Parameters/Angle for surface detection"
-        )[0]
-        includeBoundary = True
-        forceParameterizablePatches = gmsh.onelab.getNumber(
-            "Parameters/Create surfaces guaranteed to be parametrizable"
-        )[0]
-        curveAngle = 180.0
-
-        gmsh.open(str(vtk_path))
-
-        gmsh.model.mesh.classifySurfaces(
-            np.deg2rad(angle),
-            includeBoundary,
-            forceParameterizablePatches,
-            np.deg2rad(curveAngle),
-        )
-
-        gmsh.model.mesh.create_geometry()
-
-        surfaces = gmsh.model.getEntities(dim=2)
-        surface_tags = [s[1] for s in surfaces]
-        surface_loop = gmsh.model.geo.addSurfaceLoop(surface_tags)
-        gmsh.model.geo.addVolume([surface_loop])
-
-        gmsh.model.geo.synchronize()
-
-        gmsh.model.mesh.generate(dim=3)
-
-        gmsh.write(msh_path)
-
-        gmsh.clear()
-
-        return msh_path
-
-    def _gmsh_from_cadquery(self, components):
+    def _gmsh_from_cadquery(self, components, min_mesh_size, max_mesh_size):
         """Adds CadQuery geometry to Gmsh instance.
         (Internal function not intended to be called externally)
 
         Arguments:
             components (array of str): array containing the names of the
                 in-vessel components to be meshed.
+            min_mesh_size (float): minimum size of mesh elements (defaults to
+                5.0).
+            max_mesh_size (float): maximum size of mesh elements (defaults to
+                20.0).
         """
+        gmsh.option.setNumber("Mesh.MeshSizeMin", min_mesh_size)
+        gmsh.option.setNumber("Mesh.MeshSizeMax", max_mesh_size)
+
         for component in components:
             gmsh.model.occ.importShapesNativePointer(
                 self.Components[component].wrapped._address()
