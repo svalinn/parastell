@@ -42,7 +42,7 @@ def check_surfaces_and_volumes(filename, num_surfaces_exp, num_volumes_exp):
         num_surfaces_exp (int): expected number of surfaces.
         num_volumes_exp (int): expected number of volumes.
     """
-    dagmc_model = pydagmc.DAGModel(str(Path(filename).with_suffix(".h5m")))
+    dagmc_model = pydagmc.Model(str(Path(filename).with_suffix(".h5m")))
 
     assert len(dagmc_model.surfaces) == num_surfaces_exp
     assert len(dagmc_model.volumes) == num_volumes_exp

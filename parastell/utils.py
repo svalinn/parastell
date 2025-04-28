@@ -307,7 +307,7 @@ def combine_dagmc_models(models_to_merge):
         models_to_merge (list of PyMOAB core): List of DAGMC models to be
             merged.
     Returns:
-        combined_model (dagmc.DAGModel): Single DAGMC model containing the
+        combined_model (dagmc.Model): Single DAGMC model containing the
             combined individual models.
     """
     renumberizer = DAGMCRenumberizer()
@@ -319,7 +319,7 @@ def combine_dagmc_models(models_to_merge):
             model.write_file(temp_filename)
             renumberizer.load_file(temp_filename)
     renumberizer.renumber_ids()
-    return pydagmc.DAGModel(renumberizer.mb)
+    return pydagmc.Model(renumberizer.mb)
 
 
 def stl_to_cq_solid(stl_path, tolerance=0.001):
@@ -362,7 +362,7 @@ def dagmc_volume_to_step(
     surface of a DAGMC volume and save it to file.
 
     Arguments:
-        dagmc_model (PyDAGMC DAGModel object): DAGMC model containing the
+        dagmc_model (PyDAGMC Model object): DAGMC model containing the
             volume to be converted to STEP.
         volume_id (int): ID of the volume to be converted to STEP.
         step_file_path (str): Path on which to save the resulting step file.
