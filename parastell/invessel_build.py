@@ -362,7 +362,7 @@ class InVesselBuild(object):
         self._use_pydagmc = value
         if self._use_pydagmc:
             self.mbc = core.Core()
-            self.dag_model = pydagmc.DAGModel(self.mbc)
+            self.dag_model = pydagmc.Model(self.mbc)
 
     def _interpolate_offset_matrix(self, offset_mat):
         """Interpolates total offset for expanded angle lists using cubic spline
@@ -577,13 +577,13 @@ class InVesselBuild(object):
         first_surface = self.dag_model.surfaces_by_id[
             self.curved_surface_ids[0]
         ]
-        first_surface.surf_sense = [
+        first_surface.senses = [
             self.dag_model.volumes_by_id[first_surface.id],
             None,
         ]
 
         for surface_id in self.curved_surface_ids[1:-1]:
-            self.dag_model.surfaces_by_id[surface_id].surf_sense = [
+            self.dag_model.surfaces_by_id[surface_id].senses = [
                 self.dag_model.volumes_by_id[surface_id - 1],
                 self.dag_model.volumes_by_id[surface_id],
             ]
@@ -592,7 +592,7 @@ class InVesselBuild(object):
         last_surface = self.dag_model.surfaces_by_id[
             self.curved_surface_ids[-1]
         ]
-        last_surface.surf_sense = [
+        last_surface.senses = [
             self.dag_model.volumes_by_id[last_surface.id - 1],
             None,
         ]
@@ -602,7 +602,7 @@ class InVesselBuild(object):
             self.end_cap_surface_ids, start=1
         ):
             for end_cap_id in end_cap_ids:
-                self.dag_model.surfaces_by_id[end_cap_id].surf_sense = [
+                self.dag_model.surfaces_by_id[end_cap_id].senses = [
                     self.dag_model.volumes_by_id[vol_id],
                     None,
                 ]
