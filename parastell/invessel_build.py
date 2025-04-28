@@ -790,11 +790,11 @@ class InVesselBuild(object):
         for component in components:
             volume_id = self.radial_build.radial_build[component]["vol_id"]
 
-            vtk_path = Path(f"volume_{volume_id}_tmp").with_suffix(".vtk")
-            self.dag_model.volumes_by_id[volume_id].to_vtk(str(vtk_path))
+            vtk_path = str(Path(f"volume_{volume_id}_tmp").with_suffix(".vtk"))
+            self.dag_model.volumes_by_id[volume_id].to_vtk(vtk_path)
 
             mesh_files.append(
-                remesh_gmsh(vtk_path, min_mesh_size, max_mesh_size)
+                remesh_gmsh(min_mesh_size, max_mesh_size, vtk_path)
             )
 
         # Combine all component meshes into one
