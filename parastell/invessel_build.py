@@ -798,9 +798,9 @@ class InVesselBuild(object):
             )
 
         # Combine all component meshes into one
-        [gmsh.merge(mesh_file) for mesh_file in mesh_files]
-
-        [Path(mesh_file).unlink() for mesh_file in mesh_files]
+        for mesh_file in mesh_files:
+            gmsh.merge(mesh_file)
+            Path(mesh_file).unlink()
 
     def _gmsh_from_cadquery(self, components, min_mesh_size, max_mesh_size):
         """Adds CadQuery geometry to Gmsh instance.
