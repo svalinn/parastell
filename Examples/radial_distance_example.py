@@ -1,17 +1,18 @@
 import numpy as np
+from pystell import read_vmec
 
 import parastell.parastell as ps
+import parastell.invessel_build as ivb
 import parastell.radial_distance_utils as rdu
 from parastell.utils import enforce_helical_symmetry, smooth_matrix
 
 
 # Define directory to export all output files to
 export_dir = ""
-# Define plasma equilibrium VMEC file
+# Define plasma equilibrium VMEC surface
 vmec_file = "wout_vmec.nc"
-
-# Instantiate ParaStell build
-stellarator = ps.Stellarator(vmec_file)
+vmec_obj = read_vmec.VMECData(vmec_file)
+ref_surf = ivb.VMECSurface(vmec_obj)
 
 # Define build parameters for in-vessel components
 # Use 13 x 13 uniformly spaced grid for in-vessel build
@@ -26,7 +27,7 @@ toroidal_extent = 90.0
 
 # Measure separation between first wall and coils
 available_space = rdu.measure_fw_coils_separation(
-    vmec_file,
+    ref_surf,
     toroidal_angles,
     poloidal_angles,
     wall_s,
@@ -77,6 +78,9 @@ radial_build_dict = {
         "mat_tag": "vac_vessel",
     },
 }
+
+# Instantiate ParaStell build
+stellarator = ps.Stellarator(vmec_file)
 
 # Construct in-vessel components
 stellarator.construct_invessel_build(
