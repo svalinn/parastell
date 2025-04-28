@@ -171,6 +171,8 @@ def test_ivb_exports(invessel_build):
     functionality behaves as expected, by testing if:
         * the expected STEP are produced
         * if Cubit is correctly installed, the expected H5M file is produced
+        * the expected H5M files are produced from the MOAB and Gmsh meshing
+          routines
     For the ReferenceSurface types paramaterized above.
 
     The Cubit-enabled portion of this test is skipped if Cubit cannot be

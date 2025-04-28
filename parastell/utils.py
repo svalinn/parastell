@@ -11,6 +11,7 @@ from scipy.ndimage import gaussian_filter
 from pymoab import core, types
 import pydagmc
 import cadquery as cq
+import gmsh
 from OCP.BRepBuilderAPI import BRepBuilderAPI_Sewing
 from OCP.StlAPI import StlAPI_Reader
 from OCP.TopoDS import TopoDS_Shape
@@ -236,6 +237,80 @@ def smooth_matrix(matrix, steps, sigma):
         previous_matrix = smoothed_matrix
 
     return smoothed_matrix
+
+
+def remesh_gmsh(min_mesh_size, max_mesh_size, filename):
+    """Remeshes a mesh in Gmsh according to minimum and maximum mesh element
+    sizes by parameterizing the input geometry. Assumes Gmsh has already been
+    initialized.
+
+    Arguments:
+        min_mesh_size (float): minimum size of mesh elements (defaults to 5.0).
+        max_mesh_size (float): maximum size of mesh elements (defaults to
+            20.0).
+        filename (str): path to input mesh file. Must be a Gmsh-compatible file
+            type. Options include VTK and MSH file types.
+
+    Returns:
+        filename (str): path to remeshed mesh output file. The output file type
+            and path will be the same as the input.
+    """
+    # These parameters are taken directly from Gmsh documentation (see
+    # tutorial t13)
+    gmsh.onelab.set(
+        """[
+        {
+            "type": "number",
+            "name": "Parameters/Angle for surface detection",
+            "values": [40],
+            "min": 20,
+            "max": 120,
+            "step": 1
+        },
+        {
+            "type": "number",
+            "name": "Parameters/Create surfaces guaranteed to be parametrizable",
+            "values": [0],
+            "choices": [0, 1]
+        }
+        ]"""
+    )
+
+    gmsh.option.setNumber("Mesh.MeshSizeMin", min_mesh_size)
+    gmsh.option.setNumber("Mesh.MeshSizeMax", max_mesh_size)
+
+    angle = gmsh.onelab.getNumber("Parameters/Angle for surface detection")[0]
+    includeBoundary = True
+    forceParameterizablePatches = gmsh.onelab.getNumber(
+        "Parameters/Create surfaces guaranteed to be parametrizable"
+    )[0]
+    curveAngle = 180.0
+
+    gmsh.open(filename)
+
+    gmsh.model.mesh.classifySurfaces(
+        np.deg2rad(angle),
+        includeBoundary,
+        forceParameterizablePatches,
+        np.deg2rad(curveAngle),
+    )
+
+    gmsh.model.mesh.create_geometry()
+
+    surfaces = gmsh.model.getEntities(dim=2)
+    surface_tags = [s[1] for s in surfaces]
+    surface_loop = gmsh.model.geo.addSurfaceLoop(surface_tags)
+    gmsh.model.geo.addVolume([surface_loop])
+
+    gmsh.model.geo.synchronize()
+
+    gmsh.model.mesh.generate(dim=3)
+
+    gmsh.write(filename)
+
+    gmsh.clear()
+
+    return filename
 
 
 class DAGMCRenumberizer(object):
