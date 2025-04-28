@@ -449,6 +449,8 @@ def test_pydagmc_ps_geom_cubit(stellarator):
     )
     stellarator.export_pydagmc_model("dagmc.h5m")
 
+    assert Path("dagmc.h5m").exists()
+
     # No plasma chamber. 4 surfaces from single magnet, 4 surfaces from single
     # component.
     num_surfaces_exp = 8
@@ -457,8 +459,6 @@ def test_pydagmc_ps_geom_cubit(stellarator):
     num_volumes_exp = 2
 
     check_surfaces_and_volumes("dagmc.h5m", num_surfaces_exp, num_volumes_exp)
-
-    assert Path("dagmc.h5m").exists()
 
     remove_files()
 
@@ -480,6 +480,8 @@ def test_pydagmc_ps_geom_cad_to_dagmc(stellarator):
     )
     stellarator.export_pydagmc_model("dagmc.h5m")
 
+    assert Path("dagmc.h5m").exists()
+
     # No plasma chamber. 4 surfaces from single magnet, 4 surfaces from single
     # component.
     num_surfaces_exp = 8
@@ -488,8 +490,6 @@ def test_pydagmc_ps_geom_cad_to_dagmc(stellarator):
     num_volumes_exp = 2
 
     check_surfaces_and_volumes("dagmc.h5m", num_surfaces_exp, num_volumes_exp)
-
-    assert Path("dagmc.h5m").exists()
 
     remove_files()
 
@@ -516,6 +516,8 @@ def test_pydagmc_cad_magnets_cubit(stellarator):
     )
     stellarator.export_pydagmc_model("dagmc.h5m")
 
+    assert Path("dagmc.h5m").exists()
+
     # No plasma chamber. 4 surfaces from single magnet, 4 surfaces from single
     # component.
     num_surfaces_exp = 8
@@ -524,8 +526,6 @@ def test_pydagmc_cad_magnets_cubit(stellarator):
     num_volumes_exp = 2
 
     check_surfaces_and_volumes("dagmc.h5m", num_surfaces_exp, num_volumes_exp)
-
-    assert Path("dagmc.h5m").exists()
 
     remove_files()
 
@@ -547,6 +547,8 @@ def test_pydagmc_cad_magnets_cad_to_dagmc(stellarator):
     )
     stellarator.export_pydagmc_model("dagmc.h5m")
 
+    assert Path("dagmc.h5m").exists()
+
     # No plasma chamber. 4 surfaces from single magnet, 4 surfaces from single
     # component.
     num_surfaces_exp = 8
@@ -556,6 +558,22 @@ def test_pydagmc_cad_magnets_cad_to_dagmc(stellarator):
 
     check_surfaces_and_volumes("dagmc.h5m", num_surfaces_exp, num_volumes_exp)
 
-    assert Path("dagmc.h5m").exists()
+    remove_files()
+
+
+def test_pydagmc_ivb_gmsh_export(stellarator):
+    """Tests whether the PyDAGMC-Gmsh workflow produces the expected in-vessel
+    build mesh, by testing if:
+        * the expected H5M file is produced
+    """
+    remove_files()
+
+    create_ivb_pydagmc_magnets_from_filaments(stellarator)
+
+    stellarator.build_pydagmc_model(magnet_exporter="cad_to_dagmc")
+    stellarator.export_pydagmc_model("dagmc.h5m")
+    stellarator.export_invessel_build_mesh_gmsh(["component"], "component")
+
+    assert Path("component.h5m").exists()
 
     remove_files()
