@@ -14,6 +14,8 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.11"]
+    run:
+      shell: bash -l {0}
     steps:
       - uses: actions/checkout@v4
       
@@ -21,13 +23,9 @@ jobs:
         uses: conda-incubator/setup-miniconda@v3
         with:
           auto-update-conda: true
-          python-version: ${{ matrix.python-version }}       
-
-      - name: setup and install conda environment
-        run: |
-          conda env create -f environment.yml
-          conda init
-          conda activate parastell_env
+          python-version: ${{ matrix.python-version }}
+          activate-environment: parastell_env
+          environment-file: environment.yml
 
       - name: Install with pip
         run: pip install .[develop]
