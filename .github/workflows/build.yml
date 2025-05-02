@@ -26,6 +26,7 @@ jobs:
       - name: setup and install conda environment
         run: |
           conda env create -f environment.yml
+          conda init
           conda activate parastell_env
 
       - name: Install with pip
