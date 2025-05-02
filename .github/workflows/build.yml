@@ -17,18 +17,24 @@ jobs:
         python-version: ["3.11"]
     steps:
       - uses: actions/checkout@v4
+      
       - name: set up python ${{ matrix.python-version }}
         uses: conda-incubator/setup-miniconda@v3
         with:
           auto-update-conda: true
           python-version: ${{ matrix.python-version }}       
-      - run:  conda config --set pip_interop_enabled true
-        name: config pip-conda interop
-      - run: conda install -c conda-forge conda-build cadquery
-        name: Install conda dependencies
-      - run: conda develop .
-        name: Install locally with conda
+      
+      - name: config pip-conda interop
+        run:  conda config --set pip_interop_enabled true
+      
+      - name: Install conda dependencies
+        run: conda install -c conda-forge conda-build cadquery
+      
+      - name: Install locally with conda
+        run: conda develop .
+      
       - name: Install with pip
         run: pip install .[develop]
+      
       - name: Test building wheels
         run: python -m build --sdist --wheel
