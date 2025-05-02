@@ -8,14 +8,17 @@ on:
       - 'Dockerfile'
       - '.github/workflows/docker_publish.yml'
 
+defaults:
+    run:
+      shell: bash -l {0}
+      
 jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: ["3.11"]
-    run:
-      shell: bash -l {0}
+
     steps:
       - uses: actions/checkout@v4
       
