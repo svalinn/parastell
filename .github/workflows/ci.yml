@@ -10,9 +10,9 @@ on:
       - 'environment.yml'
 
 jobs:
-  runs-on: ubuntu-latest
-    test-dependency-img:
-      container: ghcr.io/svalinn/parastell-ci
+  test-dependency-img:
+    runs-on: ubuntu-latest
+    container: ghcr.io/svalinn/parastell-ci
   strategy:
     matrix:
       python-version: ["3.11"]
