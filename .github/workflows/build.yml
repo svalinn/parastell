@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: set up python ${{ matrix.python-version }}
+      - name: set up python ${{ matrix.python-version }} and conda environment
         uses: conda-incubator/setup-miniconda@v3
         with:
           auto-update-conda: true
