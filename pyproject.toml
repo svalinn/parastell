@@ -42,7 +42,7 @@ dependencies = [
 	"numpy~=1.26.4",
 	"scipy",
 	"cadquery",
-	"moab==5.5.1",
+	"moab~=5.5.1",
 	"cad_to_dagmc>=0.8.2",
 	"openmc>=0.15.0",
 	"matplotlib",
