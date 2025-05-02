@@ -285,7 +285,7 @@ class InVesselBuild(object):
         repeat (int): number of times to repeat build segment for full model
             (defaults to 0).
         num_ribs (int): total number of ribs over which to loft for each build
-            segment (defaults to 61). Ribs are set at toroidal angles
+            segment (defaults to 61). planar_ribs are set at toroidal angles
             interpolated between those specified in 'toroidal_angles' if this
             value is greater than the number of entries in 'toroidal_angles'.
         num_rib_pts (int): total number of points defining each rib spline
@@ -438,7 +438,10 @@ class InVesselBuild(object):
                 self.scale,
             )
 
-        [surface.populate_ribs() for surface in self.Surfaces.values()]
+        [
+            surface.populate_nonplanar_ribs()
+            for surface in self.Surfaces.values()
+        ]
 
     def calculate_loci(self):
         """Calls calculate_loci method in Surface class for each component
@@ -446,7 +449,16 @@ class InVesselBuild(object):
         """
         self._logger.info("Computing point cloud for in-vessel components...")
 
-        [surface.calculate_loci() for surface in self.Surfaces.values()]
+        [
+            surface.calculate_nonplanar_loci()
+            for surface in self.Surfaces.values()
+        ]
+        [
+            surface.generate_interpolators()
+            for surface in self.Surfaces.values()
+        ]
+        [surface.populate_planar_ribs() for surface in self.Surfaces.values()]
+        [surface.calculate_planar_loci() for surface in self.Surfaces.values()]
 
     def generate_components(self):
         if self.use_pydagmc:
@@ -532,7 +544,9 @@ class InVesselBuild(object):
         first_surface = surfaces[0]
         for surface in surfaces:
             mb_tris = []
-            for rib, next_rib in zip(surface.Ribs[0:-1], surface.Ribs[1:]):
+            for rib, next_rib in zip(
+                surface.planar_ribs[0:-1], surface.planar_ribs[1:]
+            ):
                 mb_tris += self._connect_ribs_with_tris_moab(
                     rib,
                     next_rib,
@@ -555,8 +569,8 @@ class InVesselBuild(object):
             end_cap_pair = []
             for index in (0, -1):
                 mb_tris = self._connect_ribs_with_tris_moab(
-                    surface.Ribs[index],
-                    next_surface.Ribs[index],
+                    surface.planar_ribs[index],
+                    next_surface.planar_ribs[index],
                     reverse=(index == -1),
                 )
                 end_cap = self.dag_model.create_surface()
@@ -930,12 +944,10 @@ class Surface(object):
 
         self.surface = None
 
-    def populate_ribs(self):
-        """Populates Rib class objects for each toroidal angle specified in
-        the surface.
-        """
-        self.Ribs = [
-            Rib(
+    def populate_nonplanar_ribs(self):
+        """"""
+        self.nonplanar_ribs = [
+            NonPlanarRib(
                 self.ref_surf,
                 self.s,
                 self.theta_list,
@@ -946,9 +958,89 @@ class Surface(object):
             for i, phi in enumerate(self.phi_list)
         ]
 
-    def calculate_loci(self):
-        """Calls calculate_loci method in Rib class for each rib in the surface."""
-        [rib.calculate_loci() for rib in self.Ribs]
+    def calculate_nonplanar_loci(self):
+        """Calls calculate_loci method in NonPlanarRib class for each
+        non-planar rib in the surface.
+        """
+        [rib.calculate_loci() for rib in self.nonplanar_ribs]
+
+    def generate_interpolators(self):
+        x_data = np.array([rib.rib_loci[:, 0] for rib in self.nonplanar_ribs])
+        y_data = np.array([rib.rib_loci[:, 1] for rib in self.nonplanar_ribs])
+        z_data = np.array([rib.rib_loci[:, 2] for rib in self.nonplanar_ribs])
+
+        r_data = np.sqrt(np.square(x_data) + np.square(y_data))
+
+        phi_list = np.arctan2(y_data, x_data)
+        theta_list = np.tile(self.theta_list, len(self.nonplanar_ribs))
+
+        all_r = []
+        all_z = []
+        all_points = []
+
+        # Add mock quarter-period before period to full list of training data
+        region_phi_list = phi_list.flatten() - max(self.phi_list)
+        region_r = r_data.flatten()
+        region_z = z_data.flatten()
+
+        start_id = 3 * int(len(phi_list.flatten()) / 4)
+        end_id = len(phi_list.flatten()) - len(self.theta_list)
+
+        for i in range(start_id, end_id):
+            all_r.append(region_r[i])
+            all_z.append(region_z[i])
+            all_points.append([region_phi_list[i], theta_list[i]])
+
+        # Add period to training data
+        region_phi_list = phi_list.flatten()
+
+        start_id = 0
+        end_id = len(phi_list.flatten())
+
+        for i in range(start_id, end_id):
+            all_r.append(region_r[i])
+            all_z.append(region_z[i])
+            all_points.append([region_phi_list[i], theta_list[i]])
+
+        # Add mock quarter-period after period to full list of training data
+        region_phi_list = phi_list.flatten() + max(self.phi_list)
+
+        start_id = len(self.theta_list)
+        end_id = int(len(phi_list.flatten()) / 4) + 1
+
+        for i in range(start_id, end_id):
+            all_r.append(region_r[i])
+            all_z.append(region_z[i])
+            all_points.append([region_phi_list[i], theta_list[i]])
+
+        self.r_interpolator = CloughTocher2DInterpolator(
+            all_points,
+            all_r,
+        )
+        self.z_interpolator = CloughTocher2DInterpolator(
+            all_points,
+            all_z,
+        )
+
+    def populate_planar_ribs(self):
+        """Populates Rib class objects for each toroidal angle specified in
+        the surface.
+        """
+        self.planar_ribs = [
+            PlanarRib(
+                self.theta_list,
+                phi,
+                self.r_interpolator,
+                self.z_interpolator,
+            )
+            for phi in self.phi_list
+        ]
+
+    def calculate_planar_loci(self):
+        """Calls calculate_loci method in PlanarRib class for each planar rib
+        in the surface.
+        """
+        [rib.calculate_loci() for rib in self.planar_ribs]
 
     def _generate_pymoab_verts(self, mbc):
         """Generate MBTVERTEX entities from rib loci in all ribs.
@@ -957,26 +1049,91 @@ class Surface(object):
             mbc (PyMOAB Core): PyMOAB Core instance to add the MBVERTEX
                 entities to.
         """
-        [rib._generate_pymoab_verts(mbc) for rib in self.Ribs]
+        [rib._generate_pymoab_verts(mbc) for rib in self.planar_ribs]
 
     def generate_surface(self):
         """Constructs a surface by lofting across a set of rib splines."""
         if not self.surface:
             self.surface = cq.Solid.makeLoft(
-                [rib.generate_rib() for rib in self.Ribs]
+                [rib.generate_rib() for rib in self.planar_ribs]
             )
 
         return self.surface
 
     def get_loci(self):
         """Returns the set of point-loci defining the ribs in the surface."""
-        return np.array([rib.rib_loci for rib in self.Ribs])
+        return np.array([rib.rib_loci for rib in self.planar_ribs])
 
 
-class Rib(object):
-    """An object representing a curve formed by interpolating a spline through
-    a set of points located in the same toroidal plane but differing poloidal
-    angles and offset from a reference curve.
+class PlanarRib(object):
+    """An object representing a planar curve formed by interpolating a spline
+    through a set of points located in the same toroidal plane but differing
+    poloidal angles and offset from a reference curve.
+    Arguments:
+        _interpolator (object):
+    """
+
+    def __init__(self, theta_list, phi, r_interpolator, z_interpolator):
+
+        self.theta_list = theta_list
+        self.phi = phi
+        self.r_interpolator = r_interpolator
+        self.z_interpolator = z_interpolator
+
+    def calculate_loci(self):
+        """Generates Cartesian point-loci for stellarator rib."""
+        grid_points = [
+            [phi, theta]
+            for phi, theta in zip(
+                np.repeat(self.phi, len(self.theta_list)), self.theta_list
+            )
+        ]
+
+        r_points = self.r_interpolator(grid_points)
+        z_points = self.z_interpolator(grid_points)
+
+        x_points = r_points * np.cos(self.phi)
+        y_points = r_points * np.sin(self.phi)
+
+        x_points[-1] = x_points[0]
+        y_points[-1] = y_points[0]
+        z_points[-1] = z_points[0]
+
+        self.rib_loci = np.array(
+            [[x, y, z] for x, y, z in zip(x_points, y_points, z_points)]
+        )
+
+    def _generate_pymoab_verts(self, mbc):
+        """Converts point-loci to MBVERTEX and adds them to a PyMOAB
+        Core instance. The first and last rib loci are identical. To avoid
+        having separate MBVERTEX entities which are coincident, the last
+        element in rib_loci is not made into an MBVERTEX, and the entity
+        handle corresponding to the first rib locus is appended to the array
+        of MBVERTEX, closing the loop.
+        Arguments:
+            mbc (PyMOAB Core): PyMOAB Core instance to add the MBVERTEX
+                entities to.
+        """
+        self.mb_verts = mbc.create_vertices(
+            self.rib_loci[0:-1].flatten()
+        ).to_array()
+        self.mb_verts = np.append(self.mb_verts, self.mb_verts[0])
+
+    def generate_rib(self):
+        """Constructs component rib by constructing a spline connecting all
+        specified Cartesian point-loci.
+        """
+        rib_loci = [cq.Vector(tuple(r)) for r in self.rib_loci]
+        spline = cq.Edge.makeSpline(rib_loci).close()
+        rib_spline = cq.Wire.assembleEdges([spline]).close()
+
+        return rib_spline
+
+
+class NonPlanarRib(object):
+    """An object representing a non-planar curve formed by interpolating a
+    spline through a set of points offset from a reference surface along its
+    normal.
 
     Arguments:
         ref_surf (object): ReferenceSurface object. Must have a method
@@ -1005,19 +1162,24 @@ class Rib(object):
         self.offset_list = offset_list
         self.scale = scale
 
-    def _calculate_cartesian_coordinates(self, poloidal_offset=0):
+    def _calculate_cartesian_coordinates(
+        self, toroidal_offset=0, poloidal_offset=0
+    ):
         """Return an N x 3 NumPy array containing the Cartesian coordinates of
-        the points at this toroidal angle and N different poloidal angles, each
-        offset slightly.
+        the points offset from this toroidal angle and N different poloidal
+        angles, each offset slightly.
         (Internal function not intended to be called externally)
 
         Arguments:
+            toroidal_offset (float) : some offset to apply to the toroidal
+                angle for evaluating the location of the Cartesian points
+                (optional, defaults to 0).
             poloidal_offset (float) : some offset to apply to the full set of
                 poloidal angles for evaluating the location of the Cartesian
                 points (defaults to 0).
         """
         return self.ref_surf.angles_to_xyz(
-            self.phi,
+            self.phi + toroidal_offset,
             self.theta_list + poloidal_offset,
             self.s,
             self.scale,
@@ -1025,9 +1187,8 @@ class Rib(object):
 
     def _normals(self):
         """Approximate the normal to the curve at each poloidal angle by first
-        approximating the tangent to the curve and then taking the
-        cross-product of that tangent with a vector defined as normal to the
-        plane at this toroidal angle.
+        approximating the tangent and binormal to the curve and then taking the
+        cross-product of those vectors.
         (Internal function not intended to be called externally)
 
         Arguments:
@@ -1035,15 +1196,20 @@ class Rib(object):
                 surface rib [cm].
         """
         eps = 1e-4
-        next_pt_loci = self._calculate_cartesian_coordinates(eps)
 
-        tangent = next_pt_loci - self.rib_loci
+        perturbed_phi_loci = self._calculate_cartesian_coordinates(
+            toroidal_offset=eps
+        )
+        perturbed_theta_loci = self._calculate_cartesian_coordinates(
+            poloidal_offset=eps
+        )
 
-        plane_norm = np.array([-np.sin(self.phi), np.cos(self.phi), 0])
+        binormals = perturbed_phi_loci - self.rib_loci
+        tangents = perturbed_theta_loci - self.rib_loci
 
-        norm = np.cross(plane_norm, tangent)
+        normals = np.cross(binormals, tangents)
 
-        return normalize(norm)
+        return normalize(normals)
 
     def calculate_loci(self):
         """Generates Cartesian point-loci for stellarator rib. Sets the last
@@ -1054,33 +1220,6 @@ class Rib(object):
             self.rib_loci += self.offset_list[:, np.newaxis] * self._normals()
 
         self.rib_loci[-1] = self.rib_loci[0]
-
-    def _generate_pymoab_verts(self, mbc):
-        """Converts point-loci to MBVERTEX and adds them to a PyMOAB
-        Core instance. The first and last rib loci are identical. To avoid
-        having separate MBVERTEX entities which are coincident, the last
-        element in rib_loci is not made into an MBVERTEX, and the entity
-        handle corresponding to the first rib locus is appended to the array
-        of MBVERTEX, closing the loop.
-
-        Arguments:
-            mbc (PyMOAB Core): PyMOAB Core instance to add the MBVERTEX
-                entities to.
-        """
-        self.mb_verts = mbc.create_vertices(
-            self.rib_loci[0:-1].flatten()
-        ).to_array()
-        self.mb_verts = np.append(self.mb_verts, self.mb_verts[0])
-
-    def generate_rib(self):
-        """Constructs component rib by constructing a spline connecting all
-        specified Cartesian point-loci.
-        """
-        rib_loci = [cq.Vector(tuple(r)) for r in self.rib_loci]
-        spline = cq.Edge.makeSpline(rib_loci).close()
-        rib_spline = cq.Wire.assembleEdges([spline]).close()
-
-        return rib_spline
 
 
 class InVesselComponentMesh(ToroidalMesh):
@@ -1116,7 +1255,7 @@ class InVesselComponentMesh(ToroidalMesh):
         """Creates mesh vertices and adds them to PyMOAB core."""
         coords = []
         for surface in self.surfaces:
-            for rib in surface.Ribs:
+            for rib in surface.planar_ribs:
                 coords.extend(rib.rib_loci)
         coords = np.array(coords)
         self.add_vertices(coords)

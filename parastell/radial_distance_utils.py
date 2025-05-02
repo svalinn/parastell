@@ -157,7 +157,7 @@ def measure_surface_coils_separation(surface):
                 fire_ray(point, direction)
                 for point, direction in zip(rib.rib_loci, rib._normals())
             ]
-            for rib in surface.Ribs
+            for rib in surface.nonplanar_ribs
         ]
     )
 
@@ -174,6 +174,7 @@ def measure_fw_coils_separation(
     thickness,
     custom_fw_profile=None,
     sample_mod=1,
+    **kwargs,
 ):
     """Measures the distance between a given first wall definition and a set of
     magnet filaments, at specified angular locations and along the profile
@@ -229,7 +230,11 @@ def measure_fw_coils_separation(
     surface = invessel_build.Surfaces["chamber"]
 
     magnet_set = magnet_coils.MagnetSetFromFilaments(
-        coils_file, width, thickness, toroidal_angles[-1] - toroidal_angles[0]
+        coils_file,
+        width,
+        thickness,
+        toroidal_angles[-1] - toroidal_angles[0],
+        **kwargs,
     )
 
     reordered_coils = reorder_coils(magnet_set)
