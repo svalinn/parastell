@@ -12,7 +12,7 @@ dependencies:
   - ca-certificates
   - certifi
   - openssl
-  - openmc=0.15.0[build=dagmc_nompi_*]
+  - openmc>=0.15.0[build=dagmc_nompi_*]
   - matplotlib
   - pip:
       - netcdf4
