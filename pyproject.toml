@@ -55,7 +55,7 @@ dependencies = [
 [project.optional-dependencies]
 test = ["pytest", "pytest-cov"]
 
-format = ["black==25"]
+format = ["black==25.*"]
 
 build = ["build"]
 
