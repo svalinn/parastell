@@ -38,3 +38,6 @@ jobs:
       
       - name: Test building wheels
         run: python -m build --sdist --wheel
+
+      - name: Test command line utility.
+        run: parastell -h
