@@ -7,7 +7,6 @@ on:
     paths-ignore:
       - 'Dockerfile'
       - '.github/workflows/docker_publish.yml'
-      - 'environment.yml'
 
 jobs:
   build:
