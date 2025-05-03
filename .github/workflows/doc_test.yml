@@ -1,0 +1,40 @@
+name: Test Building documentation
+
+on:
+  # allows us to run workflows manually
+  workflow_dispatch:
+  pull_request:
+    paths-ignore:
+      - 'Dockerfile'
+      - '.github/workflows/docker_publish.yml'
+
+defaults:
+    run:
+      shell: bash -l {0}
+      
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: set up python ${{ matrix.python-version }} and conda environment
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          python-version: 3.11
+          activate-environment: parastell_env
+          environment-file: environment.yml
+
+      - name: Install with pip
+        run: pip install .[docs]
+      
+      - name: Test building documentation strictly
+        run: sphinx-build doc/source/ doc/build/html -W --keep-going -E
+
+      - name: Upload test documentation
+        uses: actions/upload-artifact@v4
+        with:
+          name: website
+          path: doc/build
