@@ -58,7 +58,9 @@ format = ["black==25.*"]
 
 build = ["build"]
 
-develop = ["parastell[test,format,build]"]
+docs = ["sphinx", "sphinxcontrib.apidoc", "sphinx_rtd_theme"]
+
+develop = ["parastell[test,format,build,docs]"]
 
 [project.urls]
 Repository = "https://github.com/svalinn/parastell.git"
