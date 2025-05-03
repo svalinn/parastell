@@ -13,11 +13,12 @@ jobs:
   test-dependency-img:
     runs-on: ubuntu-latest
     container: ghcr.io/svalinn/parastell-ci
-  strategy:
-    matrix:
-      python-version: ["3.11"]
-
+    
     name: Perform CI Tests
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
