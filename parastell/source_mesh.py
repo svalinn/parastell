@@ -454,7 +454,7 @@ def generate_source_mesh():
 
     source_mesh.export_mesh(
         export_dir=args.export_dir,
-        **(filter_kwargs(source_mesh_dict, ["filename"]))
+        **(filter_kwargs(source_mesh_dict, ["filename"])),
     )
 
 

@@ -98,7 +98,8 @@ instance/
 .scrapy
 
 # Sphinx documentation
-docs/_build/
+docs/build/
+docs/source/api
 
 # PyBuilder
 target/
@@ -157,3 +158,6 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+
+# Viva la vim!
+*.sw*
