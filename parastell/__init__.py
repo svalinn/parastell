@@ -1,1 +1,2 @@
-from .parastell import parastell
+import parastell
+
