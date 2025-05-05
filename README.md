@@ -64,7 +64,7 @@ If you do not have a Coreform Cubit license, you may be able to get one through 
 
 ### Finally Install Parastell
 
-Now that all dependencies have been installed you can install parastell with `pip`. Run the following command from the root of the parastell repository:
+Now that all dependencies have been installed, you can install ParaStell with `pip`. Run the following command from the root of the ParaStell repository:
 
 ``` bash
 pip install .
