@@ -15,9 +15,6 @@ jobs:
     container: ghcr.io/svalinn/parastell-ci
     
     name: Perform CI Tests
-    strategy:
-      matrix:
-        python-version: ["3.11"]
 
     steps:
       - name: Checkout repository
