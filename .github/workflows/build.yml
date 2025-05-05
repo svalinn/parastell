@@ -38,3 +38,6 @@ jobs:
 
       - name: Test command line utility.
         run: parastell -h
+
+      - name: Test running as executable module
+        run: python -m parastell -h
