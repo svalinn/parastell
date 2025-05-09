@@ -28,13 +28,7 @@ def default_reaction_rate(n_i, T_i):
     if T_i == 0 or n_i == 0:
         return 0
 
-    rr = (
-        3.68e-18
-        * (n_i**2)
-        / 4
-        * T_i ** (-2 / 3)
-        * np.exp(-19.94 * T_i ** (-1 / 3))
-    )
+    rr = 3.68e-18 * (n_i**2) / 4 * T_i ** (-2 / 3) * np.exp(-19.94 * T_i ** (-1 / 3))
 
     return rr / m3tocm3
 
@@ -107,9 +101,7 @@ class SourceMesh(ToroidalMesh):
             plasma_conditions() and returns a reaction rate in reactions/cm3/s
     """
 
-    def __init__(
-        self, vmec_obj, mesh_size, toroidal_extent, logger=None, **kwargs
-    ):
+    def __init__(self, vmec_obj, mesh_size, toroidal_extent, logger=None, **kwargs):
         super().__init__(logger=logger)
 
         self.vmec_obj = vmec_obj
@@ -225,9 +217,7 @@ class SourceMesh(ToroidalMesh):
         cfs_grid_pts = np.linspace(0.0, 1.0, num=self.num_cfs_pts)[1:]
 
         # Exclude repeated entry at 0 == 2*pi
-        poloidal_grid_pts = np.linspace(
-            0, 2 * np.pi, num=self._num_poloidal_pts
-        )[:-1]
+        poloidal_grid_pts = np.linspace(0, 2 * np.pi, num=self._num_poloidal_pts)[:-1]
 
         toroidal_grid_pts = np.linspace(
             0, self._toroidal_extent, num=self._num_toroidal_pts
@@ -250,8 +240,7 @@ class SourceMesh(ToroidalMesh):
         for toroidal_ang in toroidal_grid_pts:
             # vertex coordinates on magnetic axis
             self.coords[vert_idx, :] = (
-                np.array(self.vmec_obj.vmec2xyz(0, 0, toroidal_ang))
-                * self.scale
+                np.array(self.vmec_obj.vmec2xyz(0, 0, toroidal_ang)) * self.scale
             )
             self.coords_cfs[vert_idx] = 0
 
@@ -262,9 +251,7 @@ class SourceMesh(ToroidalMesh):
                 for poloidal_ang in poloidal_grid_pts:
                     self.coords[vert_idx, :] = (
                         np.array(
-                            self.vmec_obj.vmec2xyz(
-                                cfs, poloidal_ang, toroidal_ang
-                            )
+                            self.vmec_obj.vmec2xyz(cfs, poloidal_ang, toroidal_ang)
                         )
                         * self.scale
                     )

@@ -136,9 +136,7 @@ def expand_list(list_to_expand, num):
     return list_exp
 
 
-def filter_kwargs(
-    dict, allowed_kwargs, all_kwargs=False, fn_name=None, logger=None
-):
+def filter_kwargs(dict, allowed_kwargs, all_kwargs=False, fn_name=None, logger=None):
     """Constructs a dictionary of keyword arguments with corresponding values
     for a class method from an input dictionary based on a list of allowable
     keyword argument argument names. Conditionally raises an exception if the
@@ -163,8 +161,7 @@ def filter_kwargs(
 
     if all_kwargs and extra_keys:
         e = ValueError(
-            f"{extra_keys} not supported keyword argument(s) of "
-            f'"{fn_name}"'
+            f"{extra_keys} not supported keyword argument(s) of " f'"{fn_name}"'
         )
         logger.error(e.args[0])
         raise e
@@ -387,9 +384,7 @@ def combine_dagmc_models(models_to_merge):
     """
     renumberizer = DAGMCRenumberizer()
     for model in models_to_merge:
-        with tempfile.NamedTemporaryFile(
-            delete=True, suffix=".h5m"
-        ) as temp_file:
+        with tempfile.NamedTemporaryFile(delete=True, suffix=".h5m") as temp_file:
             temp_filename = temp_file.name
             model.write_file(temp_filename)
             renumberizer.load_file(temp_filename)
@@ -430,9 +425,7 @@ def stl_to_cq_solid(stl_path, tolerance=0.001):
     return cq_solid
 
 
-def dagmc_volume_to_step(
-    dagmc_model, volume_id, step_file_path, tolerance=0.001
-):
+def dagmc_volume_to_step(dagmc_model, volume_id, step_file_path, tolerance=0.001):
     """Create a STEP file with surfaces defined by the triangles making up the
     surface of a DAGMC volume and save it to file.
 
@@ -468,9 +461,7 @@ def dagmc_volume_to_step(
     cq_solid.exportStep(str(Path(step_file_path).with_suffix(".step")))
 
 
-def ribs_from_kisslinger_format(
-    filename, start_line=2, scale=m2cm, delimiter="\t"
-):
+def ribs_from_kisslinger_format(filename, start_line=2, scale=m2cm, delimiter="\t"):
     """Reads a Kisslinger format file and extracts the R, Z data, the number of
     periods, and the toroidal angles at which the R, Z data is specified.
 
@@ -537,9 +528,7 @@ def ribs_from_kisslinger_format(
         profile = []
         for loci in rib[1:]:
             loci = loci.rstrip()
-            r_z_coords = [
-                float(coord) * scale for coord in loci.split(delimiter)
-            ]
+            r_z_coords = [float(coord) * scale for coord in loci.split(delimiter)]
             profile.append(r_z_coords)
         profiles.append(profile)
 
@@ -633,13 +622,10 @@ class ToroidalMesh(ABC):
 
         # IDs of hex vertices applying offset stencil to current point
         hex_idx_data = (
-            np.array([surface_idx, poloidal_idx, toroidal_idx])
-            + hex_vertex_stencil
+            np.array([surface_idx, poloidal_idx, toroidal_idx]) + hex_vertex_stencil
         )
 
-        idx_list = [
-            self._get_vertex_id(vertex_idx) for vertex_idx in hex_idx_data
-        ]
+        idx_list = [self._get_vertex_id(vertex_idx) for vertex_idx in hex_idx_data]
 
         # Define MOAB canonical ordering of hexahedron vertex indices
         # Ordering follows right hand rule such that the fingers curl around
@@ -700,9 +686,7 @@ class ToroidalMesh(ABC):
         # Ids of wedge vertices applying offset stencil to current point
         wedge_idx_data = np.array([0, 0, toroidal_idx]) + wedge_vertex_stencil
 
-        idx_list = [
-            self._get_vertex_id(vertex_idx) for vertex_idx in wedge_idx_data
-        ]
+        idx_list = [self._get_vertex_id(vertex_idx) for vertex_idx in wedge_idx_data]
 
         # Define MOAB canonical ordering of wedge vertex indices
         # Ordering follows right hand rule such that the fingers curl around

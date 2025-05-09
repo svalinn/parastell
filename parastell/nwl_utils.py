@@ -54,9 +54,7 @@ def fire_rays(dagmc_geom, source_mesh, toroidal_extent, strengths, num_parts):
     # boundary.
     # Include additional vacuum boundary to avoid lost particles. Note that
     # this is effectively a cosmetic fix as the particles still escape the FW.
-    vacuum_surface = openmc.Sphere(
-        r=10_000, surface_id=9992, boundary_type="vacuum"
-    )
+    vacuum_surface = openmc.Sphere(r=10_000, surface_id=9992, boundary_type="vacuum")
 
     region = -vacuum_surface & +per_init & +per_fin
     period = openmc.Cell(cell_id=9999, region=region, fill=dag_univ)
@@ -105,8 +103,7 @@ def compute_residual(poloidal_guess, vmec_obj, wall_s, toroidal_angle, point):
             computed point [cm].
     """
     fw_guess = (
-        np.array(vmec_obj.vmec2xyz(wall_s, poloidal_guess, toroidal_angle))
-        * m2cm
+        np.array(vmec_obj.vmec2xyz(wall_s, poloidal_guess, toroidal_angle)) * m2cm
     )
 
     return np.linalg.norm(point - fw_guess)
@@ -182,15 +179,11 @@ def compute_flux_coordinates(vmec_file, wall_s, coords, num_threads, conv_tol):
             )
         )
 
-    with concurrent.futures.ProcessPoolExecutor(
-        max_workers=num_threads
-    ) as executor:
+    with concurrent.futures.ProcessPoolExecutor(max_workers=num_threads) as executor:
         poloidal_chunks = list(executor.map(solve_poloidal_angles, chunks))
 
         poloidal_angles = [
-            poloidal_angle
-            for chunk in poloidal_chunks
-            for poloidal_angle in chunk
+            poloidal_angle for chunk in poloidal_chunks for poloidal_angle in chunk
         ]
 
     return toroidal_angles.tolist(), poloidal_angles
@@ -309,9 +302,7 @@ def compute_nwl(
 
     batch_size = math.ceil(num_particles / num_batches)
 
-    for batch_num, batch_start in enumerate(
-        range(0, num_particles, batch_size), 1
-    ):
+    for batch_num, batch_start in enumerate(range(0, num_particles, batch_size), 1):
         logger.info(f"Processing batch {batch_num}")
 
         toroidal_angle_batch, poloidal_angle_batch = compute_flux_coordinates(
@@ -326,14 +317,10 @@ def compute_nwl(
 
     # Define minimum and maximum bin edges for each dimension
     toroidal_bin_min = 0.0 - toroidal_extent / num_toroidal_bins / 2
-    toroidal_bin_max = (
-        toroidal_extent + toroidal_extent / num_toroidal_bins / 2
-    )
+    toroidal_bin_max = toroidal_extent + toroidal_extent / num_toroidal_bins / 2
 
     poloidal_bin_min = 0.0 - poloidal_extent / num_poloidal_bins / 2
-    poloidal_bin_max = (
-        poloidal_extent + poloidal_extent / num_poloidal_bins / 2
-    )
+    poloidal_bin_max = poloidal_extent + poloidal_extent / num_poloidal_bins / 2
 
     # Bin particle crossings
     count_mat, toroidal_bin_edges, poloidal_bin_edges = np.histogram2d(
@@ -353,12 +340,8 @@ def compute_nwl(
     poloidal_bin_edges[-1] = poloidal_extent
 
     # Compute centroids of bins
-    toroidal_centroids = np.linspace(
-        0.0, toroidal_extent, num=num_toroidal_bins
-    )
-    poloidal_centroids = np.linspace(
-        0.0, poloidal_extent, num=num_poloidal_bins
-    )
+    toroidal_centroids = np.linspace(0.0, toroidal_extent, num=num_toroidal_bins)
+    poloidal_centroids = np.linspace(0.0, poloidal_extent, num=num_poloidal_bins)
 
     nwl_mat = count_mat * neutron_power / num_particles
 
@@ -380,9 +363,7 @@ def compute_nwl(
             corner_3 = bin_mat[toroidal_id + 1, poloidal_id + 1]
             corner_4 = bin_mat[toroidal_id + 1, poloidal_id]
             corners = np.array([corner_1, corner_2, corner_3, corner_4])
-            area_mat[toroidal_id, poloidal_id] = compute_quadrilateral_area(
-                corners
-            )
+            area_mat[toroidal_id, poloidal_id] = compute_quadrilateral_area(corners)
 
     nwl_mat = nwl_mat / area_mat
 
@@ -414,9 +395,7 @@ def plot_nwl(
     levels = np.linspace(np.min(nwl_mat), np.max(nwl_mat), num=num_levels)
 
     fig, ax = plt.subplots()
-    CF = ax.contourf(
-        toroidal_centroids, poloidal_centroids, nwl_mat.T, levels=levels
-    )
+    CF = ax.contourf(toroidal_centroids, poloidal_centroids, nwl_mat.T, levels=levels)
     cbar = plt.colorbar(CF)
 
     cbar.ax.set_ylabel(r"Neutron wall loading (MW/m$^2$)")

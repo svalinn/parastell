@@ -54,9 +54,7 @@ def init():
     s_handler = logging.StreamHandler()
     f_handler = logging.FileHandler(filename="stellarator.log", mode="w")
 
-    format = logging.Formatter(
-        fmt="%(asctime)s: %(message)s", datefmt="%H:%M:%S"
-    )
+    format = logging.Formatter(fmt="%(asctime)s: %(message)s", datefmt="%H:%M:%S")
     s_handler.setFormatter(format)
     f_handler.setFormatter(format)
 

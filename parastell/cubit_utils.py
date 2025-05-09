@@ -178,8 +178,7 @@ def export_dagmc_cubit(
             after exporting. Prevents inclusion of mesh in future exports.
     """
     cubit.cmd(
-        f"set trimesher coarse on ratio {anisotropic_ratio} "
-        f"angle {deviation_angle}"
+        f"set trimesher coarse on ratio {anisotropic_ratio} " f"angle {deviation_angle}"
     )
     cubit.cmd("surface all scheme trimesh")
     cubit.cmd("mesh surface all")
@@ -293,9 +292,7 @@ def mesh_volume_auto_factor(volume_ids, mesh_size=5.0):
     cubit.cmd(f"mesh volume {volume_ids_str}")
 
 
-def mesh_volume_skeleton(
-    volume_ids, min_size=20.0, max_size=50.0, max_gradient=1.5
-):
+def mesh_volume_skeleton(volume_ids, min_size=20.0, max_size=50.0, max_gradient=1.5):
     """Meshes a volume in Cubit using the skeleton sizing function.
 
     Arguments:

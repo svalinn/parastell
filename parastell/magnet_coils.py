@@ -64,14 +64,10 @@ class MagnetSet(ABC):
         if cubit_utils.initialized:
             first_vol_id += get_last_id("volume")
 
-        last_vol_id = import_geom_to_cubit(
-            self.geometry_file, self.working_dir
-        )
+        last_vol_id = import_geom_to_cubit(self.geometry_file, self.working_dir)
         self.volume_ids = list(range(first_vol_id, last_vol_id + 1))
 
-    def mesh_magnets_cubit(
-        self, min_size=20.0, max_size=50.0, max_gradient=1.5
-    ):
+    def mesh_magnets_cubit(self, min_size=20.0, max_size=50.0, max_gradient=1.5):
         """Creates tetrahedral mesh of magnet volumes via Coreform Cubit.
 
         Arguments:
@@ -276,9 +272,7 @@ class MagnetSetFromFilaments(MagnetSet):
 
             # s = 0 signals end of filament
             if s != 0:
-                coords.append(
-                    [float(ord) * self.scale for ord in columns[0:3]]
-                )
+                coords.append([float(ord) * self.scale for ord in columns[0:3]])
 
             else:
                 coords.append(coords[0])
@@ -323,9 +317,7 @@ class MagnetSetFromFilaments(MagnetSet):
         self.magnet_coils = []
         for filament in self.filaments:
             self.magnet_coils.append(
-                MagnetCoil(
-                    filament, self.width, self.thickness, self.sample_mod
-                )
+                MagnetCoil(filament, self.width, self.thickness, self.sample_mod)
             )
 
     def _compute_radial_distance_data(self):
@@ -340,9 +332,7 @@ class MagnetSetFromFilaments(MagnetSet):
             radii = np.linalg.norm(filament.coords[:-1, :2], axis=1)
             radii_count += len(radii)
             self.average_radial_distance += np.sum(radii)
-            self.max_radial_distance = max(
-                self.max_radial_distance, np.max(radii)
-            )
+            self.max_radial_distance = max(self.max_radial_distance, np.max(radii))
 
         self.average_radial_distance /= radii_count
 
@@ -353,9 +343,7 @@ class MagnetSetFromFilaments(MagnetSet):
         side_length = 1.25 * self.max_radial_distance
 
         toroidal_region = cq.Workplane("XZ")
-        toroidal_region = toroidal_region.transformed(
-            offset=(side_length / 2, 0)
-        )
+        toroidal_region = toroidal_region.transformed(offset=(side_length / 2, 0))
         toroidal_region = toroidal_region.rect(side_length, side_length)
         toroidal_region = toroidal_region.revolve(
             np.rad2deg(self._toroidal_extent),
@@ -384,9 +372,7 @@ class MagnetSetFromFilaments(MagnetSet):
 
         export_path = Path(self.working_dir) / self.geometry_file
 
-        coil_set = cq.Compound.makeCompound(
-            [coil.solid for coil in self.magnet_coils]
-        )
+        coil_set = cq.Compound.makeCompound([coil.solid for coil in self.magnet_coils])
         cq.exporters.export(coil_set, str(export_path))
 
     def populate_magnet_coils(self):
@@ -489,9 +475,7 @@ class Filament(object):
             np.append(data[1:], [data[1]], axis=0),
             np.append([data[-2]], data[0:-1], axis=0),
         )
-        self.tangents = (
-            tangents / np.linalg.norm(tangents, axis=1)[:, np.newaxis]
-        )
+        self.tangents = tangents / np.linalg.norm(tangents, axis=1)[:, np.newaxis]
 
         self.com = np.average(data[:-1], axis=0)
         self.com_toroidal_angle = np.arctan2(self.com[1], self.com[0])
@@ -621,9 +605,7 @@ class MagnetCoil(object):
 
         # Project outward directions onto desired coil cross-section (CS) plane
         # at each filament position to define filament path normals
-        parallel_parts = np.diagonal(
-            np.matmul(outward_dirs, tangents.transpose())
-        )
+        parallel_parts = np.diagonal(np.matmul(outward_dirs, tangents.transpose()))
 
         normals = outward_dirs - parallel_parts[:, np.newaxis] * tangents
         normals = normals / np.linalg.norm(normals, axis=1)[:, np.newaxis]
@@ -642,9 +624,7 @@ class MagnetCoil(object):
                 + edge_offset[1] * normals * (self.thickness / 2)
             )
 
-            coil_edge_coords.append(
-                [cq.Vector(tuple(pos)) for pos in coil_edge]
-            )
+            coil_edge_coords.append([cq.Vector(tuple(pos)) for pos in coil_edge])
 
         # Append first edge once again
         coil_edge_coords.append(coil_edge_coords[0])
