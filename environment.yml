@@ -8,7 +8,7 @@ dependencies:
   - scipy
   - cadquery
   - moab=5.5.1[build=nompi_tempest_*]
-  - cad_to_dagmc >=0.8.2
+  - cad_to_dagmc >=0.8.2, <=0.9.0
   - ca-certificates
   - certifi
   - openssl
