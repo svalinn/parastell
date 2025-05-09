@@ -203,7 +203,9 @@ def measure_fw_coils_separation(
         radial_distance_matrix (2-D np.array of float):
     """
     if custom_fw_profile is None:
-        custom_fw_profile = np.zeros((len(toroidal_angles), len(poloidal_angles)))
+        custom_fw_profile = np.zeros(
+            (len(toroidal_angles), len(poloidal_angles))
+        )
 
     radial_build_dict = {"chamber": {"thickness_matrix": custom_fw_profile}}
 

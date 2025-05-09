@@ -197,7 +197,9 @@ class Stellarator(object):
         """
         self.invessel_build.export_step(export_dir=export_dir)
 
-    def export_invessel_build_mesh_moab(self, component, filename, export_dir=""):
+    def export_invessel_build_mesh_moab(
+        self, component, filename, export_dir=""
+    ):
         """Creates a tetrahedral mesh of a single in-vessel component volume
         via MOAB and exports the mesh as a H5M file. Note that if this method
         is used for adjacent components, the resultant meshes may have
@@ -355,7 +357,9 @@ class Stellarator(object):
             max_size=max_size,
             max_gradient=max_gradient,
         )
-        self.magnet_set.export_mesh_cubit(filename=filename, export_dir=export_dir)
+        self.magnet_set.export_mesh_cubit(
+            filename=filename, export_dir=export_dir
+        )
 
     def export_magnet_mesh_gmsh(
         self,
@@ -381,7 +385,9 @@ class Stellarator(object):
             min_mesh_size=min_mesh_size,
             max_mesh_size=max_mesh_size,
         )
-        self.magnet_set.export_mesh_gmsh(filename=filename, export_dir=export_dir)
+        self.magnet_set.export_mesh_gmsh(
+            filename=filename, export_dir=export_dir
+        )
 
     def construct_source_mesh(self, mesh_size, toroidal_extent, **kwargs):
         """Constructs SourceMesh class object.
@@ -456,7 +462,9 @@ class Stellarator(object):
                 Coreform Cubit or to merge surfaces based on import order and
                 geometry information (optional, defaults to False).
         """
-        self._logger.info("Building DAGMC neutronics model via Coreform Cubit...")
+        self._logger.info(
+            "Building DAGMC neutronics model via Coreform Cubit..."
+        )
 
         # Ensure fresh Cubit instance
         create_new_cubit_instance()
@@ -495,7 +503,9 @@ class Stellarator(object):
                 surface (i.e., lesser deviation angle results in more elements
                 in areas with higher curvature) (optional, defaults to 5.0).
         """
-        self._logger.info("Exporting DAGMC neutronics model using Coreform Cubit...")
+        self._logger.info(
+            "Exporting DAGMC neutronics model using Coreform Cubit..."
+        )
 
         filename = Path(filename).with_suffix(".h5m")
 
@@ -526,7 +536,9 @@ class Stellarator(object):
         """Build model for DAGMC neutronics H5M file of Parastell components via
         CAD-to-DAGMC.
         """
-        self._logger.info("Building DAGMC neutronics model via CAD-to-DAGMC...")
+        self._logger.info(
+            "Building DAGMC neutronics model via CAD-to-DAGMC..."
+        )
 
         solids = []
         self._material_tags = []
@@ -566,7 +578,9 @@ class Stellarator(object):
             max_mesh_size (float): maximum size of mesh elements (defaults to
                 20.0).
         """
-        self._logger.info("Exporting DAGMC neutronics model with CAD-to-DAGMC ...")
+        self._logger.info(
+            "Exporting DAGMC neutronics model with CAD-to-DAGMC ..."
+        )
 
         export_path = Path(export_dir) / Path(filename).with_suffix(".h5m")
 
@@ -639,7 +653,11 @@ class Stellarator(object):
                     **(filter_kwargs(kwargs, build_cubit_model_allowed_kwargs))
                 )
                 self.export_cubit_dagmc(
-                    **(filter_kwargs(kwargs, export_cubit_dagmc_allowed_kwargs))
+                    **(
+                        filter_kwargs(
+                            kwargs, export_cubit_dagmc_allowed_kwargs
+                        )
+                    )
                 )
             elif magnet_exporter == "cad_to_dagmc":
                 self.build_cad_to_dagmc_model(
@@ -651,7 +669,11 @@ class Stellarator(object):
                     )
                 )
                 self.export_cad_to_dagmc(
-                    **(filter_kwargs(kwargs, export_cad_to_dagmc_allowed_kwargs))
+                    **(
+                        filter_kwargs(
+                            kwargs, export_cad_to_dagmc_allowed_kwargs
+                        )
+                    )
                 )
             magnet_mbc = core.Core()
             magnet_mbc.load_file(str(self.magnet_model_path))
@@ -697,7 +719,8 @@ def parse_args():
         "--logger",
         action="store_true",
         help=(
-            "flag to indicate the instantiation of a logger object (default: " "False)"
+            "flag to indicate the instantiation of a logger object (default: "
+            "False)"
         ),
     )
 
@@ -715,7 +738,9 @@ def parse_args():
         "-m",
         "--magnets",
         action="store_true",
-        help=("flag to indicate the creation of magnet geometry (default: False)"),
+        help=(
+            "flag to indicate the creation of magnet geometry (default: False)"
+        ),
     )
 
     parser.add_argument(
@@ -883,7 +908,9 @@ def parastell():
         nwl_geom.export_invessel_build(export_dir=args.export_dir)
 
         nwl_geom.build_cubit_model(skip_imprint=True)
-        nwl_geom.export_cubit_dagmc(filename="nwl_geom", export_dir=args.export_dir)
+        nwl_geom.export_cubit_dagmc(
+            filename="nwl_geom", export_dir=args.export_dir
+        )
 
 
 if __name__ == "__main__":

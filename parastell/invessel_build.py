@@ -46,11 +46,19 @@ def create_moab_tris_from_verts(corners, mbc, reverse=False):
         list of two pymoab MBTRI elements
     """
     if reverse:
-        tri_1 = mbc.create_element(types.MBTRI, [corners[0], corners[1], corners[2]])
-        tri_2 = mbc.create_element(types.MBTRI, [corners[0], corners[2], corners[3]])
+        tri_1 = mbc.create_element(
+            types.MBTRI, [corners[0], corners[1], corners[2]]
+        )
+        tri_2 = mbc.create_element(
+            types.MBTRI, [corners[0], corners[2], corners[3]]
+        )
     else:
-        tri_1 = mbc.create_element(types.MBTRI, [corners[2], corners[1], corners[0]])
-        tri_2 = mbc.create_element(types.MBTRI, [corners[3], corners[2], corners[0]])
+        tri_1 = mbc.create_element(
+            types.MBTRI, [corners[2], corners[1], corners[0]]
+        )
+        tri_2 = mbc.create_element(
+            types.MBTRI, [corners[3], corners[2], corners[0]]
+        )
 
     return [tri_1, tri_2]
 
@@ -220,8 +228,12 @@ class RibBasedSurface(ReferenceSurface):
             rib_subset, self.toroidal_angles, shifted_poloidal_angles
         )
 
-        self.r_interp = CloughTocher2DInterpolator(self.grid_points, self.r_data)
-        self.z_interp = CloughTocher2DInterpolator(self.grid_points, self.z_data)
+        self.r_interp = CloughTocher2DInterpolator(
+            self.grid_points, self.r_data
+        )
+        self.z_interp = CloughTocher2DInterpolator(
+            self.grid_points, self.z_data
+        )
 
     def angles_to_xyz(self, toroidal_angle, poloidal_angles, s, scale):
         """Return the cartesian coordinates from the interpolators for a
@@ -388,7 +400,9 @@ class InVesselBuild(object):
         """Populates Surface class objects representing the outer surface of
         each component specified in the radial build.
         """
-        self._logger.info("Populating surface objects for in-vessel components...")
+        self._logger.info(
+            "Populating surface objects for in-vessel components..."
+        )
 
         self._toroidal_angles_exp = np.deg2rad(
             expand_list(self.radial_build.toroidal_angles, self.num_ribs)
@@ -411,7 +425,9 @@ class InVesselBuild(object):
                 s = self.radial_build.wall_s
 
             offset_mat += np.array(layer_data["thickness_matrix"])
-            interpolated_offset_mat = self._interpolate_offset_matrix(offset_mat)
+            interpolated_offset_mat = self._interpolate_offset_matrix(
+                offset_mat
+            )
 
             self.Surfaces[name] = Surface(
                 self._ref_surf,
@@ -443,7 +459,9 @@ class InVesselBuild(object):
         build by cutting the interior surface solid from the outer surface
         solid for a given component.
         """
-        self._logger.info("Constructing CadQuery objects for in-vessel components...")
+        self._logger.info(
+            "Constructing CadQuery objects for in-vessel components..."
+        )
 
         interior_surface = None
 
@@ -490,12 +508,17 @@ class InVesselBuild(object):
             corner3 = rib2.mb_verts[rib_loci_index + 1]
             corner4 = rib2.mb_verts[rib_loci_index]
             corners = [corner1, corner2, corner3, corner4]
-            mb_tris += create_moab_tris_from_verts(corners, self.mbc, reverse=reverse)
+            mb_tris += create_moab_tris_from_verts(
+                corners, self.mbc, reverse=reverse
+            )
         return mb_tris
 
     def _generate_pymoab_verts(self):
         """Generate MBVERTEX entities from rib loci in all surfaces"""
-        [surface._generate_pymoab_verts(self.mbc) for surface in self.Surfaces.values()]
+        [
+            surface._generate_pymoab_verts(self.mbc)
+            for surface in self.Surfaces.values()
+        ]
 
     def _generate_curved_surfaces_pydagmc(self):
         """Generate the faceted representation of each curved surface and
@@ -552,7 +575,9 @@ class InVesselBuild(object):
         [self.dag_model.create_volume() for _ in list(self.Surfaces)[:-1]]
 
         # First surface goes to the implicit complement (plasma chamber)
-        first_surface = self.dag_model.surfaces_by_id[self.curved_surface_ids[0]]
+        first_surface = self.dag_model.surfaces_by_id[
+            self.curved_surface_ids[0]
+        ]
         first_surface.senses = [
             self.dag_model.volumes_by_id[first_surface.id],
             None,
@@ -565,14 +590,18 @@ class InVesselBuild(object):
             ]
 
         # if it the last surface it goes to the implicit complement
-        last_surface = self.dag_model.surfaces_by_id[self.curved_surface_ids[-1]]
+        last_surface = self.dag_model.surfaces_by_id[
+            self.curved_surface_ids[-1]
+        ]
         last_surface.senses = [
             self.dag_model.volumes_by_id[last_surface.id - 1],
             None,
         ]
 
         # all end caps go to the implicit complement.
-        for vol_id, end_cap_ids in enumerate(self.end_cap_surface_ids, start=1):
+        for vol_id, end_cap_ids in enumerate(
+            self.end_cap_surface_ids, start=1
+        ):
             for end_cap_id in end_cap_ids:
                 self.dag_model.surfaces_by_id[end_cap_id].senses = [
                     self.dag_model.volumes_by_id[vol_id],
@@ -593,7 +622,9 @@ class InVesselBuild(object):
 
     def generate_components_pydagmc(self):
         """Use PyDAGMC to build a DAGMC model of the invessel components"""
-        if np.isclose((self._repeat + 1) * self.radial_build.toroidal_angles[-1], 360):
+        if np.isclose(
+            (self._repeat + 1) * self.radial_build.toroidal_angles[-1], 360
+        ):
             e = AssertionError(
                 "The PyDAGMC workflow does not support modeling 360-degree "
                 "geometries. For configurations with more than one period, "
@@ -615,7 +646,9 @@ class InVesselBuild(object):
         """Returns the set of point-loci defining the outer surfaces of the
         components specified in the radial build.
         """
-        return np.array([surface.get_loci() for surface in self.Surfaces.values()])
+        return np.array(
+            [surface.get_loci() for surface in self.Surfaces.values()]
+        )
 
     def merge_layer_surfaces(self):
         """Merges ParaStell in-vessel component surfaces in Coreform Cubit
@@ -629,7 +662,9 @@ class InVesselBuild(object):
 
         for data in self.radial_build.radial_build.values():
 
-            inner_surface_id, outer_surface_id = orient_spline_surfaces(data["vol_id"])
+            inner_surface_id, outer_surface_id = orient_spline_surfaces(
+                data["vol_id"]
+            )
 
             # Conditionally skip merging (first iteration only)
             if prev_outer_surface_id is None:
@@ -656,7 +691,9 @@ class InVesselBuild(object):
         self.export_dir = export_dir
 
         for name, component in self.Components.items():
-            export_path = Path(self.export_dir) / Path(name).with_suffix(".step")
+            export_path = Path(self.export_dir) / Path(name).with_suffix(
+                ".step"
+            )
             cq.exporters.export(component, str(export_path))
 
     def extract_solids_and_mat_tags(self):
@@ -711,7 +748,9 @@ class InVesselBuild(object):
         """
         self.moab_mesh.export_mesh(filename, export_dir=export_dir)
 
-    def mesh_components_gmsh(self, components, min_mesh_size=5.0, max_mesh_size=20.0):
+    def mesh_components_gmsh(
+        self, components, min_mesh_size=5.0, max_mesh_size=20.0
+    ):
         """Creates a tetrahedral mesh of in-vessel component volumes via Gmsh.
 
         Arguments:
@@ -754,7 +793,9 @@ class InVesselBuild(object):
             vtk_path = str(Path(f"volume_{volume_id}_tmp").with_suffix(".vtk"))
             self.dag_model.volumes_by_id[volume_id].to_vtk(vtk_path)
 
-            mesh_files.append(remesh_gmsh(min_mesh_size, max_mesh_size, vtk_path))
+            mesh_files.append(
+                remesh_gmsh(min_mesh_size, max_mesh_size, vtk_path)
+            )
 
         # Combine all component meshes into one
         for mesh_file in mesh_files:
@@ -921,7 +962,9 @@ class Surface(object):
     def generate_surface(self):
         """Constructs a surface by lofting across a set of rib splines."""
         if not self.surface:
-            self.surface = cq.Solid.makeLoft([rib.generate_rib() for rib in self.Ribs])
+            self.surface = cq.Solid.makeLoft(
+                [rib.generate_rib() for rib in self.Ribs]
+            )
 
         return self.surface
 
@@ -1024,7 +1067,9 @@ class Rib(object):
             mbc (PyMOAB Core): PyMOAB Core instance to add the MBVERTEX
                 entities to.
         """
-        self.mb_verts = mbc.create_vertices(self.rib_loci[0:-1].flatten()).to_array()
+        self.mb_verts = mbc.create_vertices(
+            self.rib_loci[0:-1].flatten()
+        ).to_array()
         self.mb_verts = np.append(self.mb_verts, self.mb_verts[0])
 
     def generate_rib(self):
@@ -1082,7 +1127,9 @@ class InVesselComponentMesh(ToroidalMesh):
 
         for toroidal_idx in range(self._num_ribs - 1):
             for poloidal_idx in range(self._num_rib_pts - 1):
-                self._create_tets_from_hex(surface_idx, poloidal_idx, toroidal_idx)
+                self._create_tets_from_hex(
+                    surface_idx, poloidal_idx, toroidal_idx
+                )
 
     def _get_vertex_id(self, vertex_idx):
         """Computes vertex index in row-major order as stored by MOAB from
@@ -1229,7 +1276,9 @@ class RadialBuild(object):
 
         self._poloidal_angles = angle_list
         if self._poloidal_angles[-1] - self._poloidal_angles[0] > 360.0:
-            e = AssertionError("Poloidal extent must span exactly 360.0 degrees.")
+            e = AssertionError(
+                "Poloidal extent must span exactly 360.0 degrees."
+            )
             self._logger.error(e.args[0])
             raise e
 
@@ -1262,7 +1311,9 @@ class RadialBuild(object):
         self._radial_build = build_dict
 
         for name, component in self._radial_build.items():
-            component["thickness_matrix"] = np.array(component["thickness_matrix"])
+            component["thickness_matrix"] = np.array(
+                component["thickness_matrix"]
+            )
             if component["thickness_matrix"].shape != (
                 len(self._toroidal_angles),
                 len(self._poloidal_angles),
