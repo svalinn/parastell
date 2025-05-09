@@ -8,11 +8,11 @@ dependencies:
   - scipy
   - cadquery
   - moab=5.5.1[build=nompi_tempest_*]
-  - cad_to_dagmc >=0.8.2
+  - cad_to_dagmc >=0.8.2, <=0.9.0
   - ca-certificates
   - certifi
   - openssl
-  - openmc=0.15.0[build=dagmc_nompi_*]
+  - openmc>=0.15.0[build=dagmc_nompi_*]
   - matplotlib
   - pip:
       - netcdf4
