@@ -532,7 +532,15 @@ class InVesselBuild(object):
         first_surface = surfaces[0]
         for surface in surfaces:
             mb_tris = []
-            for rib, next_rib in zip(surface.Ribs[0:-1], surface.Ribs[1:]):
+            if (
+                self.radial_build.toroidal_angles[-1]
+                - self.radial_build.toroidal_angles[0]
+                == 2 * np.pi
+            ):
+                ribs = surface.Ribs[:-1].append(surface.ribs[0])
+            else:
+                ribs = surface.Ribs
+            for rib, next_rib in zip(ribs[0:-1], ribs[1:]):
                 mb_tris += self._connect_ribs_with_tris_moab(
                     rib,
                     next_rib,
@@ -638,7 +646,12 @@ class InVesselBuild(object):
         )
         self._generate_pymoab_verts()
         self._generate_curved_surfaces_pydagmc()
-        self._generate_end_cap_surfaces_pydagmc()
+        if (
+            self.radial_build.toroidal_angles[-1]
+            - self.radial_build.toroidal_angles[0]
+            < 2 * np.pi
+        ):
+            self._generate_end_cap_surfaces_pydagmc()
         self._generate_volumes_pydagmc()
         self._tag_volumes_with_materials_pydagmc()
 
