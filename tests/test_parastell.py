@@ -338,13 +338,13 @@ def test_cubit_cad_magnets(stellarator):
     chamber_volume_id_exp = 1
     component_volume_id_exp = 2
     component_name_exp = "component"
-    magnet_volume_ids_exp = list(range(3, 4))
+    magnet_volume_ids_exp = list(range(3, 5))
     filename_exp = "dagmc"
 
     # Each in-vessel component (2 present) gives 3 unique surfaces; each magnet
-    # (1 present) gives 4 surfaces
-    num_surfaces_exp = 10
-    num_volumes_exp = 3
+    # (2 present in magnet_geom.step) gives 8 surfaces
+    num_surfaces_exp = 22
+    num_volumes_exp = 4
 
     stellarator.build_cubit_model()
 
@@ -413,9 +413,9 @@ def test_cad_to_dagmc_cad_magnets(stellarator):
     filename_exp = "dagmc"
 
     # Each in-vessel component (2 present) gives 3 unique surfaces; each magnet
-    # (1 present) gives 4 surfaces
-    num_surfaces_exp = 10
-    num_volumes_exp = 3
+    # (2 present) gives 8 surfaces
+    num_surfaces_exp = 22
+    num_volumes_exp = 4
 
     stellarator.build_cad_to_dagmc_model()
     stellarator.export_cad_to_dagmc(min_mesh_size=50, max_mesh_size=100)
@@ -518,12 +518,12 @@ def test_pydagmc_cad_magnets_cubit(stellarator):
 
     assert Path("dagmc.h5m").exists()
 
-    # No plasma chamber. 4 surfaces from single magnet, 4 surfaces from single
+    # No plasma chamber. 16 surfaces from magnets, 4 surfaces from single
     # component.
-    num_surfaces_exp = 8
+    num_surfaces_exp = 20
 
-    # One magnet and one component
-    num_volumes_exp = 2
+    # Two magnets and one component
+    num_volumes_exp = 3
 
     check_surfaces_and_volumes("dagmc.h5m", num_surfaces_exp, num_volumes_exp)
 
@@ -549,12 +549,12 @@ def test_pydagmc_cad_magnets_cad_to_dagmc(stellarator):
 
     assert Path("dagmc.h5m").exists()
 
-    # No plasma chamber. 4 surfaces from single magnet, 4 surfaces from single
+    # No plasma chamber. 16 surfaces from magnets, 4 surfaces from single
     # component.
-    num_surfaces_exp = 8
+    num_surfaces_exp = 20
 
-    # One magnet and one component
-    num_volumes_exp = 2
+    # Two magnets and one component
+    num_volumes_exp = 3
 
     check_surfaces_and_volumes("dagmc.h5m", num_surfaces_exp, num_volumes_exp)
 
