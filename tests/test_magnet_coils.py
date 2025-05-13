@@ -237,16 +237,19 @@ def test_magnet_exports_from_filaments(coil_set_from_filaments):
 def test_magnet_exports_from_geometry(coil_set_from_geometry):
     """Tests whether the MagnetSetFromGeometry's export functionality behaves
     as expected, by testing if:
+        * the expected number of solids are present in coil_set_from_geometry
         * the correct volume IDs are stored
         * the expected H5M file is produced
 
     This test is skipped if Cubit cannot be imported.
     """
+
+    assert len(coil_set_from_geometry.coil_solids) == 2
     pytest.importorskip("cubit")
 
     remove_files()
 
-    volume_ids_exp = list(range(1, 2))
+    volume_ids_exp = list(range(1, 3))
 
     if check_cubit_installation():
         create_new_cubit_instance()
