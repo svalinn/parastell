@@ -490,6 +490,7 @@ class InVesselBuild(object):
 
     def _connect_ribs_with_tris_moab(self, rib1, rib2, reverse=False):
         """Creat MBTRI elements add add them to a surface between two ribs.
+        (Internal function not intended to be called externally)
 
         Arguments:
             rib1 (Rib object): First of two ribs to be connected.
@@ -514,32 +515,37 @@ class InVesselBuild(object):
         return mb_tris
 
     def _generate_pymoab_verts(self):
-        """Generate MBVERTEX entities from rib loci in all surfaces"""
+        """Generate MBVERTEX entities from rib loci in all surfaces
+        (Internal function not intended to be called externally)
+        """
         [
             surface._generate_pymoab_verts(self.mbc)
             for surface in self.Surfaces.values()
         ]
 
-    def _generate_curved_surfaces_pydagmc(self):
+    def _generate_curved_surfaces_pydagmc(self, continuous_geom=False):
         """Generate the faceted representation of each curved surface and
         add it to the PyDAGMC model, remembering the surface ids. The sense
         of the triangles should point outward (increasing radial direction),
         with the exception of the first surface, which should point inward
         since the implicit complement is being used for the plasma chamber.
+        (Internal function not intended to be called externally)
+
+        Arguments:
+            continuous_geom (bool): flag indicating whether 360-degree,
+                continuous geometries should be generated.
         """
         self.curved_surface_ids = []
         surfaces = list(self.Surfaces.values())
         first_surface = surfaces[0]
         for surface in surfaces:
             mb_tris = []
-            if (
-                self.radial_build.toroidal_angles[-1]
-                - self.radial_build.toroidal_angles[0]
-                == 2 * np.pi
-            ):
-                ribs = surface.Ribs[:-1].append(surface.ribs[0])
+
+            if continuous_geom:
+                ribs = surface.Ribs[:-1].append(surface.Ribs[0])
             else:
                 ribs = surface.Ribs
+
             for rib, next_rib in zip(ribs[0:-1], ribs[1:]):
                 mb_tris += self._connect_ribs_with_tris_moab(
                     rib,
@@ -554,6 +560,7 @@ class InVesselBuild(object):
         """Generate the faceted representation of the planar end cap surfaces
         and add them to the PyDAGMC model, remembering the surface ids.
         The sense of the triangles should point toward the implicit complement.
+        (Internal function not intended to be called externally)
         """
         self.end_cap_surface_ids = []
         for surface, next_surface in zip(
@@ -573,12 +580,18 @@ class InVesselBuild(object):
 
             self.end_cap_surface_ids.append(end_cap_pair)
 
-    def _generate_volumes_pydagmc(self):
+    def _generate_volumes_pydagmc(self, continuous_geom=False):
         """Use the curved surface and end cap surface IDs to build the
         the volumes by applying the correct surface sense to each surface.
         The convention here is to point the surface sense toward the implicit
         complement, or if the surface is between two volumes then the surface
-        sense should point in the increasing radial direction."""
+        sense should point in the increasing radial direction.
+        (Internal function not intended to be called externally)
+
+        Arguments:
+            continuous_geom (bool): flag indicating whether 360-degree,
+                continuous geometries should be generated.
+        """
 
         [self.dag_model.create_volume() for _ in list(self.Surfaces)[:-1]]
 
@@ -607,17 +620,20 @@ class InVesselBuild(object):
         ]
 
         # all end caps go to the implicit complement.
-        for vol_id, end_cap_ids in enumerate(
-            self.end_cap_surface_ids, start=1
-        ):
-            for end_cap_id in end_cap_ids:
-                self.dag_model.surfaces_by_id[end_cap_id].senses = [
-                    self.dag_model.volumes_by_id[vol_id],
-                    None,
-                ]
+        if not continuous_geom:
+            for vol_id, end_cap_ids in enumerate(
+                self.end_cap_surface_ids, start=1
+            ):
+                for end_cap_id in end_cap_ids:
+                    self.dag_model.surfaces_by_id[end_cap_id].senses = [
+                        self.dag_model.volumes_by_id[vol_id],
+                        None,
+                    ]
 
     def _tag_volumes_with_materials_pydagmc(self):
-        """Tag each volume with the appropriate material name"""
+        """Tag each volume with the appropriate material name
+        (Internal function not intended to be called externally)
+        """
         for vol, (layer_name, layer_data) in zip(
             self.dag_model.volumes,
             list(self.radial_build.radial_build.items())[1:],
@@ -630,27 +646,20 @@ class InVesselBuild(object):
 
     def generate_components_pydagmc(self):
         """Use PyDAGMC to build a DAGMC model of the invessel components"""
-        if np.isclose(
-            (self._repeat + 1) * self.radial_build.toroidal_angles[-1], 360
-        ):
-            e = AssertionError(
-                "The PyDAGMC workflow does not support modeling 360-degree "
-                "geometries. For configurations with more than one period, "
-                "please consider modeling only one period. i.e. set "
-                "'repeat = 0'."
-            )
-            self._logger.error(e.args[0])
-            raise e
         self._logger.info(
             "Generating DAGMC model of in-vessel components with PyDAGMC..."
         )
-        self._generate_pymoab_verts()
-        self._generate_curved_surfaces_pydagmc()
+
         if (
             self.radial_build.toroidal_angles[-1]
             - self.radial_build.toroidal_angles[0]
-            < 2 * np.pi
+            == 360.0
         ):
+            continuous_geom = True
+
+        self._generate_pymoab_verts()
+        self._generate_curved_surfaces_pydagmc(continuous_geom=continuous_geom)
+        if not continuous_geom:
             self._generate_end_cap_surfaces_pydagmc()
         self._generate_volumes_pydagmc()
         self._tag_volumes_with_materials_pydagmc()
@@ -965,6 +974,7 @@ class Surface(object):
 
     def _generate_pymoab_verts(self, mbc):
         """Generate MBTVERTEX entities from rib loci in all ribs.
+        (Internal function not intended to be called externally)
 
         Arguments:
             mbc (PyMOAB Core): PyMOAB Core instance to add the MBVERTEX
@@ -1075,6 +1085,7 @@ class Rib(object):
         element in rib_loci is not made into an MBVERTEX, and the entity
         handle corresponding to the first rib locus is appended to the array
         of MBVERTEX, closing the loop.
+        (Internal function not intended to be called externally)
 
         Arguments:
             mbc (PyMOAB Core): PyMOAB Core instance to add the MBVERTEX
