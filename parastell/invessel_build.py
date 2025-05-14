@@ -542,7 +542,7 @@ class InVesselBuild(object):
             mb_tris = []
 
             if continuous_geom:
-                ribs = surface.Ribs[:-1].append(surface.Ribs[0])
+                ribs = surface.Ribs[:-1] + [surface.Ribs[0]]
             else:
                 ribs = surface.Ribs
 
@@ -656,12 +656,14 @@ class InVesselBuild(object):
             == 360.0
         ):
             continuous_geom = True
+        else:
+            continuous_geom = False
 
         self._generate_pymoab_verts()
         self._generate_curved_surfaces_pydagmc(continuous_geom=continuous_geom)
         if not continuous_geom:
             self._generate_end_cap_surfaces_pydagmc()
-        self._generate_volumes_pydagmc()
+        self._generate_volumes_pydagmc(continuous_geom=continuous_geom)
         self._tag_volumes_with_materials_pydagmc()
 
     def get_loci(self):
