@@ -590,9 +590,11 @@ class Stellarator(object):
             gmsh_obj, self._geometry, method="in memory"
         )
 
-        cad_to_dagmc.mesh_brep(
+        cad_to_dagmc.set_sizes_for_mesh(
             gmsh_obj, min_mesh_size=min_mesh_size, max_mesh_size=max_mesh_size
         )
+
+        gmsh_obj.model.mesh.generate(dim=2)
 
         vertices, triangles_by_solid_and_by_face = (
             cad_to_dagmc.mesh_to_vertices_and_triangles(volumes)
