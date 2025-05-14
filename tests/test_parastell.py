@@ -249,10 +249,13 @@ def test_source_mesh(stellarator):
     """
     remove_files()
 
-    mesh_size = (6, 41, 9)
-    toroidal_extent = 15.0
+    cfs_values = np.linspace(0.0, 1.0, num=6)
+    poloidal_angles = np.linspace(0.0, 360.0, num=41)
+    toroidal_angles = np.linspace(0.0, 15.0, num=9)
 
-    stellarator.construct_source_mesh(mesh_size, toroidal_extent)
+    stellarator.construct_source_mesh(
+        cfs_values, poloidal_angles, toroidal_angles
+    )
 
     filename_exp = "source_mesh"
 
