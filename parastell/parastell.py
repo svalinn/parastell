@@ -389,19 +389,20 @@ class Stellarator(object):
             filename=filename, export_dir=export_dir
         )
 
-    def construct_source_mesh(self, mesh_size, toroidal_extent, **kwargs):
+    def construct_source_mesh(
+        self, cfs_values, poloidal_angles, toroidal_angles, **kwargs
+    ):
         """Constructs SourceMesh class object.
 
         Arguments:
-            mesh_size (tuple of int): number of grid points along each axis of
-                flux-coordinate space, in the order (num_s, num_theta, num_phi).
-                'num_s' is the number of closed flux surfaces for vertex
-                locations in each toroidal plane. 'num_theta' is the number of
-                poloidal angles for vertex locations in each toroidal plane.
-                'num_phi' is the number of toroidal angles for planes of
-                vertices.
-            toroidal_extent (float) : extent of source mesh in toroidal
-                direction [deg].
+            cfs_values (iterable of float): grid points along the closed flux
+                surface axis of flux-coordinate space. Must begin at 0.0 and
+                end at 1.0.
+            poloidal_angles (iterable of float): grid points along the poloidal
+                angle axis of flux-coordinate space. Must span 360 degrees.
+            toroidal_angles (iterable of float): grid points along the toroidal
+                angle axis of flux-coordinate space. Cannot span more than 360
+                degrees.
 
         Optional attributes:
             scale (float): a scaling factor between the units of VMEC and [cm]
@@ -416,8 +417,9 @@ class Stellarator(object):
         """
         self.source_mesh = sm.SourceMesh(
             self._vmec_obj,
-            mesh_size,
-            toroidal_extent,
+            cfs_values,
+            poloidal_angles,
+            toroidal_angles,
             logger=self._logger,
             **kwargs,
         )
