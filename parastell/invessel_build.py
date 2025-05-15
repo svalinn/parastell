@@ -523,7 +523,7 @@ class InVesselBuild(object):
             for surface in self.Surfaces.values()
         ]
 
-    def _generate_curved_surfaces_pydagmc(self, continuous_geom=False):
+    def _generate_curved_surfaces_pydagmc(self, continuous_360=False):
         """Generate the faceted representation of each curved surface and
         add it to the PyDAGMC model, remembering the surface ids. The sense
         of the triangles should point outward (increasing radial direction),
@@ -532,7 +532,7 @@ class InVesselBuild(object):
         (Internal function not intended to be called externally)
 
         Arguments:
-            continuous_geom (bool): flag indicating whether 360-degree,
+            continuous_360 (bool): flag indicating whether 360-degree,
                 continuous geometries should be generated.
         """
         self.curved_surface_ids = []
@@ -541,7 +541,7 @@ class InVesselBuild(object):
         for surface in surfaces:
             mb_tris = []
 
-            if continuous_geom:
+            if continuous_360:
                 ribs = surface.Ribs[:-1] + [surface.Ribs[0]]
             else:
                 ribs = surface.Ribs
@@ -580,7 +580,7 @@ class InVesselBuild(object):
 
             self.end_cap_surface_ids.append(end_cap_pair)
 
-    def _generate_volumes_pydagmc(self, continuous_geom=False):
+    def _generate_volumes_pydagmc(self, continuous_360=False):
         """Use the curved surface and end cap surface IDs to build the
         the volumes by applying the correct surface sense to each surface.
         The convention here is to point the surface sense toward the implicit
@@ -589,7 +589,7 @@ class InVesselBuild(object):
         (Internal function not intended to be called externally)
 
         Arguments:
-            continuous_geom (bool): flag indicating whether 360-degree,
+            continuous_360 (bool): flag indicating whether 360-degree,
                 continuous geometries should be generated.
         """
 
@@ -620,7 +620,7 @@ class InVesselBuild(object):
         ]
 
         # all end caps go to the implicit complement.
-        if not continuous_geom:
+        if not continuous_360:
             for vol_id, end_cap_ids in enumerate(
                 self.end_cap_surface_ids, start=1
             ):
@@ -650,20 +650,20 @@ class InVesselBuild(object):
             "Generating DAGMC model of in-vessel components with PyDAGMC..."
         )
 
-        if (
+        if np.isclose(
             self.radial_build.toroidal_angles[-1]
-            - self.radial_build.toroidal_angles[0]
-            == 360.0
+            - self.radial_build.toroidal_angles[0],
+            360.0,
         ):
-            continuous_geom = True
+            continuous_360 = True
         else:
-            continuous_geom = False
+            continuous_360 = False
 
         self._generate_pymoab_verts()
-        self._generate_curved_surfaces_pydagmc(continuous_geom=continuous_geom)
-        if not continuous_geom:
+        self._generate_curved_surfaces_pydagmc(continuous_360=continuous_360)
+        if not continuous_360:
             self._generate_end_cap_surfaces_pydagmc()
-        self._generate_volumes_pydagmc(continuous_geom=continuous_geom)
+        self._generate_volumes_pydagmc(continuous_360=continuous_360)
         self._tag_volumes_with_materials_pydagmc()
 
     def get_loci(self):
