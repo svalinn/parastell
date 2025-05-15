@@ -197,7 +197,7 @@ def test_ivb_exports(invessel_build):
 
     remove_files()
 
-    invessel_build.mesh_component_moab(["component"])
+    invessel_build.mesh_components_moab(["component"])
     invessel_build.export_mesh_moab("component")
     assert Path("component.h5m").exists()
 
