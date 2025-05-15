@@ -195,7 +195,7 @@ def test_invessel_build(stellarator):
 
         remove_files()
 
-    stellarator.export_invessel_build_mesh_moab("component", "component")
+    stellarator.export_invessel_build_mesh_moab(["component"], "component")
     assert component_h5m_filename_exp.exists()
 
     remove_files()
