@@ -6,7 +6,14 @@ from pymoab import core, types
 import pystell.read_vmec as read_vmec
 
 from . import log
-from .utils import ToroidalMesh, read_yaml_config, filter_kwargs, m2cm, m3tocm3
+from .utils import (
+    ToroidalMesh,
+    read_yaml_config,
+    filter_kwargs,
+    check_ascending,
+    m2cm,
+    m3tocm3,
+)
 
 export_allowed_kwargs = ["filename"]
 
@@ -152,6 +159,11 @@ class SourceMesh(ToroidalMesh):
             self._logger.error(e.args[0])
             raise e
 
+        if not check_ascending(iterable):
+            e = ValueError("CFS values must be in ascending order.")
+            self._logger.error(e.args[0])
+            raise e
+
         # Exlude entry at magnetic axis (receives special handling)
         self._cfs_values = iterable[1:]
 
@@ -163,6 +175,11 @@ class SourceMesh(ToroidalMesh):
     def poloidal_angles(self, iterable):
         if not np.isclose(iterable[-1] - iterable[0], 360.0):
             e = ValueError("Poloidal angles must span 360 degrees.")
+            self._logger.error(e.args[0])
+            raise e
+
+        if not check_ascending(iterable):
+            e = ValueError("Poloidal angles must be in ascending order.")
             self._logger.error(e.args[0])
             raise e
 
@@ -184,6 +201,12 @@ class SourceMesh(ToroidalMesh):
             )
             self._logger.error(e.args[0])
             raise e
+
+        if not check_ascending(iterable):
+            e = ValueError("Toroidal angles must be in ascending order.")
+            self._logger.error(e.args[0])
+            raise e
+
         # Conditionally exclude repeated entry at end of closed loop
         elif np.isclose(self._toroidal_extent, 2 * np.pi):
             self._toroidal_angles = np.deg2rad(iterable[:-1])
@@ -227,12 +250,10 @@ class SourceMesh(ToroidalMesh):
         """
         self._logger.info("Computing source mesh point cloud...")
 
-        self.verts_per_ring = self._poloidal_angles.shape[0]
+        self.verts_per_ring = len(self._poloidal_angles)
         # add one vertex per plane for magenetic axis
-        self.verts_per_plane = (
-            self._cfs_values.shape[0] * self.verts_per_ring + 1
-        )
-        num_verts = self._toroidal_angles.shape[0] * self.verts_per_plane
+        self.verts_per_plane = len(self._cfs_values) * self.verts_per_ring + 1
+        num_verts = len(self._toroidal_angles) * self.verts_per_plane
 
         self.coords = np.zeros((num_verts, 3))
         self.coords_cfs = np.zeros(num_verts)
@@ -352,7 +373,7 @@ class SourceMesh(ToroidalMesh):
 
         poloidal_offset = poloidal_idx
         # Wrap around if poloidal angle is 2*pi
-        if poloidal_idx == self._poloidal_angles.shape[0]:
+        if poloidal_idx == len(self._poloidal_angles):
             poloidal_offset = 0
 
         id = ma_offset + surface_offset + poloidal_offset
@@ -364,13 +385,13 @@ class SourceMesh(ToroidalMesh):
         self._logger.info("Constructing source mesh...")
 
         if self._toroidal_extent < 2 * np.pi:
-            num_toroidal_angles = self._toroidal_angles.shape[0] - 1
+            num_toroidal_angles = len(self._toroidal_angles) - 1
         else:
-            num_toroidal_angles = self._toroidal_angles.shape[0]
+            num_toroidal_angles = len(self._toroidal_angles)
 
         for toroidal_idx in range(num_toroidal_angles):
             # Create tetrahedra for wedges at center of plasma
-            for poloidal_idx in range(self._poloidal_angles.shape[0]):
+            for poloidal_idx, _ in enumerate(self._poloidal_angles):
                 tets, vertex_id_list = self._create_tets_from_wedge(
                     poloidal_idx, toroidal_idx
                 )
@@ -380,8 +401,9 @@ class SourceMesh(ToroidalMesh):
                 ]
 
             # Create tetrahedra for hexahedra beyond center of plasma
-            for cfs_idx in range(1, self._cfs_values.shape[0]):
-                for poloidal_idx in range(self._poloidal_angles.shape[0]):
+            # Exclude final CFS since no elements created beyond it
+            for cfs_idx, _ in enumerate(self._cfs_values[:-1], start=1):
+                for poloidal_idx, _ in enumerate(self._poloidal_angles):
                     tets, vertex_id_list = self._create_tets_from_hex(
                         cfs_idx, poloidal_idx, toroidal_idx
                     )

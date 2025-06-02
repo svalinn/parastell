@@ -136,6 +136,22 @@ def expand_list(list_to_expand, num):
     return list_exp
 
 
+def check_ascending(iterable):
+    """Checks if an iterable's elements are in ascending order.
+
+    Arguments:
+        iterable (iterable of int or float): iterable to check.
+
+    Returns:
+        (bool): flag to indicate whether the iterable's elements are in
+            ascending order.
+    """
+    return np.all(
+        elem < next_elem
+        for elem, next_elem in zip(iterable[:-1], iterable[1:])
+    )
+
+
 def filter_kwargs(
     dict, allowed_kwargs, all_kwargs=False, fn_name=None, logger=None
 ):
