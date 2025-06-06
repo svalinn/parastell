@@ -1177,7 +1177,7 @@ class InVesselComponentMesh(ToroidalMesh):
 
     def create_mesh(self):
         """Creates volumetric mesh in real space."""
-        for surface_idx, _ in enumerate(self._surfaces[:-1]):
+        for surface_idx, _ in enumerate(self.surfaces[:-1]):
             if self.gap_map[surface_idx]:
                 continue  # Skip iteration if a gap is indicated
             for toroidal_idx in range(self._num_ribs - 1):
