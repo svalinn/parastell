@@ -734,12 +734,12 @@ class InVesselBuild(object):
             Arguments:
                 component (str): component to be removed.
             """
-            e = Warning(
+            w = Warning(
                 f"Meshing of {component} volume not supported for MOAB "
                 f"workflow; {component} volume will be removed from list of "
                 "components to be meshed."
             )
-            self._logger.warning(e.args[0])
+            self._logger.warning(w.args[0])
             components.remove(component)
 
         if "plasma" in components:
@@ -747,22 +747,49 @@ class InVesselBuild(object):
         elif "chamber" in components:
             remove_inner_component("chamber")
 
-        surfaces = []
-        gap_map = []
-
         surface_keys = list(self.Surfaces.keys())
 
-        # Identify surfaces and gaps in mesh
-        for component_idx, component in enumerate(components):
-            component_surf_idx = surface_keys.index(component)
-            previous_component = surface_keys[component_surf_idx - 1]
+        # Check if components list is ordered correctly
+        sorted_components = sorted(
+            components, key=lambda component: surface_keys.index(component)
+        )
+        if components != sorted_components:
+            w = Warning(
+                "List of components to be meshed is not properly ordered. "
+                "Reordering input list."
+            )
+            self._logger.warning(w.args[0])
+            components = sorted_components
 
-            # Conditionally handle gap in mesh
-            if previous_component != components[component_idx - 1]:
-                surfaces.append(self.Surfaces[previous_component])
-                # Do not indicate gap for first component in mesh
-                if not component_idx == 0:
-                    gap_map.append(True)
+        # Initialize the list of Surface class objects to be included in the
+        # mesh, to be used to define mesh vertices on those surfaces later
+        surfaces = []
+        # Initialize the list booleans identifying whether the regions between
+        # mesh surfaces should be meshed or not
+        gap_map = []
+
+        # Handle first component in mesh. Retrieve its inner and outer
+        # surfaces. Its inner surface is the outer surface of that adjacent
+        # (radially inward) to the first component
+        first_component = components[0]
+        component_surf_idx = surface_keys.index(first_component)
+        inner_component = surface_keys[component_surf_idx - 1]
+        # Add inner and outer surfaces of first component
+        surfaces.append(self.Surfaces[inner_component])
+        surfaces.append(self.Surfaces[first_component])
+        gap_map.append(False)
+
+        # Identify surfaces and gaps in mesh
+        for component_idx, component in enumerate(components[1:], 1):
+            # Identify component adjacent (radially inward) to current
+            # component
+            component_surf_idx = surface_keys.index(component)
+            inner_component = surface_keys[component_surf_idx - 1]
+            # If the inner component is not the previous component specified to
+            # be meshed, identify a gap and add the inner surface
+            if inner_component != components[component_idx - 1]:
+                surfaces.append(self.Surfaces[inner_component])
+                gap_map.append(True)
 
             surfaces.append(self.Surfaces[component])
             gap_map.append(False)
