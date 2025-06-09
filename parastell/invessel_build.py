@@ -737,27 +737,88 @@ class InVesselBuild(object):
 
         return solids, mat_tags
 
-    def mesh_component_moab(self, component):
-        """Creates a tetrahedral mesh of a single in-vessel component volume
-        via MOAB. This mesh is created using the point cloud of the specified
-        component and as such, the mesh will be one tetrahedron thick.
+    def mesh_components_moab(self, components):
+        """Creates a tetrahedral mesh of in-vessel component volumes via MOAB.
+        This mesh is created using the point cloud of the specified components
+        and as such, each component's mesh will be one tetrahedron thick.
 
         Arguments:
-            component (str): name of in-vessel component to be meshed.
+            components (array of str): array containing the names of the
+                in-vessel components to be meshed.
         """
         self._logger.info(
-            f"Generating tetrahedral mesh of {component} volume via MOAB..."
+            "Generating tetrahedral mesh of in-vessel component(s) via MOAB..."
         )
 
-        surfaces = []
+        def remove_inner_component(component):
+            """Upon identification of a requested component whose meshing is
+            not supported by the MOAB workflow, removes that component from the
+            input list and raises a warning.
+
+            Arguments:
+                component (str): component to be removed.
+            """
+            w = Warning(
+                f"Meshing of {component} volume not supported for MOAB "
+                f"workflow; {component} volume will be removed from list of "
+                "components to be meshed."
+            )
+            self._logger.warning(w.args[0])
+            components.remove(component)
+
+        if "plasma" in components:
+            remove_inner_component("plasma")
+        elif "chamber" in components:
+            remove_inner_component("chamber")
+
         surface_keys = list(self.Surfaces.keys())
 
-        component_idx = surface_keys.index(component)
-        surfaces = [self.Surfaces[surface_keys[component_idx - 1]]]
-        surfaces.append(self.Surfaces[component])
+        # Check if components list is ordered correctly
+        sorted_components = sorted(
+            components, key=lambda component: surface_keys.index(component)
+        )
+        if components != sorted_components:
+            w = Warning(
+                "List of components to be meshed is not properly ordered. "
+                "Reordering input list."
+            )
+            self._logger.warning(w.args[0])
+            components = sorted_components
 
-        self.moab_mesh = InVesselComponentMesh(surfaces, self._logger)
+        # Initialize the list of Surface class objects to be included in the
+        # mesh, to be used to define mesh vertices on those surfaces later
+        surfaces = []
+        # Initialize the list booleans identifying whether the regions between
+        # mesh surfaces should be meshed or not
+        gap_map = []
 
+        # Identify surfaces and gaps in mesh
+        for component_idx, component in enumerate(components):
+            # Extract inner and outer surfaces of current component
+            outer_surface = self.Surfaces[component]
+            # Inner surface of current component is outer surface of the
+            # previous component. Since surfaces are created in order of
+            # components and named after the component for which they are the
+            # outer surface, it can be found by the ordered list of surface
+            # keys
+            inner_surf_idx = surface_keys.index(component) - 1
+            inner_component = surface_keys[inner_surf_idx]
+            inner_surface = self.Surfaces[inner_component]
+
+            # Handle first component
+            if len(surfaces) == 0:
+                surfaces.append(inner_surface)
+            # If the inner component is not the previous component specified to
+            # be meshed, identify a gap and add the inner surface
+            elif surfaces[-1] != inner_surface:
+                surfaces.append(inner_surface)
+                # Don't mesh the gap between this surface and its predecessor
+                gap_map.append(True)
+
+            surfaces.append(outer_surface)
+            gap_map.append(False)
+
+        self.moab_mesh = InVesselComponentMesh(surfaces, gap_map, self._logger)
         self.moab_mesh.create_vertices()
         self.moab_mesh.create_mesh()
 
@@ -1110,22 +1171,25 @@ class Rib(object):
 
 
 class InVesselComponentMesh(ToroidalMesh):
-    """Generates a tetrahedral mesh of an in-vessel component volume via MOAB.
-    This mesh is created using the point cloud of the component's Surface class
-    objects and as such, the mesh will be one tetrahedron thick. Inherits from
-    ToroidalMesh.
+    """Generates a tetrahedral mesh of in-vessel component volumes via MOAB.
+    This mesh is created using the point cloud of each component's Surface
+    class objects and as such, each component's mesh will be one tetrahedron
+    thick. Inherits from ToroidalMesh.
 
     Arguments:
-        surfaces (list of object): the component's two Surface class objects,
-            ordered radially outward.
+        surfaces (list of object): the Surface class objects of the components
+            in the mesh, ordered radially outward.
+        gap_map (list of bool): an ordered map indicating gaps in the mesh. As
+            such, should be one entry shorter than "surfaces" argument.
         logger (object): logger object (defaults to None). If no logger is
             supplied, a default logger will be instantiated.
     """
 
-    def __init__(self, surfaces, logger=None):
+    def __init__(self, surfaces, gap_map, logger=None):
         super().__init__(logger=logger)
 
         self.surfaces = surfaces
+        self.gap_map = gap_map
 
     @property
     def surfaces(self):
@@ -1138,6 +1202,23 @@ class InVesselComponentMesh(ToroidalMesh):
         self._num_ribs = len(list[0].phi_list)
         self._num_rib_pts = len(list[0].theta_list)
 
+    @property
+    def gap_map(self):
+        return self._gap_map
+
+    @gap_map.setter
+    def gap_map(self, list):
+        if len(list) != len(self._surfaces) - 1:
+            e = AssertionError(
+                "'gap_map' indicates gap regions in the mesh between the "
+                "'surfaces' argument and as such, should be one entry shorter "
+                "than 'surfaces'."
+            )
+            self._logger.error(e.args[0])
+            raise e
+
+        self._gap_map = list
+
     def create_vertices(self):
         """Creates mesh vertices and adds them to PyMOAB core."""
         coords = []
@@ -1149,13 +1230,14 @@ class InVesselComponentMesh(ToroidalMesh):
 
     def create_mesh(self):
         """Creates volumetric mesh in real space."""
-        surface_idx = 0
-
-        for toroidal_idx in range(self._num_ribs - 1):
-            for poloidal_idx in range(self._num_rib_pts - 1):
-                self._create_tets_from_hex(
-                    surface_idx, poloidal_idx, toroidal_idx
-                )
+        for surface_idx, _ in enumerate(self.surfaces[:-1]):
+            if self.gap_map[surface_idx]:
+                continue  # Skip iteration if a gap is indicated
+            for toroidal_idx in range(self._num_ribs - 1):
+                for poloidal_idx in range(self._num_rib_pts - 1):
+                    self._create_tets_from_hex(
+                        surface_idx, poloidal_idx, toroidal_idx
+                    )
 
     def _get_vertex_id(self, vertex_idx):
         """Computes vertex index in row-major order as stored by MOAB from
