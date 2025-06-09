@@ -772,10 +772,11 @@ class InVesselBuild(object):
         for component_idx, component in enumerate(components):
             # Extract inner and outer surfaces of current component
             outer_surface = self.Surfaces[component]
-            # Inner surface of current component is outer surface of the previous
-            # component. Since surfaces are created in order of components and
-            # named after the component for which they are the outer surface,
-            # it can be found by the ordered list of surface keys
+            # Inner surface of current component is outer surface of the
+            # previous component. Since surfaces are created in order of
+            # components and named after the component for which they are the
+            # outer surface, it can be found by the ordered list of surface
+            # keys
             inner_surf_idx = surface_keys.index(component) - 1
             inner_component = surface_keys[inner_surf_idx]
             inner_surface = self.Surfaces[inner_component]
@@ -786,9 +787,8 @@ class InVesselBuild(object):
             # If the inner component is not the previous component specified to
             # be meshed, identify a gap and add the inner surface
             elif surfaces[-1] != inner_surface:
-                print(surfaces[-1], inner_surface)
                 surfaces.append(inner_surface)
-                # don't mesh the gap between this surface and its predecessor
+                # Don't mesh the gap between this surface and its predecessor
                 gap_map.append(True)
 
             surfaces.append(outer_surface)
