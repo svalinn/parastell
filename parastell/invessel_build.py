@@ -29,7 +29,7 @@ from .utils import (
     normalize,
     expand_list,
     read_yaml_config,
-    remesh_gmsh,
+    create_vol_mesh_from_surf_mesh,
     m2cm,
 )
 
@@ -879,13 +879,17 @@ class InVesselBuild(object):
             self.dag_model.volumes_by_id[volume_id].to_vtk(vtk_path)
 
             mesh_files.append(
-                remesh_gmsh(min_mesh_size, max_mesh_size, vtk_path)
+                create_vol_mesh_from_surf_mesh(
+                    min_mesh_size, max_mesh_size, vtk_path
+                )
             )
 
         # Combine all component meshes into one
         for mesh_file in mesh_files:
             gmsh.merge(mesh_file)
             Path(mesh_file).unlink()
+
+        gmsh.model.mesh.removeDuplicateNodes()
 
     def _gmsh_from_cadquery(self, components, min_mesh_size, max_mesh_size):
         """Adds CadQuery geometry to Gmsh instance.
