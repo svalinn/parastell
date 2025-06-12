@@ -206,7 +206,8 @@ class Stellarator(object):
         component's mesh will be one tetrahedron thick.
 
         Arguments:
-            component (str): name of the in-vessel component to be meshed.
+            components (array of str): array containing the names of the
+                in-vessel components to be meshed.
             filename (str): name of H5M output file.
             export_dir (str): directory to which to export the h5m output file
                 (defaults to empty string).
