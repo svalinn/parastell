@@ -255,7 +255,9 @@ def smooth_matrix(matrix, steps, sigma):
     return smoothed_matrix
 
 
-def create_vol_mesh_from_surf_mesh(min_mesh_size, max_mesh_size, filename):
+def create_vol_mesh_from_surf_mesh(
+    min_mesh_size, max_mesh_size, algorithm, filename
+):
     """Creates a volumetric mesh from a surface mesh, according to specified
     minimum and maximum mesh element sizes, using Gmsh. The resultant mesh will
     maintain the given surface mesh at its boundary. Assumes Gmsh has already
@@ -265,6 +267,13 @@ def create_vol_mesh_from_surf_mesh(min_mesh_size, max_mesh_size, filename):
         min_mesh_size (float): minimum size of mesh elements (defaults to 5.0).
         max_mesh_size (float): maximum size of mesh elements (defaults to
             20.0).
+        algorithm (int): integer identifying the meshing algorithm to use
+                for the surface boundary. Options are as follows, refer to Gmsh
+                documentation for explanations of each.
+                1: MeshAdapt, 2: automatic, 3: initial mesh only, 4: N/A,
+                5: Delaunay, 6: Frontal-Delaunay, 7: BAMG, 8: Frontal-Delaunay
+                for Quads, 9: Packing of Parallelograms, 11: Quasi-structured
+                Quad.
         filename (str): path to input mesh file. Must be a Gmsh-compatible file
             type. Options include VTK and MSH file types.
 
@@ -283,6 +292,7 @@ def create_vol_mesh_from_surf_mesh(min_mesh_size, max_mesh_size, filename):
 
     gmsh.option.setNumber("Mesh.MeshSizeMin", min_mesh_size)
     gmsh.option.setNumber("Mesh.MeshSizeMax", max_mesh_size)
+    gmsh.option.setNumber("Mesh.Algorithm", algorithm)
 
     gmsh.model.mesh.generate(dim=3)
 
