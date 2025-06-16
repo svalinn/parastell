@@ -566,6 +566,7 @@ class Stellarator(object):
         export_dir="",
         min_mesh_size=5.0,
         max_mesh_size=20.0,
+        algorithm=1,
     ):
         """Exports DAGMC neutronics H5M file of ParaStell components via
         CAD-to-DAGMC.
@@ -579,6 +580,13 @@ class Stellarator(object):
                 5.0).
             max_mesh_size (float): maximum size of mesh elements (defaults to
                 20.0).
+            algorithm (int): integer identifying the meshing algorithm to use
+                for the surface mesh (defaults to 1). Options are as follows,
+                refer to Gmsh documentation for explanations of each.
+                1: MeshAdapt, 2: automatic, 3: initial mesh only, 4: N/A,
+                5: Delaunay, 6: Frontal-Delaunay, 7: BAMG, 8: Frontal-Delaunay
+                for Quads, 9: Packing of Parallelograms, 11: Quasi-structured
+                Quad.
         """
         self._logger.info(
             "Exporting DAGMC neutronics model with CAD-to-DAGMC ..."
@@ -593,7 +601,10 @@ class Stellarator(object):
         )
 
         cad_to_dagmc.set_sizes_for_mesh(
-            gmsh_obj, min_mesh_size=min_mesh_size, max_mesh_size=max_mesh_size
+            gmsh_obj,
+            min_mesh_size=min_mesh_size,
+            max_mesh_size=max_mesh_size,
+            mesh_algorithm=algorithm,
         )
 
         gmsh_obj.model.mesh.generate(dim=2)
