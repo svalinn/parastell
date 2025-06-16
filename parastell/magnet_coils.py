@@ -112,7 +112,9 @@ class MagnetSet(ABC):
             delete_upon_export=True,
         )
 
-    def mesh_magnets_gmsh(self, min_mesh_size=5.0, max_mesh_size=20.0):
+    def mesh_magnets_gmsh(
+        self, min_mesh_size=5.0, max_mesh_size=20.0, algorithm=1
+    ):
         """Creates tetrahedral mesh of magnet volumes via Gmsh.
 
         Arguments:
@@ -120,6 +122,13 @@ class MagnetSet(ABC):
                 5.0).
             max_mesh_size (float): maximum size of mesh elements (defaults to
                 20.0).
+            algorithm (int): integer identifying the meshing algorithm to use
+                for the surface boundary (defaults to 1). Options are as
+                follows, refer to Gmsh documentation for explanations of each.
+                1: MeshAdapt, 2: automatic, 3: initial mesh only, 4: N/A,
+                5: Delaunay, 6: Frontal-Delaunay, 7: BAMG, 8: Frontal-Delaunay
+                for Quads, 9: Packing of Parallelograms, 11: Quasi-structured
+                Quad.
         """
         self._logger.info("Generating tetrahedral mesh of magnets via Gmsh...")
 
@@ -132,6 +141,7 @@ class MagnetSet(ABC):
 
         gmsh.option.setNumber("Mesh.MeshSizeMin", min_mesh_size)
         gmsh.option.setNumber("Mesh.MeshSizeMax", max_mesh_size)
+        gmsh.option.setNumber("Mesh.Algorithm", algorithm)
 
         gmsh.model.mesh.generate(dim=3)
 
