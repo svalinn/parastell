@@ -68,6 +68,7 @@ class Stellarator(object):
         self.invessel_build = None
         self.magnet_set = None
         self.source_mesh = None
+        self.use_pydagmc = False
 
     @property
     def ref_surf(self):
@@ -220,6 +221,7 @@ class Stellarator(object):
         filename,
         min_mesh_size=5.0,
         max_mesh_size=20.0,
+        algorithm=1,
         export_dir="",
     ):
         """Creates a tetrahedral mesh of in-vessel component volumes via
@@ -233,6 +235,13 @@ class Stellarator(object):
                 5.0).
             max_mesh_size (float): maximum size of mesh elements (defaults to
                 20.0).
+            algorithm (int): integer identifying the meshing algorithm to use
+                for the surface boundary (defaults to 1). Options are as
+                follows, refer to Gmsh documentation for explanations of each.
+                1: MeshAdapt, 2: automatic, 3: initial mesh only, 4: N/A,
+                5: Delaunay, 6: Frontal-Delaunay, 7: BAMG, 8: Frontal-Delaunay
+                for Quads, 9: Packing of Parallelograms, 11: Quasi-structured
+                Quad.
             export_dir (str): directory to which to export the h5m
                 output file (optional, defaults to empty string).
         """
@@ -240,11 +249,18 @@ class Stellarator(object):
             components,
             min_mesh_size=min_mesh_size,
             max_mesh_size=max_mesh_size,
+            algorithm=algorithm,
         )
         self.invessel_build.export_mesh_gmsh(filename, export_dir=export_dir)
 
     def export_invessel_build_mesh_cubit(
-        self, components, filename, mesh_size=5, export_dir=""
+        self,
+        components,
+        filename,
+        mesh_size=5,
+        anisotropic_ratio=100.0,
+        deviation_angle=5.0,
+        export_dir="",
     ):
         """Creates a tetrahedral mesh of in-vessel component volumes via
         Coreform Cubit and exports the mesh as a H5M file.
@@ -255,12 +271,19 @@ class Stellarator(object):
             filename (str): name of H5M output file.
             mesh_size (int): controls the size of the mesh. Takes values
                 between 1 (finer) and 10 (coarser) (optional, defaults to 5).
+            anisotropic_ratio (float): controls edge length ratio of elements
+                (defaults to 100.0).
+            deviation_angle (float): controls deviation angle of facet from
+                surface (i.e., lesser deviation angle results in more elements
+                in areas with higher curvature) (defaults to 5.0).
             export_dir (str): directory to which to export the h5m
                 output file (optional, defaults to empty string).
         """
         self.invessel_build.mesh_components_cubit(
             components,
             mesh_size=mesh_size,
+            anisotropic_ratio=anisotropic_ratio,
+            deviation_angle=deviation_angle,
             import_dir=self.invessel_build.export_dir,
         )
         self.invessel_build.export_mesh_cubit(filename, export_dir=export_dir)
@@ -332,9 +355,9 @@ class Stellarator(object):
     def export_magnet_mesh_cubit(
         self,
         filename="magnet_mesh",
-        min_size=20.0,
-        max_size=50.0,
-        max_gradient=1.5,
+        mesh_size=5,
+        anisotropic_ratio=100.0,
+        deviation_angle=5.0,
         export_dir="",
     ):
         """Creates a tetrahedral mesh of magnet volumes via Coreform Cubit and
@@ -343,19 +366,20 @@ class Stellarator(object):
         Arguments:
             filename (str): name of H5M output file (defaults to
                 'magnet_mesh').
-            min_size (float): minimum size of magnet mesh elements (defaults to
-                20.0).
-            max_size (float): maximum size of magnet mesh elements (defaults to
-                50.0).
-            max_gradient (float): maximum transition in magnet mesh element
-                size (defaults to 1.5).
+            mesh_size (int): controls the size of the mesh. Takes values
+                between 1 (finer) and 10 (coarser) (optional, defaults to 5).
+            anisotropic_ratio (float): controls edge length ratio of elements
+                (defaults to 100.0).
+            deviation_angle (float): controls deviation angle of facet from
+                surface (i.e., lesser deviation angle results in more elements
+                in areas with higher curvature) (defaults to 5.0).
             export_dir (str): directory to which to export the h5m output file
                 (defaults to empty string).
         """
         self.magnet_set.mesh_magnets_cubit(
-            min_size=min_size,
-            max_size=max_size,
-            max_gradient=max_gradient,
+            mesh_size=mesh_size,
+            anisotropic_ratio=anisotropic_ratio,
+            deviation_angle=deviation_angle,
         )
         self.magnet_set.export_mesh_cubit(
             filename=filename, export_dir=export_dir
@@ -366,6 +390,7 @@ class Stellarator(object):
         filename="magnet_mesh",
         min_mesh_size=20.0,
         max_mesh_size=50.0,
+        algorithm=1,
         export_dir="",
     ):
         """Creates a tetrahedral mesh of magnet volumes via Coreform Cubit and
@@ -378,12 +403,20 @@ class Stellarator(object):
                 5.0).
             max_mesh_size (float): maximum size of mesh elements (defaults to
                 20.0).
+            algorithm (int): integer identifying the meshing algorithm to use
+                for the surface boundary (defaults to 1). Options are as
+                follows, refer to Gmsh documentation for explanations of each.
+                1: MeshAdapt, 2: automatic, 3: initial mesh only, 4: N/A,
+                5: Delaunay, 6: Frontal-Delaunay, 7: BAMG, 8: Frontal-Delaunay
+                for Quads, 9: Packing of Parallelograms, 11: Quasi-structured
+                Quad.
             export_dir (str): directory to which to export the h5m output file
                 (defaults to empty string).
         """
         self.magnet_set.mesh_magnets_gmsh(
             min_mesh_size=min_mesh_size,
             max_mesh_size=max_mesh_size,
+            algorithm=algorithm,
         )
         self.magnet_set.export_mesh_gmsh(
             filename=filename, export_dir=export_dir
@@ -473,13 +506,13 @@ class Stellarator(object):
 
         if self.invessel_build and not self.use_pydagmc:
             self.invessel_build.import_step_cubit()
+            if skip_imprint:
+                self.invessel_build.merge_layer_surfaces()
 
         if self.magnet_set:
             self.magnet_set.import_geom_cubit()
 
-        if skip_imprint and not self.use_pydagmc:
-            self.invessel_build.merge_layer_surfaces()
-        else:
+        if not skip_imprint:
             imprint_and_merge()
 
         self._tag_materials()
