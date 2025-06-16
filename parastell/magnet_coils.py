@@ -13,6 +13,8 @@ from .cubit_utils import (
     import_geom_to_cubit,
     export_mesh_cubit,
     mesh_volume_skeleton,
+    mesh_volume_auto_factor,
+    mesh_surface_coarse_trimesh,
     get_last_id,
 )
 
@@ -70,15 +72,21 @@ class MagnetSet(ABC):
         self.volume_ids = list(range(first_vol_id, last_vol_id + 1))
 
     def mesh_magnets_cubit(
-        self, min_size=20.0, max_size=50.0, max_gradient=1.5
+        self,
+        mesh_size=5,
+        anisotropic_ratio=100.0,
+        deviation_angle=5.0,
     ):
         """Creates tetrahedral mesh of magnet volumes via Coreform Cubit.
 
         Arguments:
-            min_size (float): minimum size of mesh elements (defaults to 20.0).
-            max_size (float): maximum size of mesh elements (defaults to 50.0).
-            max_gradient (float): maximum transition in mesh element size
-                (defaults to 1.5).
+            mesh_size (float): controls the size of the mesh. Takes values
+                between 1.0 (finer) and 10.0 (coarser) (defaults to 5.0).
+            anisotropic_ratio (float): controls edge length ratio of elements
+                (defaults to 100.0).
+            deviation_angle (float): controls deviation angle of facet from
+                surface (i.e., lesser deviation angle results in more elements
+                in areas with higher curvature) (defaults to 5.0).
         """
         self._logger.info("Generating tetrahedral mesh of magnet coils...")
 
@@ -87,12 +95,11 @@ class MagnetSet(ABC):
         if not hasattr(self, "volume_ids"):
             self.import_geom_cubit()
 
-        mesh_volume_skeleton(
-            self.volume_ids,
-            min_size=min_size,
-            max_size=max_size,
-            max_gradient=max_gradient,
+        mesh_surface_coarse_trimesh(
+            anisotropic_ratio=anisotropic_ratio,
+            deviation_angle=deviation_angle,
         )
+        mesh_volume_auto_factor(self.volume_ids, mesh_size=mesh_size)
 
     def export_mesh_cubit(self, filename="magnet_mesh", export_dir=""):
         """Exports a tetrahedral mesh of magnet volumes in H5M format via
