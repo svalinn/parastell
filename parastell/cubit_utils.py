@@ -239,15 +239,19 @@ def merge_surfaces(surface_1, surface_2):
     cubit.cmd(f"merge surface {surface_1} {surface_2}")
 
 
-def mesh_volume_auto_factor(volume_ids, mesh_size=5.0):
+def mesh_volume_auto_factor(volume_ids=None, mesh_size=5.0):
     """Meshes a volume in Cubit using automatically calculated interval sizes.
 
     Arguments:
-        volume_ids (iterable of int): Cubit IDs of volumes to be meshed.
+        volume_ids (iterable of int): Cubit IDs of volumes to be meshed
+            (defaults to None).
         mesh_size (float): controls the size of the mesh. Takes values between
             1.0 (finer) and 10.0 (coarser) (optional, defaults to 5.0).
     """
-    volume_ids_str = " ".join(str(id) for id in volume_ids)
+    if volume_ids:
+        volume_ids_str = " ".join(str(id) for id in volume_ids)
+    else:
+        volume_ids_str = "all"
 
     cubit.cmd(f"volume {volume_ids_str} scheme tetmesh")
     cubit.cmd(f"volume {volume_ids_str} size auto factor {mesh_size}")
