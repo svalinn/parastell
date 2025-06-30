@@ -794,7 +794,7 @@ class InVesselBuild(object):
         gap_map = []
 
         # Identify surfaces and gaps in mesh
-        for component_idx, component in enumerate(components):
+        for component in components:
             # Extract inner and outer surfaces of current component
             outer_surface = self.Surfaces[component]
             # Inner surface of current component is outer surface of the
