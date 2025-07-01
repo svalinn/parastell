@@ -244,7 +244,7 @@ def mesh_volume_auto_factor(volume_ids=None, mesh_size=5.0):
 
     Arguments:
         volume_ids (iterable of int): Cubit IDs of volumes to be meshed
-            (defaults to None).
+            (defaults to None) if no IDs are provided, all are meshed.
         mesh_size (float): controls the size of the mesh. Takes values between
             1.0 (finer) and 10.0 (coarser) (optional, defaults to 5.0).
     """
