@@ -154,45 +154,6 @@ def tag_surface(surface_id, tag):
     cubit.cmd(f"sideset {surface_id} add surface {surface_id}")
 
 
-def export_dagmc_cubit(
-    filename="dagmc",
-    export_dir="",
-    anisotropic_ratio=100.0,
-    deviation_angle=5.0,
-    delete_upon_export=True,
-):
-    """Exports DAGMC neutronics H5M file of ParaStell components via Coreform
-    Cubit.
-
-    Arguments:
-        anisotropic_ratio (float): controls edge length ratio of elements
-            (defaults to 100.0).
-        deviation_angle (float): controls deviation angle of facet from surface
-            (i.e., lesser deviation angle results in more elements in areas
-            with higher curvature) (defaults to 5.0).
-        filename (str): name of DAGMC output file, excluding '.h5m' extension
-            (defaults to 'dagmc').
-        export_dir (str): directory to which to export the DAGMC output file
-            (defaults to empty string).
-        delete_upon_export (bool): delete the mesh from the Cubit instance
-            after exporting. Prevents inclusion of mesh in future exports.
-    """
-    cubit.cmd(
-        f"set trimesher coarse on ratio {anisotropic_ratio} "
-        f"angle {deviation_angle}"
-    )
-    cubit.cmd("surface all scheme trimesh")
-    cubit.cmd("mesh surface all")
-
-    export_path = Path(export_dir) / Path(filename).with_suffix(".h5m")
-    cubit.cmd(f'export dagmc "{export_path}" overwrite')
-
-    # Delete any meshes present to prevent inclusion in future Cubit mesh
-    # exports
-    if delete_upon_export:
-        cubit.cmd(f"delete mesh volume all propagate")
-
-
 def import_geom_to_cubit(filename, import_dir=""):
     """Attempts to open a geometry file with the appropriate cubit_io function,
         based on file extension
@@ -278,15 +239,19 @@ def merge_surfaces(surface_1, surface_2):
     cubit.cmd(f"merge surface {surface_1} {surface_2}")
 
 
-def mesh_volume_auto_factor(volume_ids, mesh_size=5.0):
+def mesh_volume_auto_factor(volume_ids=None, mesh_size=5.0):
     """Meshes a volume in Cubit using automatically calculated interval sizes.
 
     Arguments:
-        volume_ids (iterable of int): Cubit IDs of volumes to be meshed.
+        volume_ids (iterable of int): Cubit IDs of volumes to be meshed
+            (defaults to None) if no IDs are provided, all are meshed.
         mesh_size (float): controls the size of the mesh. Takes values between
             1.0 (finer) and 10.0 (coarser) (optional, defaults to 5.0).
     """
-    volume_ids_str = " ".join(str(id) for id in volume_ids)
+    if volume_ids:
+        volume_ids_str = " ".join(str(id) for id in volume_ids)
+    else:
+        volume_ids_str = "all"
 
     cubit.cmd(f"volume {volume_ids_str} scheme tetmesh")
     cubit.cmd(f"volume {volume_ids_str} size auto factor {mesh_size}")
@@ -314,6 +279,71 @@ def mesh_volume_skeleton(
         "min_num_layers_3d 1 min_num_layers_2d 1 min_num_layers_1d 1"
     )
     cubit.cmd(f"mesh volume {volume_ids_str}")
+
+
+def mesh_surface_coarse_trimesh(
+    surface_ids=None, anisotropic_ratio=100.0, deviation_angle=5.0
+):
+    """Meshes surfaces in Cubit using trimesh capabilities.
+
+    Arguments:
+        surface_ids (iterable of int): Cubit IDs of surfaces to be meshed
+            (defaults to None). If no IDs are provided, all are meshed.
+        anisotropic_ratio (float): controls edge length ratio of elements
+            (defaults to 100.0).
+        deviation_angle (float): controls deviation angle of facet from surface
+            (i.e., lesser deviation angle results in more elements in areas
+            with higher curvature) (defaults to 5.0).
+    """
+    if surface_ids:
+        surface_ids_str = " ".join(str(id) for id in surface_ids)
+    else:
+        surface_ids_str = "all"
+
+    cubit.cmd(
+        f"set trimesher coarse on ratio {anisotropic_ratio} "
+        f"angle {deviation_angle}"
+    )
+    cubit.cmd(f"surface {surface_ids_str} scheme trimesh")
+    cubit.cmd(f"mesh surface {surface_ids_str}")
+
+
+def export_dagmc_cubit(
+    filename="dagmc",
+    export_dir="",
+    anisotropic_ratio=100.0,
+    deviation_angle=5.0,
+    delete_upon_export=True,
+):
+    """Exports DAGMC neutronics H5M file of ParaStell components via Coreform
+    Cubit.
+
+    Arguments:
+        anisotropic_ratio (float): controls edge length ratio of elements
+            (defaults to 100.0).
+        deviation_angle (float): controls deviation angle of facet from surface
+            (i.e., lesser deviation angle results in more elements in areas
+            with higher curvature) (defaults to 5.0).
+        filename (str): name of DAGMC output file, excluding '.h5m' extension
+            (defaults to 'dagmc').
+        export_dir (str): directory to which to export the DAGMC output file
+            (defaults to empty string).
+        delete_upon_export (bool): delete the mesh from the Cubit instance
+            after exporting. Prevents inclusion of mesh in future exports.
+    """
+    mesh_surface_coarse_trimesh(
+        surface_ids=None,
+        anisotropic_ratio=anisotropic_ratio,
+        deviation_angle=deviation_angle,
+    )
+
+    export_path = Path(export_dir) / Path(filename).with_suffix(".h5m")
+    cubit.cmd(f'export dagmc "{export_path}" overwrite')
+
+    # Delete any meshes present to prevent inclusion in future Cubit mesh
+    # exports
+    if delete_upon_export:
+        cubit.cmd(f"delete mesh volume all propagate")
 
 
 def get_last_id(entity):

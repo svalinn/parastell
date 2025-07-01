@@ -12,7 +12,8 @@ from .cubit_utils import (
     create_new_cubit_instance,
     import_geom_to_cubit,
     export_mesh_cubit,
-    mesh_volume_skeleton,
+    mesh_volume_auto_factor,
+    mesh_surface_coarse_trimesh,
     get_last_id,
 )
 
@@ -70,15 +71,21 @@ class MagnetSet(ABC):
         self.volume_ids = list(range(first_vol_id, last_vol_id + 1))
 
     def mesh_magnets_cubit(
-        self, min_size=20.0, max_size=50.0, max_gradient=1.5
+        self,
+        mesh_size=5,
+        anisotropic_ratio=100.0,
+        deviation_angle=5.0,
     ):
         """Creates tetrahedral mesh of magnet volumes via Coreform Cubit.
 
         Arguments:
-            min_size (float): minimum size of mesh elements (defaults to 20.0).
-            max_size (float): maximum size of mesh elements (defaults to 50.0).
-            max_gradient (float): maximum transition in mesh element size
-                (defaults to 1.5).
+            mesh_size (float): controls the size of the mesh. Takes values
+                between 1.0 (finer) and 10.0 (coarser) (defaults to 5.0).
+            anisotropic_ratio (float): controls edge length ratio of elements
+                (defaults to 100.0).
+            deviation_angle (float): controls deviation angle of facet from
+                surface (i.e., lesser deviation angle results in more elements
+                in areas with higher curvature) (defaults to 5.0).
         """
         self._logger.info("Generating tetrahedral mesh of magnet coils...")
 
@@ -87,12 +94,11 @@ class MagnetSet(ABC):
         if not hasattr(self, "volume_ids"):
             self.import_geom_cubit()
 
-        mesh_volume_skeleton(
-            self.volume_ids,
-            min_size=min_size,
-            max_size=max_size,
-            max_gradient=max_gradient,
+        mesh_surface_coarse_trimesh(
+            anisotropic_ratio=anisotropic_ratio,
+            deviation_angle=deviation_angle,
         )
+        mesh_volume_auto_factor(self.volume_ids, mesh_size=mesh_size)
 
     def export_mesh_cubit(self, filename="magnet_mesh", export_dir=""):
         """Exports a tetrahedral mesh of magnet volumes in H5M format via
@@ -112,7 +118,9 @@ class MagnetSet(ABC):
             delete_upon_export=True,
         )
 
-    def mesh_magnets_gmsh(self, min_mesh_size=5.0, max_mesh_size=20.0):
+    def mesh_magnets_gmsh(
+        self, min_mesh_size=5.0, max_mesh_size=20.0, algorithm=1
+    ):
         """Creates tetrahedral mesh of magnet volumes via Gmsh.
 
         Arguments:
@@ -120,6 +128,13 @@ class MagnetSet(ABC):
                 5.0).
             max_mesh_size (float): maximum size of mesh elements (defaults to
                 20.0).
+            algorithm (int): integer identifying the meshing algorithm to use
+                for the surface boundary (defaults to 1). Options are as
+                follows, refer to Gmsh documentation for explanations of each.
+                1: MeshAdapt, 2: automatic, 3: initial mesh only, 4: N/A,
+                5: Delaunay, 6: Frontal-Delaunay, 7: BAMG, 8: Frontal-Delaunay
+                for Quads, 9: Packing of Parallelograms, 11: Quasi-structured
+                Quad.
         """
         self._logger.info("Generating tetrahedral mesh of magnets via Gmsh...")
 
@@ -132,6 +147,7 @@ class MagnetSet(ABC):
 
         gmsh.option.setNumber("Mesh.MeshSizeMin", min_mesh_size)
         gmsh.option.setNumber("Mesh.MeshSizeMax", max_mesh_size)
+        gmsh.option.setNumber("Mesh.Algorithm", algorithm)
 
         gmsh.model.mesh.generate(dim=3)
 

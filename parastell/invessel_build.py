@@ -23,13 +23,14 @@ from .cubit_utils import (
     orient_spline_surfaces,
     merge_surfaces,
     mesh_volume_auto_factor,
+    mesh_surface_coarse_trimesh,
 )
 from .utils import (
     ToroidalMesh,
     normalize,
     expand_list,
     read_yaml_config,
-    remesh_gmsh,
+    create_vol_mesh_from_surf_mesh,
     m2cm,
 )
 
@@ -793,7 +794,7 @@ class InVesselBuild(object):
         gap_map = []
 
         # Identify surfaces and gaps in mesh
-        for component_idx, component in enumerate(components):
+        for component in components:
             # Extract inner and outer surfaces of current component
             outer_surface = self.Surfaces[component]
             # Inner surface of current component is outer surface of the
@@ -834,7 +835,7 @@ class InVesselBuild(object):
         self.moab_mesh.export_mesh(filename, export_dir=export_dir)
 
     def mesh_components_gmsh(
-        self, components, min_mesh_size=5.0, max_mesh_size=20.0
+        self, components, min_mesh_size=5.0, max_mesh_size=20.0, algorithm=1
     ):
         """Creates a tetrahedral mesh of in-vessel component volumes via Gmsh.
 
@@ -845,6 +846,13 @@ class InVesselBuild(object):
                 5.0).
             max_mesh_size (float): maximum size of mesh elements (defaults to
                 20.0).
+            algorithm (int): integer identifying the meshing algorithm to use
+                for the surface boundary (defaults to 1). Options are as
+                follows, refer to Gmsh documentation for explanations of each.
+                1: MeshAdapt, 2: automatic, 3: initial mesh only, 4: N/A,
+                5: Delaunay, 6: Frontal-Delaunay, 7: BAMG, 8: Frontal-Delaunay
+                for Quads, 9: Packing of Parallelograms, 11: Quasi-structured
+                Quad.
         """
         self._logger.info(
             "Generating tetrahedral mesh of in-vessel component(s) via Gmsh..."
@@ -853,21 +861,27 @@ class InVesselBuild(object):
         gmsh.initialize()
 
         if self._use_pydagmc:
-            self._gmsh_from_pydagmc(components, min_mesh_size, max_mesh_size)
+            self._gmsh_from_pydagmc(
+                components, min_mesh_size, max_mesh_size, algorithm
+            )
         else:
-            self._gmsh_from_cadquery(components, min_mesh_size, max_mesh_size)
+            self._gmsh_from_cadquery(
+                components, min_mesh_size, max_mesh_size, algorithm
+            )
 
-    def _gmsh_from_pydagmc(self, components, min_mesh_size, max_mesh_size):
+    def _gmsh_from_pydagmc(
+        self, components, min_mesh_size, max_mesh_size, algorithm
+    ):
         """Adds PyDAGMC geometry to Gmsh instance.
         (Internal function not intended to be called externally)
 
         Arguments:
             components (array of str): array containing the names of the
                 in-vessel components to be meshed.
-            min_mesh_size (float): minimum size of mesh elements (defaults to
-                5.0).
-            max_mesh_size (float): maximum size of mesh elements (defaults to
-                20.0).
+            min_mesh_size (float): minimum size of mesh elements.
+            max_mesh_size (float): maximum size of mesh elements.
+            algorithm (int): integer identifying the meshing algorithm to use
+                for the surface boundary.
         """
         mesh_files = []
 
@@ -879,7 +893,9 @@ class InVesselBuild(object):
             self.dag_model.volumes_by_id[volume_id].to_vtk(vtk_path)
 
             mesh_files.append(
-                remesh_gmsh(min_mesh_size, max_mesh_size, vtk_path)
+                create_vol_mesh_from_surf_mesh(
+                    min_mesh_size, max_mesh_size, algorithm, vtk_path
+                )
             )
 
         # Combine all component meshes into one
@@ -887,20 +903,25 @@ class InVesselBuild(object):
             gmsh.merge(mesh_file)
             Path(mesh_file).unlink()
 
-    def _gmsh_from_cadquery(self, components, min_mesh_size, max_mesh_size):
+        gmsh.model.mesh.removeDuplicateNodes()
+
+    def _gmsh_from_cadquery(
+        self, components, min_mesh_size, max_mesh_size, algorithm
+    ):
         """Adds CadQuery geometry to Gmsh instance.
         (Internal function not intended to be called externally)
 
         Arguments:
             components (array of str): array containing the names of the
                 in-vessel components to be meshed.
-            min_mesh_size (float): minimum size of mesh elements (defaults to
-                5.0).
-            max_mesh_size (float): maximum size of mesh elements (defaults to
-                20.0).
+            min_mesh_size (float): minimum size of mesh elements.
+            max_mesh_size (float): maximum size of mesh elements.
+            algorithm (int): integer identifying the meshing algorithm to use
+                for the surface boundary.
         """
         gmsh.option.setNumber("Mesh.MeshSizeMin", min_mesh_size)
         gmsh.option.setNumber("Mesh.MeshSizeMax", max_mesh_size)
+        gmsh.option.setNumber("Mesh.Algorithm", algorithm)
 
         for component in components:
             gmsh.model.occ.importShapesNativePointer(
@@ -936,7 +957,14 @@ class InVesselBuild(object):
 
         Path(vtk_path).unlink()
 
-    def mesh_components_cubit(self, components, mesh_size=5, import_dir=""):
+    def mesh_components_cubit(
+        self,
+        components,
+        mesh_size=5,
+        anisotropic_ratio=100.0,
+        deviation_angle=5.0,
+        import_dir="",
+    ):
         """Creates a tetrahedral mesh of in-vessel component volumes via
         Coreform Cubit.
 
@@ -945,6 +973,11 @@ class InVesselBuild(object):
                 in-vessel components to be meshed.
             mesh_size (float): controls the size of the mesh. Takes values
                 between 1.0 (finer) and 10.0 (coarser) (defaults to 5.0).
+            anisotropic_ratio (float): controls edge length ratio of elements
+                (defaults to 100.0).
+            deviation_angle (float): controls deviation angle of facet from
+                surface (i.e., lesser deviation angle results in more elements
+                in areas with higher curvature) (defaults to 5.0).
             import_dir (str): directory containing the STEP file of
                 the in-vessel component (defaults to empty string).
         """
@@ -961,6 +994,10 @@ class InVesselBuild(object):
             volume_id = import_step_cubit(component, import_dir)
             volume_ids.append(volume_id)
 
+        mesh_surface_coarse_trimesh(
+            anisotropic_ratio=anisotropic_ratio,
+            deviation_angle=deviation_angle,
+        )
         mesh_volume_auto_factor(volume_ids, mesh_size=mesh_size)
 
     def export_mesh_cubit(self, filename, export_dir=""):

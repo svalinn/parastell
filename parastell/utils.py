@@ -255,15 +255,25 @@ def smooth_matrix(matrix, steps, sigma):
     return smoothed_matrix
 
 
-def remesh_gmsh(min_mesh_size, max_mesh_size, filename):
-    """Remeshes a mesh in Gmsh according to minimum and maximum mesh element
-    sizes by parameterizing the input geometry. Assumes Gmsh has already been
-    initialized.
+def create_vol_mesh_from_surf_mesh(
+    min_mesh_size, max_mesh_size, algorithm, filename
+):
+    """Creates a volumetric mesh from a surface mesh, according to specified
+    minimum and maximum mesh element sizes, using Gmsh. The resultant mesh will
+    maintain the given surface mesh at its boundary. Assumes Gmsh has already
+    been initialized.
 
     Arguments:
         min_mesh_size (float): minimum size of mesh elements (defaults to 5.0).
         max_mesh_size (float): maximum size of mesh elements (defaults to
             20.0).
+        algorithm (int): integer identifying the meshing algorithm to use
+                for the surface boundary. Options are as follows, refer to Gmsh
+                documentation for explanations of each.
+                1: MeshAdapt, 2: automatic, 3: initial mesh only, 4: N/A,
+                5: Delaunay, 6: Frontal-Delaunay, 7: BAMG, 8: Frontal-Delaunay
+                for Quads, 9: Packing of Parallelograms, 11: Quasi-structured
+                Quad.
         filename (str): path to input mesh file. Must be a Gmsh-compatible file
             type. Options include VTK and MSH file types.
 
@@ -271,47 +281,7 @@ def remesh_gmsh(min_mesh_size, max_mesh_size, filename):
         filename (str): path to remeshed mesh output file. The output file type
             and path will be the same as the input.
     """
-    # These parameters are taken directly from Gmsh documentation (see
-    # tutorial t13)
-    gmsh.onelab.set(
-        """[
-        {
-            "type": "number",
-            "name": "Parameters/Angle for surface detection",
-            "values": [40],
-            "min": 20,
-            "max": 120,
-            "step": 1
-        },
-        {
-            "type": "number",
-            "name": "Parameters/Create surfaces guaranteed to be parametrizable",
-            "values": [0],
-            "choices": [0, 1]
-        }
-        ]"""
-    )
-
-    gmsh.option.setNumber("Mesh.MeshSizeMin", min_mesh_size)
-    gmsh.option.setNumber("Mesh.MeshSizeMax", max_mesh_size)
-
-    angle = gmsh.onelab.getNumber("Parameters/Angle for surface detection")[0]
-    includeBoundary = True
-    forceParameterizablePatches = gmsh.onelab.getNumber(
-        "Parameters/Create surfaces guaranteed to be parametrizable"
-    )[0]
-    curveAngle = 180.0
-
     gmsh.open(filename)
-
-    gmsh.model.mesh.classifySurfaces(
-        np.deg2rad(angle),
-        includeBoundary,
-        forceParameterizablePatches,
-        np.deg2rad(curveAngle),
-    )
-
-    gmsh.model.mesh.create_geometry()
 
     surfaces = gmsh.model.getEntities(dim=2)
     surface_tags = [s[1] for s in surfaces]
@@ -319,6 +289,10 @@ def remesh_gmsh(min_mesh_size, max_mesh_size, filename):
     gmsh.model.geo.addVolume([surface_loop])
 
     gmsh.model.geo.synchronize()
+
+    gmsh.option.setNumber("Mesh.MeshSizeMin", min_mesh_size)
+    gmsh.option.setNumber("Mesh.MeshSizeMax", max_mesh_size)
+    gmsh.option.setNumber("Mesh.Algorithm", algorithm)
 
     gmsh.model.mesh.generate(dim=3)
 
