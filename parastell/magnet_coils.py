@@ -12,7 +12,6 @@ from .cubit_utils import (
     create_new_cubit_instance,
     import_geom_to_cubit,
     export_mesh_cubit,
-    mesh_volume_skeleton,
     mesh_volume_auto_factor,
     mesh_surface_coarse_trimesh,
     get_last_id,
