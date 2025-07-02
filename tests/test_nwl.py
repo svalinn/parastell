@@ -3,7 +3,9 @@ import os
 
 import pytest
 import openmc
+from parastell import invessel_build
 from parastell import nwl_utils
+from parastell.utils import ribs_from_kisslinger_format
 import numpy as np
 
 
@@ -14,6 +16,21 @@ files_to_remove = [
     "surface_source.h5",
     "nwl.png",
 ]
+
+vmec_file = Path("files_for_tests") / "wout_vmec.nc"
+
+ribs_file = Path("files_for_tests") / "kisslinger_file_example.txt"
+(
+    custom_surface_toroidal_angles,
+    num_toroidal_angles,
+    num_poloidal_angles,
+    periods,
+    custom_surface_rz_ribs,
+) = ribs_from_kisslinger_format(ribs_file, delimiter=" ", scale=1.0)
+poloidal_angles = np.linspace(0, 360, num_poloidal_angles)
+rib_based_surface = invessel_build.RibBasedSurface(
+    custom_surface_rz_ribs, custom_surface_toroidal_angles, poloidal_angles
+)
 
 
 def remove_files():
@@ -30,8 +47,7 @@ def allclose_periodic(a, b, period=360.0):
 
 
 @pytest.fixture
-def parastell_model():
-    vmec_file = Path("files_for_tests") / "wout_vmec.nc"
+def parastell_model(ref_surf):
     dagmc_filename = Path("files_for_tests") / "nwl_geom.h5m"
     source_mesh_filename = Path("files_for_tests") / "source_mesh.h5m"
     toroidal_extent = 15.0
@@ -39,7 +55,7 @@ def parastell_model():
     strengths = np.load(Path("files_for_tests") / "strengths.npy")
 
     parastell_build_data = {
-        "vmec_file": vmec_file,
+        "ref_surf": ref_surf,
         "dagmc_filename": dagmc_filename,
         "source_mesh_filename": source_mesh_filename,
         "toroidal_extent": toroidal_extent,
@@ -50,6 +66,7 @@ def parastell_model():
     return parastell_build_data
 
 
+@pytest.mark.parametrize("ref_surf", [vmec_file, rib_based_surface])
 def test_nwl_io(parastell_model):
     """Tests whether the I/O of the NWL workflow behaves as expected, by
     testing if:
@@ -63,7 +80,7 @@ def test_nwl_io(parastell_model):
 
     remove_files()
 
-    vmec_file = parastell_model["vmec_file"]
+    ref_surf = parastell_model["ref_surf"]
     dagmc_filename = parastell_model["dagmc_filename"]
     source_mesh_filename = parastell_model["source_mesh_filename"]
     toroidal_extent = parastell_model["toroidal_extent"]
@@ -91,7 +108,7 @@ def test_nwl_io(parastell_model):
 
     nwl_mat, toroidal_bins, poloidal_bins, area_mat = nwl_utils.compute_nwl(
         source_file,
-        vmec_file,
+        ref_surf,
         wall_s,
         toroidal_extent,
         neutron_power,
@@ -113,6 +130,7 @@ def test_nwl_io(parastell_model):
     remove_files()
 
 
+@pytest.mark.parametrize("ref_surf", [vmec_file, rib_based_surface])
 def test_flux_coordinate_calculation(parastell_model):
     """Tests whether the flux coordinate computation routine is correct, by
     testing if:
@@ -123,7 +141,7 @@ def test_flux_coordinate_calculation(parastell_model):
 
     remove_files()
 
-    vmec_file = parastell_model["vmec_file"]
+    ref_surf = parastell_model["ref_surf"]
     wall_s = parastell_model["wall_s"]
 
     coords = np.array(
@@ -154,7 +172,7 @@ def test_flux_coordinate_calculation(parastell_model):
     conv_tol = 1e-6
 
     toroidal_angles, poloidal_angles = nwl_utils.compute_flux_coordinates(
-        vmec_file, wall_s, coords, num_threads, conv_tol
+        ref_surf, wall_s, coords, num_threads, conv_tol
     )
 
     assert allclose_periodic(np.rad2deg(toroidal_angles), toroidal_angles_exp)

@@ -17,8 +17,11 @@ import pystell.read_vmec as read_vmec
 
 files_to_remove = [
     "chamber.step",
-    "component.step",
-    "component.h5m",
+    "component_1.step",
+    "component_2.step",
+    "component_3.step",
+    "ivb_mesh.h5m",
+    "step_import.log",
     "stellarator.log",
 ]
 
@@ -39,11 +42,7 @@ ribs_file = Path("files_for_tests") / "kisslinger_file_example.txt"
     num_poloidal_angles,
     periods,
     custom_surface_rz_ribs,
-) = ribs_from_kisslinger_format(
-    ribs_file,
-    delimiter=" ",
-    scale=1 / ivb.m2cm,
-)
+) = ribs_from_kisslinger_format(ribs_file, delimiter=" ", scale=1.0)
 poloidal_angles = np.linspace(0, 360, num_poloidal_angles)
 rib_based_surface = ivb.RibBasedSurface(
     custom_surface_rz_ribs, custom_surface_toroidal_angles, poloidal_angles

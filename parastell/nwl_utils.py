@@ -1,5 +1,5 @@
 import math
-from pathlib import Path
+from pathlib import Path, PosixPath
 import concurrent.futures
 import os
 import sys
@@ -12,6 +12,7 @@ import h5py
 from pystell import read_vmec
 import matplotlib.pyplot as plt
 
+from . import invessel_build
 from . import log
 from .utils import m2cm
 
@@ -90,12 +91,12 @@ def fire_rays(dagmc_geom, source_mesh, toroidal_extent, strengths, num_parts):
     return "surface_source.h5"
 
 
-def compute_residual(poloidal_guess, vmec_obj, wall_s, toroidal_angle, point):
+def compute_residual(poloidal_guess, ref_surf, wall_s, toroidal_angle, point):
     """Minimization problem to solve for the poloidal angle.
 
     Arguments:
         poloidal_guess (float): poloidal angle guess [rad].
-        vmec_obj (object): plasma equilibrium VMEC object.
+        ref_surf (object): ReferenceSurface object.
         wall_s (float): closed flux surface label extrapolation at wall.
         toroidal_angle (float): toroidal angle [rad].
         point (numpy.array): Cartesian coordinates [cm].
@@ -104,9 +105,8 @@ def compute_residual(poloidal_guess, vmec_obj, wall_s, toroidal_angle, point):
         (float): L2 norm of difference between coordinates of interest and
             computed point [cm].
     """
-    fw_guess = (
-        np.array(vmec_obj.vmec2xyz(wall_s, poloidal_guess, toroidal_angle))
-        * m2cm
+    fw_guess = np.array(
+        ref_surf.angles_to_xyz(toroidal_angle, poloidal_guess, wall_s, m2cm)[0]
     )
 
     return np.linalg.norm(point - fw_guess)
@@ -119,9 +119,8 @@ def solve_poloidal_angles(data):
 
     Arguments:
         data (iterable): data for root-finding algorithm. Entries in order:
-            1) path to plasma equilibrium VMEC file (str). Because the VMEC
-               dataset is not picklable, a separate object is created for each
-               thread.
+            1) path to plasma equilibrium VMEC file (str) or ReferenceSurface
+               object (object).
             2) first wall CFS reference value (float).
             3) convergence tolerance for root-finding (float).
             4) toroidal angles at which to solve for poloidal angles
@@ -133,7 +132,12 @@ def solve_poloidal_angles(data):
         poloidal_angles (list): poloidal angles corresponding to supplied
             coordinates [rad].
     """
-    vmec_obj = read_vmec.VMECData(data[0])
+    if isinstance(data[0], (str, PosixPath)):
+        vmec_obj = read_vmec.VMECData(data[0])
+        ref_surf = invessel_build.VMECSurface(vmec_obj)
+    else:
+        ref_surf = data[0]
+
     wall_s = data[1]
     conv_tol = data[2]
     toroidal_angles = data[3]
@@ -145,7 +149,7 @@ def solve_poloidal_angles(data):
         result = direct(
             compute_residual,
             bounds=[(0, 2 * np.pi)],
-            args=(vmec_obj, wall_s, toroidal_angle, point),
+            args=(ref_surf, wall_s, toroidal_angle, point),
             vol_tol=conv_tol,
         )
         poloidal_angles.append(result.x[0])
@@ -153,11 +157,12 @@ def solve_poloidal_angles(data):
     return poloidal_angles
 
 
-def compute_flux_coordinates(vmec_file, wall_s, coords, num_threads, conv_tol):
+def compute_flux_coordinates(ref_surf, wall_s, coords, num_threads, conv_tol):
     """Computes flux coordinates of specified Cartesian coordinates.
 
     Arguments:
-        vmec_file (str): path to plasma equilibrium VMEC file.
+        ref_surf: path to plasma equilibrium VMEC file (str) or ReferenceSurface
+               object (object).
         wall_s (float): closed flux surface extrapolation at first wall.
         coords (numpy.array): Cartesian coordinates of surface crossings [cm].
         conv_tol (float): convergence tolerance for root-finding.
@@ -174,7 +179,7 @@ def compute_flux_coordinates(vmec_file, wall_s, coords, num_threads, conv_tol):
     for chunk_start in range(0, len(toroidal_angles), chunk_size):
         chunks.append(
             (
-                vmec_file,
+                ref_surf,
                 wall_s,
                 conv_tol,
                 toroidal_angles[chunk_start : chunk_start + chunk_size],
@@ -247,7 +252,7 @@ def compute_quadrilateral_area(corners):
 
 def compute_nwl(
     source_file,
-    vmec_file,
+    ref_surf,
     wall_s,
     toroidal_extent,
     neutron_power,
@@ -263,7 +268,12 @@ def compute_nwl(
 
     Arguments:
         source_file (str): path to OpenMC surface source file.
-        vmec_file (str): path to plasma equilibrium VMEC file.
+        ref_surf (object): path to plasma equilibrium VMEC file (str) or
+            ReferenceSurface object (object). If ReferenceSurface, must have a
+            method 'angles_to_xyz(toroidal_angles, poloidal_angles, s, scale)'
+            that returns an Nx3 numpy array of cartesian coordinates for any
+            closed flux surface label, s, poloidal angle, and toroidal angle.
+            Cannot be VMECSurface object, since those are not picklable.
         wall_s (float): closed flux surface label extrapolation at wall.
         toroidal_extent (float): toroidal extent of model [deg].
         neutron_power (float): reference neutron power [MW].
@@ -315,7 +325,7 @@ def compute_nwl(
         logger.info(f"Processing batch {batch_num}")
 
         toroidal_angle_batch, poloidal_angle_batch = compute_flux_coordinates(
-            vmec_file,
+            ref_surf,
             wall_s,
             coords[batch_start : batch_start + batch_size],
             num_threads,
@@ -362,13 +372,16 @@ def compute_nwl(
 
     nwl_mat = count_mat * neutron_power / num_particles
 
+    if isinstance(ref_surf, (str, PosixPath)):
+        vmec_obj = read_vmec.VMECData(ref_surf)
+        ref_surf = invessel_build.VMECSurface(vmec_obj)
+
     # Construct matrix of bin boundaries
-    vmec_obj = read_vmec.VMECData(vmec_file)
     bin_mat = np.zeros((num_toroidal_bins + 1, num_poloidal_bins + 1, 3))
     for toroidal_id, toroidal_edge in enumerate(toroidal_bin_edges):
-        for poloidal_id, poloidal_edge in enumerate(poloidal_bin_edges):
-            x, y, z = vmec_obj.vmec2xyz(wall_s, poloidal_edge, toroidal_edge)
-            bin_mat[toroidal_id, poloidal_id, :] = [x, y, z]
+        bin_mat[toroidal_id, :, :] = ref_surf.angles_to_xyz(
+            toroidal_edge, poloidal_bin_edges, wall_s, m2cm
+        )
 
     # Construct matrix of bin areas
     area_mat = np.zeros((num_toroidal_bins, num_poloidal_bins))
