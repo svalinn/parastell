@@ -1,0 +1,43 @@
+name: Test packaging and installing
+
+on:
+  # allows us to run workflows manually
+  workflow_dispatch:
+  pull_request:
+    paths-ignore:
+      - 'Dockerfile'
+      - '.github/workflows/docker_publish.yml'
+
+defaults:
+    run:
+      shell: bash -l {0}
+      
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: set up python ${{ matrix.python-version }} and conda environment
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          python-version: ${{ matrix.python-version }}
+          activate-environment: parastell_env
+          environment-file: environment.yml
+
+      - name: Install with pip
+        run: pip install .[develop]
+      
+      - name: Test building wheels
+        run: python -m build --sdist --wheel
+
+      - name: Test command line utility.
+        run: parastell -h
+
+      - name: Test running as executable module
+        run: python -m parastell -h
