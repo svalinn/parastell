@@ -1,10 +1,9 @@
-import numpy as np
-from pystell import read_vmec
-
 import parastell.parastell as ps
 import parastell.invessel_build as ivb
 import parastell.radial_distance_utils as rdu
 from parastell.utils import enforce_helical_symmetry, smooth_matrix
+from parastell.pystell import read_vmec
+import numpy as np
 
 
 # Define directory to export all output files to

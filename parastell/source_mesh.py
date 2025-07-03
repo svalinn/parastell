@@ -3,7 +3,6 @@ from pathlib import Path
 
 import numpy as np
 from pymoab import core, types
-import pystell.read_vmec as read_vmec
 
 from . import log
 from .utils import (
@@ -14,6 +13,7 @@ from .utils import (
     m2cm,
     m3tocm3,
 )
+from .pystell import read_vmec
 
 export_allowed_kwargs = ["filename"]
 
