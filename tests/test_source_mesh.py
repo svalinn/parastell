@@ -25,12 +25,15 @@ def source_mesh():
 
     vmec_obj = read_vmec.VMECData(vmec_file)
 
-    # Set mesh size to minimum that maintains element aspect ratios that do not
+    # Set mesh grids to minimum that maintains element aspect ratios that do not
     # result in negative volumes
-    mesh_size = (6, 41, 9)
-    toroidal_extent = 15.0
+    cfs_values = np.linspace(0.0, 1.0, num=6)
+    poloidal_angles = np.linspace(0.0, 360.0, num=41)
+    toroidal_angles = np.linspace(0.0, 15.0, num=9)
 
-    source_mesh_obj = sm.SourceMesh(vmec_obj, mesh_size, toroidal_extent)
+    source_mesh_obj = sm.SourceMesh(
+        vmec_obj, cfs_values, poloidal_angles, toroidal_angles
+    )
 
     return source_mesh_obj
 
@@ -48,10 +51,12 @@ def test_mesh_basics(source_mesh):
     tor_ext_exp = 15.0
     scale_exp = 100
 
-    assert source_mesh.num_cfs_pts == num_cfs_exp
-    assert source_mesh.num_poloidal_pts == num_poloidal_pts_exp
-    assert source_mesh.num_toroidal_pts == num_toroidal_pts_exp
-    assert source_mesh.toroidal_extent == np.deg2rad(tor_ext_exp)
+    # Subtract 1 because magnetic axis gets excluded from stored iterable
+    assert source_mesh.cfs_values.shape[0] == num_cfs_exp - 1
+    # Subtract 1 because repeated point gets excluded from stored iterable
+    assert source_mesh.poloidal_angles.shape[0] == num_poloidal_pts_exp - 1
+    assert source_mesh.toroidal_angles.shape[0] == num_toroidal_pts_exp
+    assert source_mesh._toroidal_extent == np.deg2rad(tor_ext_exp)
     assert source_mesh.scale == scale_exp
 
     remove_files()

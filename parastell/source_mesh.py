@@ -6,7 +6,14 @@ from pymoab import core, types
 import pystell.read_vmec as read_vmec
 
 from . import log
-from .utils import ToroidalMesh, read_yaml_config, filter_kwargs, m2cm, m3tocm3
+from .utils import (
+    ToroidalMesh,
+    read_yaml_config,
+    filter_kwargs,
+    check_ascending,
+    m2cm,
+    m3tocm3,
+)
 
 export_allowed_kwargs = ["filename"]
 
@@ -84,15 +91,14 @@ class SourceMesh(ToroidalMesh):
             'vmec2xyz(cfs, poloidal_ang, toroidal_ang)' that returns
             a (x,y,z) coordinate for any closed flux surface value, cfs,
             poloidal angle, poloidal_ang, and toroidal angle, toroidal_ang.
-        mesh_size (tuple of int): number of grid points along each axis of
-            flux-coordinate space, in the order (num_cfs_pts, num_poloidal_pts,
-            num_toroidal_pts). 'num_cfs_pts' is the number of closed flux
-            surfaces for vertex locations in each toroidal plane.
-            'num_poloidal_pts' is the number of poloidal angles for vertex
-            locations in each toroidal plane. 'num_toroidal_pts' is the number
-            of toroidal angles for planes of vertices.
-        toroidal_extent (float): extent of source mesh in toroidal direction
-            [deg].
+        cfs_values (iterable of float): grid points along the closed flux
+            surface axis of flux-coordinate space. Must begin at 0.0 and end at
+            1.0.
+        poloidal_angles (iterable of float): grid points along the poloidal
+            angle axis of flux-coordinate space. Must span 360 degrees.
+        toroidal_angles (iterable of float): grid points along the toroidal
+            angle axis of flux-coordinate space. Cannot span more than 360
+            degrees.
         logger (object): logger object (defaults to None). If no logger is
             supplied, a default logger will be instantiated.
 
@@ -108,15 +114,20 @@ class SourceMesh(ToroidalMesh):
     """
 
     def __init__(
-        self, vmec_obj, mesh_size, toroidal_extent, logger=None, **kwargs
+        self,
+        vmec_obj,
+        cfs_values,
+        poloidal_angles,
+        toroidal_angles,
+        logger=None,
+        **kwargs
     ):
         super().__init__(logger=logger)
 
         self.vmec_obj = vmec_obj
-        self.num_cfs_pts = mesh_size[0]
-        self.num_poloidal_pts = mesh_size[1]
-        self.num_toroidal_pts = mesh_size[2]
-        self.toroidal_extent = toroidal_extent
+        self.cfs_values = cfs_values
+        self.poloidal_angles = poloidal_angles
+        self.toroidal_angles = toroidal_angles
 
         self.scale = m2cm
         self.plasma_conditions = default_plasma_conditions
@@ -135,54 +146,72 @@ class SourceMesh(ToroidalMesh):
         self._add_tags_to_core()
 
     @property
-    def num_poloidal_pts(self):
-        return self._num_poloidal_pts
+    def cfs_values(self):
+        return self._cfs_values
 
-    @num_poloidal_pts.setter
-    def num_poloidal_pts(self, value):
-        if value % 2 != 1:
-            e = AttributeError(
-                "To ensure that tetrahedral faces are coincident at the end of "
-                "the closed poloidal loop, the number of poloidal intervals "
-                "must be even. To ensure this, the number of poloidal grid "
-                "points must be odd."
-            )
-            self._logger.error(e.args[0])
-            raise e
-        self._num_poloidal_pts = value
-
-    @property
-    def num_toroidal_pts(self):
-        return self._num_toroidal_pts
-
-    @num_toroidal_pts.setter
-    def num_toroidal_pts(self, value):
-        self._num_toroidal_pts = value
-
-    @property
-    def toroidal_extent(self):
-        return self._toroidal_extent
-
-    @toroidal_extent.setter
-    def toroidal_extent(self, angle):
-        angle = np.deg2rad(angle)
-
-        if angle > 2 * np.pi:
-            e = AttributeError("Toroidal extent cannot exceed 360.0 degrees.")
-            self._logger.error(e.args[0])
-            raise e
-
-        if angle == 2 * np.pi and self._num_toroidal_pts % 2 != 1:
-            e = AttributeError(
-                "To ensure that tetrahedral faces are coincident at the end of "
-                "the closed toroidal loop, the number of toroidal intervals "
-                "must be even. To ensure this, the number of toroidal grid "
-                "points must be odd."
+    @cfs_values.setter
+    def cfs_values(self, iterable):
+        if iterable[0] != 0.0 or iterable[-1] != 1.0:
+            e = ValueError(
+                "Closed flux surface grid points must begin at 0.0 and end at "
+                "1.0"
             )
             self._logger.error(e.args[0])
             raise e
 
-        self._toroidal_extent = angle
+        if not check_ascending(iterable):
+            e = ValueError("CFS values must be in ascending order.")
+            self._logger.error(e.args[0])
+            raise e
+
+        # Exlude entry at magnetic axis (receives special handling)
+        self._cfs_values = iterable[1:]
+
+    @property
+    def poloidal_angles(self):
+        return self._poloidal_angles
+
+    @poloidal_angles.setter
+    def poloidal_angles(self, iterable):
+        if not np.isclose(iterable[-1] - iterable[0], 360.0):
+            e = ValueError("Poloidal angles must span 360 degrees.")
+            self._logger.error(e.args[0])
+            raise e
+
+        if not check_ascending(iterable):
+            e = ValueError("Poloidal angles must be in ascending order.")
+            self._logger.error(e.args[0])
+            raise e
+
+        # Exclude repeated entry at end of closed loop
+        self._poloidal_angles = np.deg2rad(iterable[:-1])
+
+    @property
+    def toroidal_angles(self):
+        return self._toroidal_angles
+
+    @toroidal_angles.setter
+    def toroidal_angles(self, iterable):
+        # Store toroidal extent for future use
+        self._toroidal_extent = np.deg2rad(iterable[-1] - iterable[0])
+
+        if self._toroidal_extent > 2 * np.pi:
+            e = ValueError(
+                "Toroidal angles cannot span more than 360 degrees."
+            )
+            self._logger.error(e.args[0])
+            raise e
+
+        if not check_ascending(iterable):
+            e = ValueError("Toroidal angles must be in ascending order.")
+            self._logger.error(e.args[0])
+            raise e
+
+        # Conditionally exclude repeated entry at end of closed loop
+        elif np.isclose(self._toroidal_extent, 2 * np.pi):
+            self._toroidal_angles = np.deg2rad(iterable[:-1])
+        else:
+            self._toroidal_angles = np.deg2rad(iterable)
 
     def _add_tags_to_core(self):
         """Creates PyMOAB core instance with source strength tag.
@@ -221,33 +250,18 @@ class SourceMesh(ToroidalMesh):
         """
         self._logger.info("Computing source mesh point cloud...")
 
-        # Exclude entry at magnetic axis
-        cfs_grid_pts = np.linspace(0.0, 1.0, num=self.num_cfs_pts)[1:]
-
-        # Exclude repeated entry at 0 == 2*pi
-        poloidal_grid_pts = np.linspace(
-            0, 2 * np.pi, num=self._num_poloidal_pts
-        )[:-1]
-
-        toroidal_grid_pts = np.linspace(
-            0, self._toroidal_extent, num=self._num_toroidal_pts
-        )
-        # Conditionally exclude repeated entry at 0 == 2*pi
-        if self._toroidal_extent == 2 * np.pi:
-            toroidal_grid_pts = toroidal_grid_pts[:-1]
-
-        self.verts_per_ring = poloidal_grid_pts.shape[0]
+        self.verts_per_ring = len(self._poloidal_angles)
         # add one vertex per plane for magenetic axis
-        self.verts_per_plane = cfs_grid_pts.shape[0] * self.verts_per_ring + 1
+        self.verts_per_plane = len(self._cfs_values) * self.verts_per_ring + 1
+        num_verts = len(self._toroidal_angles) * self.verts_per_plane
 
-        num_verts = toroidal_grid_pts.shape[0] * self.verts_per_plane
         self.coords = np.zeros((num_verts, 3))
         self.coords_cfs = np.zeros(num_verts)
 
         # Initialize vertex index
         vert_idx = 0
 
-        for toroidal_ang in toroidal_grid_pts:
+        for toroidal_ang in self._toroidal_angles:
             # vertex coordinates on magnetic axis
             self.coords[vert_idx, :] = (
                 np.array(self.vmec_obj.vmec2xyz(0, 0, toroidal_ang))
@@ -258,8 +272,8 @@ class SourceMesh(ToroidalMesh):
             vert_idx += 1
 
             # vertex coordinate away from magnetic axis
-            for cfs in cfs_grid_pts:
-                for poloidal_ang in poloidal_grid_pts:
+            for cfs in self._cfs_values:
+                for poloidal_ang in self._poloidal_angles:
                     self.coords[vert_idx, :] = (
                         np.array(
                             self.vmec_obj.vmec2xyz(
@@ -345,10 +359,9 @@ class SourceMesh(ToroidalMesh):
         ma_offset = toroidal_idx * self.verts_per_plane
 
         # Wrap around if final plane and it is 2*pi
-        if (
-            self._toroidal_extent == 2 * np.pi
-            and toroidal_idx == self._num_toroidal_pts - 1
-        ):
+        if np.isclose(
+            self._toroidal_extent, 2 * np.pi
+        ) and toroidal_idx == len(self._toroidal_angles):
             ma_offset = 0
 
         # Compute index offset from closed flux surface, taking single vertex
@@ -360,7 +373,7 @@ class SourceMesh(ToroidalMesh):
 
         poloidal_offset = poloidal_idx
         # Wrap around if poloidal angle is 2*pi
-        if poloidal_idx == self._num_poloidal_pts - 1:
+        if poloidal_idx == len(self._poloidal_angles):
             poloidal_offset = 0
 
         id = ma_offset + surface_offset + poloidal_offset
@@ -371,9 +384,14 @@ class SourceMesh(ToroidalMesh):
         """Creates volumetric source mesh in real space."""
         self._logger.info("Constructing source mesh...")
 
-        for toroidal_idx in range(self._num_toroidal_pts - 1):
+        if self._toroidal_extent < 2 * np.pi:
+            num_toroidal_angles = len(self._toroidal_angles) - 1
+        else:
+            num_toroidal_angles = len(self._toroidal_angles)
+
+        for toroidal_idx in range(num_toroidal_angles):
             # Create tetrahedra for wedges at center of plasma
-            for poloidal_idx in range(self._num_poloidal_pts - 1):
+            for poloidal_idx, _ in enumerate(self._poloidal_angles):
                 tets, vertex_id_list = self._create_tets_from_wedge(
                     poloidal_idx, toroidal_idx
                 )
@@ -383,8 +401,9 @@ class SourceMesh(ToroidalMesh):
                 ]
 
             # Create tetrahedra for hexahedra beyond center of plasma
-            for cfs_idx in range(1, self.num_cfs_pts - 1):
-                for poloidal_idx in range(self._num_poloidal_pts - 1):
+            # Exclude final CFS since no elements created beyond it
+            for cfs_idx, _ in enumerate(self._cfs_values[:-1], start=1):
+                for poloidal_idx, _ in enumerate(self._poloidal_angles):
                     tets, vertex_id_list = self._create_tets_from_hex(
                         cfs_idx, poloidal_idx, toroidal_idx
                     )
@@ -444,8 +463,9 @@ def generate_source_mesh():
 
     source_mesh = SourceMesh(
         vmec_obj,
-        source_mesh_dict["mesh_size"],
-        source_mesh_dict["toroidal_extent"],
+        source_mesh_dict["cfs_values"],
+        source_mesh_dict["poloidal_angles"],
+        source_mesh_dict["toroidal_angles"],
         logger=logger**source_mesh_dict,
     )
 

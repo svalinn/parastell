@@ -140,12 +140,12 @@ def test_ribs_from_kisslinger_format():
         scale=1,
     )
 
-    num_toroidal_angles_exp = 64
-    num_poloidal_angles_exp = 128
+    num_toroidal_angles_exp = 121
+    num_poloidal_angles_exp = 121
     periods_exp = 4
-    custom_surface_rz_ribs_shape_exp = (64, 128, 2)
+    custom_surface_rz_ribs_shape_exp = (121, 121, 2)
 
-    assert np.allclose(np.linspace(0, 90, 64), custom_surface_toroidal_angles)
+    assert np.allclose(np.linspace(0, 90, 121), custom_surface_toroidal_angles)
     assert num_toroidal_angles_exp == num_toroidal_angles
     assert num_poloidal_angles_exp == num_poloidal_angles
     assert periods_exp == periods

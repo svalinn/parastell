@@ -17,8 +17,11 @@ import pystell.read_vmec as read_vmec
 
 files_to_remove = [
     "chamber.step",
-    "component.step",
-    "component.h5m",
+    "component_1.step",
+    "component_2.step",
+    "component_3.step",
+    "ivb_mesh.h5m",
+    "step_import.log",
     "stellarator.log",
 ]
 
@@ -39,11 +42,7 @@ ribs_file = Path("files_for_tests") / "kisslinger_file_example.txt"
     num_poloidal_angles,
     periods,
     custom_surface_rz_ribs,
-) = ribs_from_kisslinger_format(
-    ribs_file,
-    delimiter=" ",
-    scale=1 / ivb.m2cm,
-)
+) = ribs_from_kisslinger_format(ribs_file, delimiter=" ", scale=1.0)
 poloidal_angles = np.linspace(0, 360, num_poloidal_angles)
 rib_based_surface = ivb.RibBasedSurface(
     custom_surface_rz_ribs, custom_surface_toroidal_angles, poloidal_angles
@@ -56,12 +55,24 @@ def radial_build():
     poloidal_angles = [0.0, 120.0, 240.0, 360.0]
     wall_s = 1.08
     radial_build_dict = {
-        "component": {
+        "component_1": {
             "thickness_matrix": np.ones(
                 (len(toroidal_angles), len(poloidal_angles))
             )
             * 10
-        }
+        },
+        "component_2": {
+            "thickness_matrix": np.ones(
+                (len(toroidal_angles), len(poloidal_angles))
+            )
+            * 10
+        },
+        "component_3": {
+            "thickness_matrix": np.ones(
+                (len(toroidal_angles), len(poloidal_angles))
+            )
+            * 10
+        },
     }
 
     radial_build_obj = ivb.RadialBuild(
@@ -88,7 +99,7 @@ def test_ivb_basics(invessel_build):
     """
     toroidal_angles_exp = [0.0, 5.0, 10.0, 15.0]
     poloidal_angles_exp = [0.0, 120.0, 240.0, 360.0]
-    num_components_exp = 2
+    num_components_exp = 4
     wall_s_exp = 1.08
     repeat_exp = 0
     num_ribs_exp = 11
@@ -129,7 +140,7 @@ def test_ivb_cadquery_construction(invessel_build):
         * rib coordinates have the correct dimension
         * rib coordinates are defined by floating point numbers
     """
-    num_components_exp = 2
+    num_components_exp = 4
     len_loci_pt_exp = 3
 
     remove_files()
@@ -138,7 +149,7 @@ def test_ivb_cadquery_construction(invessel_build):
     invessel_build.calculate_loci()
     invessel_build.generate_components()
 
-    rib_loci = invessel_build.Surfaces["component"].get_loci()[0]
+    rib_loci = invessel_build.Surfaces["chamber"].get_loci()[0]
 
     assert len(invessel_build.Components) == num_components_exp
     assert len(rib_loci[0]) == len_loci_pt_exp
@@ -153,8 +164,8 @@ def test_ivb_pydagmc_construction(invessel_build):
     expected, by testing if:
         * the correct number of volumes and surfaces are produced
     """
-    num_volumes_exp = 1
-    num_surfaces_exp = 4
+    num_volumes_exp = 3
+    num_surfaces_exp = 10
 
     invessel_build.use_pydagmc = True
     invessel_build.populate_surfaces()
@@ -186,25 +197,36 @@ def test_ivb_exports(invessel_build):
     invessel_build.export_step()
 
     assert Path("chamber.step").exists()
-    assert Path("component.step").exists()
+    assert Path("component_1.step").exists()
+    assert Path("component_2.step").exists()
+    assert Path("component_3.step").exists()
 
     if check_cubit_installation():
         create_new_cubit_instance()
 
-        invessel_build.mesh_components_cubit(components=["component"])
-        invessel_build.export_mesh_cubit("component")
-        assert Path("component.h5m").exists()
+        invessel_build.mesh_components_cubit(
+            ["chamber", "component_1", "component_3"]
+        )
+        invessel_build.export_mesh_cubit("ivb_mesh")
+        assert Path("ivb_mesh.h5m").exists()
 
     remove_files()
 
-    invessel_build.mesh_component_moab("component")
-    invessel_build.export_mesh_moab("component")
-    assert Path("component.h5m").exists()
+    num_surfaces_exp = 4
+    gap_map_exp = [False, True, False]
+
+    invessel_build.mesh_components_moab(["component_1", "component_3"])
+    invessel_build.export_mesh_moab("ivb_mesh")
+    assert Path("ivb_mesh.h5m").exists()
+    assert len(invessel_build.moab_mesh.surfaces) == num_surfaces_exp
+    assert invessel_build.moab_mesh.gap_map == gap_map_exp
 
     remove_files()
 
-    invessel_build.mesh_components_gmsh(["component"])
-    invessel_build.export_mesh_gmsh("component")
-    assert Path("component.h5m").exists()
+    invessel_build.mesh_components_gmsh(
+        ["chamber", "component_1", "component_3"]
+    )
+    invessel_build.export_mesh_gmsh("ivb_mesh")
+    assert Path("ivb_mesh.h5m").exists()
 
     remove_files()
