@@ -48,7 +48,7 @@ dependencies = [
 	"matplotlib",
 	"netcdf4",
 	"pyyaml",
-	"pystell",
+	"pystell @ git+https://github.com/aaroncbader/pystell_uw.git",
       	"pydagmc"
 ]
 

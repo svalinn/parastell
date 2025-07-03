@@ -14,9 +14,3 @@ dependencies:
   - openmc>=0.15.0[build=dagmc_nompi_*]
   - cad_to_dagmc>=0.9.1
   - matplotlib
-  - pip:
-      - netcdf4
-      - pyyaml
-      - pytest
-      - git+https://github.com/aaroncbader/pystell_uw.git
-      - git+https://github.com/svalinn/pydagmc.git
