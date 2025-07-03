@@ -11,8 +11,7 @@ from parastell.cubit_utils import (
     create_new_cubit_instance,
 )
 from parastell.utils import ribs_from_kisslinger_format
-
-import pystell.read_vmec as read_vmec
+from parastell.pystell import read_vmec
 
 
 files_to_remove = [

@@ -10,7 +10,6 @@ from scipy.interpolate import (
 
 
 import cadquery as cq
-import pystell.read_vmec as read_vmec
 import pydagmc
 from pymoab import core, types
 import gmsh
@@ -33,6 +32,7 @@ from .utils import (
     create_vol_mesh_from_surf_mesh,
     m2cm,
 )
+from .pystell import read_vmec
 
 
 def create_moab_tris_from_verts(corners, mbc, reverse=False):

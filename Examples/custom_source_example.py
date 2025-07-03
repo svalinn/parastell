@@ -1,7 +1,7 @@
+import parastell.source_mesh as sm
+from parastell.pystell import read_vmec
 import subprocess
 import numpy as np
-import pystell.read_vmec as read_vmec
-import parastell.source_mesh as sm
 
 
 # Parastell supports defining custom plasma conditions and reaction rates.
