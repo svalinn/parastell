@@ -120,7 +120,7 @@ class SourceMesh(ToroidalMesh):
         poloidal_angles,
         toroidal_angles,
         logger=None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(logger=logger)
 
