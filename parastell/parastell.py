@@ -1,7 +1,6 @@
 import argparse
 from pathlib import Path
 
-import pystell.read_vmec as read_vmec
 import cadquery as cq
 import cad_to_dagmc
 from pymoab import core
@@ -18,6 +17,7 @@ from .cubit_utils import (
     imprint_and_merge,
 )
 from .utils import read_yaml_config, filter_kwargs, m2cm, combine_dagmc_models
+from .pystell import read_vmec
 
 build_cubit_model_allowed_kwargs = ["skip_imprint"]
 export_cubit_dagmc_allowed_kwargs = [

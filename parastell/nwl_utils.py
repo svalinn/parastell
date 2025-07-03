@@ -9,12 +9,12 @@ import openmc
 from scipy.optimize import direct
 import numpy as np
 import h5py
-from pystell import read_vmec
 import matplotlib.pyplot as plt
 
 from . import invessel_build
 from . import log
 from .utils import m2cm
+from .pystell import read_vmec
 
 import contourpy
 

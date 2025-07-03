@@ -2,9 +2,9 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-import pystell.read_vmec as read_vmec
 
 import parastell.source_mesh as sm
+from parastell.pystell import read_vmec
 
 
 files_to_remove = [
