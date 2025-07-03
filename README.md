@@ -30,7 +30,7 @@ Download and extract the ParaStell repository:
 git clone git@github.com:svalinn/parastell.git
 ```
 
-or download the ZIP file from the repository home page. Once extracted, add the repository directory to your `PYTHONPATH`.
+or download the ZIP file from the repository home page.
 
 ### Install Python Dependencies
 
