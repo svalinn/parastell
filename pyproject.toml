@@ -43,7 +43,7 @@ dependencies = [
 	"scipy",
 	"cadquery",
 	"pymoab~=5.5.1",
-	"cad_to_dagmc>=0.8.2,<=0.9.0",
+	"cad_to_dagmc>=0.9.1",
 	"openmc>=0.15.0",
 	"matplotlib",
 	"netcdf4",
