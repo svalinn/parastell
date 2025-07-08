@@ -166,7 +166,7 @@ class Stellarator(object):
                 (defaults to 61). Points are set at poloidal angles interpolated
                 between those specified in 'poloidal_angles' if this value is
                 greater than the number of entries in 'poloidal_angles'.
-            scale (float): a scaling factor between the units of VMEC and [cm]
+            scale (float): a scaling factor between input and output data
                 (defaults to m2cm = 100).
             use_pydagmc (bool): if True, generate dagmc model directly with
                 pydagmc, bypassing CAD generation. Results in faceted geometry,
@@ -307,8 +307,8 @@ class Stellarator(object):
                 (defaults to 3).
             sample_mod (int): sampling modifier for filament points (defaults to
                 1). For a user-defined value n, every nth point will be sampled.
-            scale (float): a scaling factor between the units of the point-locus
-                data and [cm] (defaults to m2cm = 100).
+            scale (float): a scaling factor between input and output data
+                (defaults to m2cm = 100).
             mat_tag (str): DAGMC material tag to use for magnets in DAGMC
                 neutronics model (defaults to 'magnets').
         """
@@ -439,7 +439,7 @@ class Stellarator(object):
                 degrees.
 
         Optional attributes:
-            scale (float): a scaling factor between the units of VMEC and [cm]
+            scale (float): a scaling factor between input and output data
                 (defaults to m2cm = 100).
             plasma_conditions (function): function that takes the plasma
                 parameter s, and returns temperature and ion density with

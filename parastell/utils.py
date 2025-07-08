@@ -459,7 +459,7 @@ def dagmc_volume_to_step(
 
 
 def ribs_from_kisslinger_format(
-    filename, start_line=2, scale=m2cm, delimiter="\t"
+    filename, start_line=2, scale=1.0, delimiter="\t"
 ):
     """Reads a Kisslinger format file and extracts the R, Z data, the number of
     periods, and the toroidal angles at which the R, Z data is specified.
@@ -492,7 +492,9 @@ def ribs_from_kisslinger_format(
             should be the line that includes the number of toroidal angles,
             number of points per toroidal angle, and number of periods.
             Defaults to 2.
-        scale (float): Amount to scale the r-z coordinates by. Defaults to 100.
+        scale (float): a scaling factor between input and output data
+            (defaults to 1.0).
+
     Returns:
         toroidal_angles (numpy array): Toroidal angles in the
             angles in the input file in degrees.

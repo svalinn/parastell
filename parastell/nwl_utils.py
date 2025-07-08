@@ -262,6 +262,7 @@ def compute_nwl(
     num_batches=1,
     num_crossings=None,
     num_threads=None,
+    scale=1.0,
     logger=None,
 ):
     """Computes NWL. Assumes toroidal extent is less than 360 degrees.
@@ -293,6 +294,8 @@ def compute_nwl(
         num_threads (int): number of threads to use for parallelizing
             coordinate-solving routine (defaults to None). If None, the maximum
             number of threads will be used.
+        scale (float): a scaling factor between ref_surf data and [m] (defaults
+            to 1.0).
 
     Returns:
         nwl_mat (numpy array): array used to create the NWL plot
@@ -380,7 +383,7 @@ def compute_nwl(
     bin_mat = np.zeros((num_toroidal_bins + 1, num_poloidal_bins + 1, 3))
     for toroidal_id, toroidal_edge in enumerate(toroidal_bin_edges):
         bin_mat[toroidal_id, :, :] = ref_surf.angles_to_xyz(
-            toroidal_edge, poloidal_bin_edges, wall_s, m2cm
+            toroidal_edge, poloidal_bin_edges, wall_s, scale
         )
 
     # Construct matrix of bin areas
