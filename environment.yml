@@ -2,15 +2,12 @@ name: parastell_env
 channels:
   - conda-forge
 dependencies:
-  - python=3.11.6
-  - pip
-  - numpy=1.26.4
-  - scipy
   - cadquery
-  - moab=5.5.1[build=nompi_tempest_*]
+  - moab>=5.5.1[build=nompi_tempest_*]
   - ca-certificates
   - certifi
   - openssl
   - openmc>=0.15.0[build=dagmc_nompi_*]
   - cad_to_dagmc>=0.9.1
-  - matplotlib
+  - matplotlib'
+  -pip

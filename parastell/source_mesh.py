@@ -103,7 +103,7 @@ class SourceMesh(ToroidalMesh):
             supplied, a default logger will be instantiated.
 
     Optional attributes:
-        scale (float): a scaling factor between the units of VMEC and [cm]
+        scale (float): a scaling factor between input and output data
             (defaults to m2cm = 100).
         plasma_conditions (function): function that takes the plasma parameter
             s, and returns temperature and ion density with suitable units for
@@ -132,6 +132,15 @@ class SourceMesh(ToroidalMesh):
         self.scale = m2cm
         self.plasma_conditions = default_plasma_conditions
         self.reaction_rate = default_reaction_rate
+
+        if "scale" not in kwargs.keys():
+            w = Warning(
+                "No factor specified to scale SourceMesh input data. "
+                "Assuming a scaling factor of 100.0, which is consistent with "
+                "input being in units of [m] and desired output in units of "
+                "[cm]."
+            )
+            self._logger.warning(w.args[0])
 
         for name in kwargs.keys() & (
             "scale",

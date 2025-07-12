@@ -83,7 +83,7 @@ class ReferenceSurface(ABC):
                 evaluate cartesian coordinates. Measured in radians.
             s (float): Generic parameter which may affect the evaluation of
                 the cartesian coordinate at a given angle pair.
-            scale (float): Amount to scale resulting coordinates by.
+            scale (float): a scaling factor between input and output data.
 
         Returns:
             coords (numpy array): Nx3 array of Cartesian coordinates at each
@@ -118,7 +118,7 @@ class VMECSurface(ReferenceSurface):
                     evaluate cartesian coordinates. Measured in radians.
             s (float): the normalized closed flux surface label defining the
                 point of reference for offset.
-            scale (float): Amount to scale resulting coordinates by.
+            scale (float): a scaling factor between input and output data.
 
         Returns:
             coords (numpy array): Nx3 array of Cartesian coordinates at each
@@ -247,7 +247,7 @@ class RibBasedSurface(ReferenceSurface):
             poloidal_angles (iterable of float): Poloidal angles at which to
                     evaluate cartesian coordinates. Measured in radians.
             s (float): Not used.
-            scale (float): Amount to scale resulting coordinates by.
+            scale (float): a scaling factor between input and output data.
 
         Returns:
             coords (numpy array): Nx3 array of Cartesian coordinates at each
@@ -293,7 +293,7 @@ class InVesselBuild(object):
             (defaults to 67). Points are set at poloidal angles interpolated
             between those specified in 'poloidal_angles' if this value is
             greater than the number of entries in 'poloidal_angles'.
-        scale (float): a scaling factor between the units of VMEC and [cm]
+        scale (float): a scaling factor between input and output data
             (defaults to m2cm = 100).
         use_pydagmc (bool): If True, generate components with pydagmc, rather
             than CadQuery (defaults to False).
@@ -310,6 +310,15 @@ class InVesselBuild(object):
         self.num_rib_pts = 61
         self.scale = m2cm
         self.use_pydagmc = False
+
+        if "scale" not in kwargs.keys():
+            w = Warning(
+                "No factor specified to scale InVesselBuild input data. "
+                "Assuming a scaling factor of 100.0, which is consistent with "
+                "input being in units of [m] and desired output in units of "
+                "[cm]."
+            )
+            self._logger.warning(w.args[0])
 
         for name in kwargs.keys() & (
             "repeat",
@@ -1038,7 +1047,7 @@ class Surface(object):
         offset_mat (np.array(double)): the set of offsets from the surface
             defined by s for each toroidal angle, poloidal angle pair on the
             surface [cm].
-        scale (float): a scaling factor between the units of VMEC and [cm].
+        scale (float): a scaling factor between input and output data.
     """
 
     def __init__(self, ref_surf, s, theta_list, phi_list, offset_mat, scale):
@@ -1116,7 +1125,7 @@ class Rib(object):
         offset_list (np.array(double)): the set of offsets from the curve
             defined by s for each toroidal angle, poloidal angle pair in the rib
             [cm].
-        scale (float): a scaling factor between the units of VMEC and [cm].
+        scale (float): a scaling factor between input and output data.
     """
 
     def __init__(self, ref_surf, s, theta_list, phi, offset_list, scale):

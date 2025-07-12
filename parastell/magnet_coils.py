@@ -196,8 +196,8 @@ class MagnetSetFromFilaments(MagnetSet):
             (defaults to 3).
         sample_mod (int): sampling modifier for filament points (defaults to
             1). For a user-defined value n, every nth point will be sampled.
-        scale (float): a scaling factor between the units of the point-locus
-            data and [cm] (defaults to m2cm = 100).
+        scale (float): a scaling factor between input and output data
+            (defaults to m2cm = 100).
         mat_tag (str): DAGMC material tag to use for magnets in DAGMC
             neutronics model (defaults to 'magnets').
     """
@@ -225,6 +225,15 @@ class MagnetSetFromFilaments(MagnetSet):
 
         # Define maximum length of coil cross-section
         self.max_cs_len = max(self._width, self._thickness)
+
+        if "scale" not in kwargs.keys():
+            w = Warning(
+                "No factor specified to scale MagnetSet input data. "
+                "Assuming a scaling factor of 100.0, which is consistent with "
+                "input being in units of [m] and desired output in units of "
+                "[cm]."
+            )
+            self._logger.warning(w.args[0])
 
         for name in kwargs.keys() & (
             "start_line",
