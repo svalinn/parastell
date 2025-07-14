@@ -44,6 +44,7 @@ RUN cp /root/.bashrc /opt/etc/bashrc
 # Install Python dependencies in parastell env conda environment
 COPY ./environment.yml /environment.yml
 RUN conda env create -f environment.yml
+RUN pip install .[develop]
 RUN echo "conda activate parastell_env" >> /opt/etc/bashrc
 
 WORKDIR /
