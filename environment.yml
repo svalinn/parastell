@@ -9,5 +9,5 @@ dependencies:
   - openssl
   - openmc>=0.15.0[build=dagmc_nompi_*]
   - cad_to_dagmc>=0.9.1
-  - matplotlib'
+  - matplotlib
   - pip
