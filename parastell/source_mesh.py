@@ -120,7 +120,7 @@ class SourceMesh(ToroidalMesh):
         poloidal_angles,
         toroidal_angles,
         logger=None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(logger=logger)
 
@@ -483,7 +483,7 @@ def generate_source_mesh():
 
     source_mesh.export_mesh(
         export_dir=args.export_dir,
-        **(filter_kwargs(source_mesh_dict, ["filename"]))
+        **(filter_kwargs(source_mesh_dict, ["filename"])),
     )
 
 
