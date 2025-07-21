@@ -4,7 +4,7 @@ description = "Parametric 3-D CAD modeling toolset for stellarator fusion device
 version = "0.0.2"
 
 readme = "README.md"
-requires-python = "~=3.11.0"
+requires-python = ">=3.11.0"
 maintainers = [
 	{name = "Connor Moreno", email = "camoreno@wisc.edu"},
 	{name = "Paul Wilson", email = "paul.wilson@wisc.edu"}
