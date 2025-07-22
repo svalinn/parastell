@@ -48,7 +48,7 @@ dependencies = [
 	"matplotlib",
 	"netcdf4",
 	"pyyaml",
-      	"pydagmc"
+  "pydagmc"
 ]
 
 [project.optional-dependencies]
