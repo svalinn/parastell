@@ -726,6 +726,26 @@ class ToroidalMesh(ABC):
 
         return tets, vertex_id_list
 
+    def _compute_tet_volume(self, tet_ids):
+        """Computes tetrahedron volume.
+        (Internal function not intended to be called externally)
+
+        Arguments:
+            tet_ids (list of int): tetrahedron vertex indices.
+
+        Returns:
+            tet_vol (float): volume of tetrahedron
+        """
+        # Initialize list of vertex coordinates for each tetrahedron vertex
+        tet_coords = [self.coords[id] for id in tet_ids]
+
+        # Compute edge vectors between tetrahedron vertices
+        edge_vectors = np.subtract(tet_coords[:3], tet_coords[3]).T
+
+        tet_vol = -np.linalg.det(edge_vectors) / 6
+
+        return tet_vol
+
     def export_mesh(self, filename, export_dir=""):
         """Exports a tetrahedral mesh in H5M format via MOAB.
 
