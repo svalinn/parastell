@@ -306,14 +306,7 @@ class SourceMesh(ToroidalMesh):
         Arguments:
             tet_ids (list of int): tetrahedron vertex indices.
             tet (object): pymoab.EntityHandle of tetrahedron.
-
-        Returns:
-            ss (float): integrated source strength for tetrahedron.
-            tet_vol (float): volume of tetrahedron
         """
-        # Initialize list of vertex coordinates for each tetrahedron vertex
-        tet_coords = [self.coords[id] for id in tet_ids]
-
         # Initialize list of source strengths for each tetrahedron vertex
         vertex_strengths = [
             self.reaction_rate(*self.plasma_conditions(self.coords_cfs[id]))
@@ -337,10 +330,7 @@ class SourceMesh(ToroidalMesh):
         # Interpolate source strength at integration points
         ss_int_pts = np.dot(bary_coords, vertex_strengths)
 
-        # Compute edge vectors between tetrahedron vertices
-        edge_vectors = np.subtract(tet_coords[:3], tet_coords[3]).T
-
-        tet_vol = -np.linalg.det(edge_vectors) / 6
+        tet_vol = self._compute_tet_volume(tet_ids)
 
         ss = np.abs(tet_vol) * np.dot(int_w, ss_int_pts)
 
