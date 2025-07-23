@@ -8,6 +8,7 @@ import gmsh
 from pymoab import core
 
 from . import log
+from .utils import get_obmp_index, orient_coords
 from .cubit_utils import (
     create_new_cubit_instance,
     import_geom_to_cubit,
@@ -521,32 +522,20 @@ class Filament(object):
         self.com = np.average(data[:-1], axis=0)
         self.com_toroidal_angle = np.arctan2(self.com[1], self.com[0])
 
-    def get_ob_mp_index(self):
+    def get_obmp_index(self):
         """Finds the index of the outboard midplane coordinate on a coil
         filament.
 
         Returns:
             outboard_index (int): index of the outboard midplane point.
         """
-        # Define small value
-        eps = 1e-10
-        # Shift some coordinates by eps to compute appropriate midplane flags
-        # If z = 0 => midplane flag = 0 => incorrect maximum radius computed
-        # => incorrect OB midplane index
-        # Replace z-coordinates at 0 with eps
-        coords = self.coords
-        np.place(coords[:, 2], np.abs(coords[:, 2]) < eps, [eps])
-
         # Compute radial distance of coordinates from z-axis
-        radii = np.linalg.norm(coords[:, :2], axis=1)
-        # Determine whether adjacent points cross the midplane (if so, they will
-        # have opposite signs)
-        shifted_coords = np.append(coords[1:], [coords[1]], axis=0)
-        midplane_flags = -np.sign(coords[:, 2] * shifted_coords[:, 2])
-        # Find index of outboard midplane point
-        outboard_index = np.argmax(midplane_flags * radii)
+        radii = np.linalg.norm(self.coords[:, :2], axis=1)
 
-        return outboard_index
+        # Reformulate coordinates as R, Z pairs
+        coords = np.append(radii, self.coords[:, 2], axis=2)
+
+        return get_obmp_index(coords)
 
     def reorder_coords(self, index):
         """Reorders coil filament coordinate loop about a given index.
@@ -565,8 +554,7 @@ class Filament(object):
                 (defaults to True). If negative, coordinates will progress in
                 negative direction.
         """
-        if positive == (self.coords[0, 2] > self.coords[1, 2]):
-            self.coords = np.flip(self.coords, axis=0)
+        self.coords = orient_coords(self.coords, positive=positive)
 
     def in_toroidal_extent(self, lower_bound, upper_bound):
         """Determines if the coil lies within a given toroidal angular extent,
