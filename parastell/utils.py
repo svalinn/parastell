@@ -458,6 +458,110 @@ def dagmc_volume_to_step(
     cq_solid.exportStep(str(Path(step_file_path).with_suffix(".step")))
 
 
+def get_obmp_index(coords):
+    """Finds the index of the outboard midplane (or nearest to) coordinate on a
+    closed loop.
+
+    Arguments:
+        coords (Nx2 numpy.array of float): list of R, Z coordinates for the
+            closed loop.
+
+    Returns:
+        obmp_index (int): index of the outboard midplane point.
+    """
+    # Define small value
+    eps = 1e-10
+    # Shift some coordinates by eps to compute appropriate midplane flags
+    # If z = 0, then midplane flag = 0, then incorrect maximum radius computed,
+    # then incorrect OB midplane index
+    # Replace z-coordinates at 0 with eps
+    np.place(coords[:, 1], np.abs(coords[:, 1]) < eps, [eps])
+
+    radii = coords[:, 0]
+    # Determine whether adjacent points cross the midplane (if so, they will
+    # have opposite signs)
+    shifted_coords = np.append(coords[1:], [coords[1]], axis=0)
+    midplane_flags = -np.sign(coords[:, 1] * shifted_coords[:, 1])
+
+    # Count number of crossing points (will have positive magnitude)
+    count = np.count_nonzero(midplane_flags > 0)
+
+    # If no crossing points, loop does not cross midplane
+    if count == 0:
+        # Find index of point closest to midplane
+        obmp_index = np.argmin(np.abs(coords[:, 1]))
+    # If 1 crossing point, coordinates likely do not represent a closed loop
+    elif count == 1:
+        e = AssertionError(
+            "Only one crossing point found. Coordinates given likely do not "
+            "represent a closed loop."
+        )
+        raise e
+    # If 2 or more crossing points, loop crosses midplane
+    elif count >= 2:
+        # Find index of outboard midplane point
+        obmp_index = np.argmax(midplane_flags * radii)
+        # Refine index by checking adjacent points
+        obmp_index = obmp_index + (
+            np.argmin(
+                np.abs(
+                    [
+                        coords[obmp_index - 1, 1],
+                        coords[obmp_index, 1],
+                        coords[obmp_index + 1, 1],
+                    ]
+                )
+            )
+            - 1
+        )
+
+    return obmp_index
+
+
+def orient_coords(coords, positive=True):
+    """Orients closed loop coordinates such that they initially
+    progress positively or negatively in the z-direction.
+
+    Arguments:
+        coords (Nx2 numpy.array of float): list of R, Z coordinates for the
+            closed loop.
+        positive (bool): progress coordinates in positive z-direciton
+            (defaults to True). If negative, coordinates will progress in
+            negative direction.
+
+    Returns:
+        coords (Nx2 numpy.array of float): reordered list of R, Z coordinates
+            for the closed loop.
+    """
+    if positive == (coords[0, 1] > coords[1, 1]):
+        coords = np.flip(coords, axis=0)
+
+    return coords
+
+
+def format_surface_coords(surface_coords):
+    """Reformats a list of closed loops such that each begins at the outboard
+    midplane (or nearest to) coordinate and progresses counter-clockwise.
+
+    Arguments:
+        surface_coords (Nx2 numpy.array of float): list of R, Z coordinates for the
+            closed loop.
+
+    Returns:
+        (Nx2 numpy.array of float): reformatted list of R, Z coordinates for
+            the closed loop.
+    """
+    new_surface_coords = []
+
+    for toroidal_slice in surface_coords:
+        obmp_index = get_obmp_index(toroidal_slice)
+        slice_coords = reorder_loop(toroidal_slice, obmp_index)
+        slice_coords = orient_coords(slice_coords)
+        new_surface_coords.append(slice_coords)
+
+    return np.array(new_surface_coords)
+
+
 def ribs_from_kisslinger_format(
     filename, start_line=2, scale=1.0, delimiter="\t"
 ):
@@ -503,7 +607,7 @@ def ribs_from_kisslinger_format(
         num_poloidal_angles (int): Number of points at each toroidal angle as
             specified in the file header.
         periods (int): Number of periods as specified in the file header.
-        profiles (numpy array): 3 dimensional numpy array where the first
+        surface_coords (numpy array): 3 dimensional numpy array where the first
             dimension corresponds to individual ribs, the second to the
             position on a rib, and the third to the R,Z coordinates of the
             point.
@@ -512,7 +616,7 @@ def ribs_from_kisslinger_format(
     with open(file=filename) as file:
         data = file.readlines()[start_line - 1 :]
 
-    profiles = []
+    surface_coords = []
     toroidal_angles = []
     num_toroidal_angles, num_poloidal_angles, periods = (
         int(x) for x in data[0].rstrip().split(delimiter)[0:3]
@@ -533,14 +637,16 @@ def ribs_from_kisslinger_format(
                 float(coord) * scale for coord in loci.split(delimiter)
             ]
             profile.append(r_z_coords)
-        profiles.append(profile)
+        surface_coords.append(profile)
+
+    surface_coords = format_surface_coords(np.array(surface_coords))
 
     return (
         np.array(toroidal_angles),
         num_toroidal_angles,
         num_poloidal_angles,
         periods,
-        np.array(profiles),
+        surface_coords,
     )
 
 
