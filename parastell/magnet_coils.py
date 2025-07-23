@@ -531,9 +531,10 @@ class Filament(object):
         """
         # Compute radial distance of coordinates from z-axis
         radii = np.linalg.norm(self.coords[:, :2], axis=1)
+        z_values = self.coords[:, 2]
 
         # Reformulate coordinates as R, Z pairs
-        coords = np.append(radii, self.coords[:, 2], axis=2)
+        coords = np.array(list(zip(radii, z_values)))
 
         return get_obmp_index(coords)
 

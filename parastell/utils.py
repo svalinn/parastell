@@ -460,7 +460,7 @@ def dagmc_volume_to_step(
 
 def get_obmp_index(coords):
     """Finds the index of the outboard midplane (or nearest to) coordinate on a
-    closed loop.
+    closed loop. Assumes the first and final points of the loop are equal.
 
     Arguments:
         coords (Nx2 numpy.array of float): list of R, Z coordinates for the
@@ -501,7 +501,7 @@ def get_obmp_index(coords):
     elif count >= 2:
         # Find index of outboard midplane point
         obmp_index = np.argmax(midplane_flags * radii)
-        # Refine index by checking adjacent points
+
         obmp_index = obmp_index + (
             np.argmin(
                 np.abs(
@@ -514,6 +514,9 @@ def get_obmp_index(coords):
             )
             - 1
         )
+
+        if obmp_index == len(coords) - 1:
+            obmp_index = 0
 
     return obmp_index
 
@@ -563,7 +566,7 @@ def format_surface_coords(surface_coords):
 
 
 def ribs_from_kisslinger_format(
-    filename, start_line=2, scale=1.0, delimiter="\t"
+    filename, start_line=2, scale=1.0, delimiter="\t", format=True
 ):
     """Reads a Kisslinger format file and extracts the R, Z data, the number of
     periods, and the toroidal angles at which the R, Z data is specified.
@@ -598,6 +601,10 @@ def ribs_from_kisslinger_format(
             Defaults to 2.
         scale (float): a scaling factor between input and output data
             (defaults to 1.0).
+        delimiter (str): delimiter used to signify new coordiante values
+            (defaults to " ").
+        format (bool): flag to indicate whether the data should be formatted
+            (defaults to True).
 
     Returns:
         toroidal_angles (numpy array): Toroidal angles in the
@@ -639,7 +646,10 @@ def ribs_from_kisslinger_format(
             profile.append(r_z_coords)
         surface_coords.append(profile)
 
-    surface_coords = format_surface_coords(np.array(surface_coords))
+    surface_coords = np.array(surface_coords)
+
+    if format:
+        surface_coords = format_surface_coords(surface_coords)
 
     return (
         np.array(toroidal_angles),
