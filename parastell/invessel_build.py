@@ -912,8 +912,6 @@ class InVesselBuild(object):
             gmsh.merge(mesh_file)
             Path(mesh_file).unlink()
 
-        gmsh.model.mesh.removeDuplicateNodes()
-
     def _gmsh_from_cadquery(
         self, components, min_mesh_size, max_mesh_size, algorithm
     ):
