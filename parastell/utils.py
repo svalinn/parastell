@@ -299,21 +299,33 @@ def get_obmp_index(coords):
         # Find index of outboard midplane point
         obmp_index = np.argmax(midplane_flags * radii)
 
+        # Handle edge cases
+        if obmp_index == 0:
+            previous_idx = -2
+        else:
+            previous_idx = obmp_index - 1
+
+        if obmp_index == len(coords) - 1:
+            next_idx = 1
+        else:
+            next_idx = obmp_index + 1
+
         # Check adjacent points
         obmp_index = obmp_index + (
             np.argmin(
                 np.abs(
                     [
-                        coords[obmp_index - 1, 1],
+                        coords[previous_idx, 1],
                         coords[obmp_index, 1],
-                        coords[obmp_index + 1, 1],
+                        coords[next_idx, 1],
                     ]
                 )
             )
             - 1
         )
 
-        if obmp_index == len(coords) - 1:
+        # Handle edge cases
+        if obmp_index == len(coords) - 1 or obmp_index == len(coords):
             obmp_index = 0
 
     return obmp_index
