@@ -24,17 +24,66 @@ m2cm = 100
 m3tocm3 = m2cm * m2cm * m2cm
 
 
-def downsample_loop(list, sample_mod):
-    """Downsamples a list representing a closed loop.
+def read_yaml_config(filename):
+    """Read YAML file describing ParaStell configuration and extract all data."""
+    with open(filename) as yaml_file:
+        all_data = yaml.safe_load(yaml_file)
+
+    return all_data
+
+
+def filter_kwargs(
+    dict, allowed_kwargs, all_kwargs=False, fn_name=None, logger=None
+):
+    """Constructs a dictionary of keyword arguments with corresponding values
+    for a class method from an input dictionary based on a list of allowable
+    keyword argument argument names. Conditionally raises an exception if the
+    user flags that the supplied list of allowable arguments should represent
+    all keys present in the input dictionary of arguments.
 
     Arguments:
-        list (iterable): closed loop.
-        sample_mod (int): sampling modifier.
+        dict (dict): dictionary of arguments and corresponding values.
+        allowed_kwargs (list of str): list of allowed keyword argument names.
+        all_kwargs (bool): flag to indicate whether 'allowed_kwargs' should
+            represent all keys present in 'dict' (optional, defaults to False).
+        fn_name (str): name of class method (optional, defaults to None). If
+            'all_kwargs' is True, a method name should be supplied.
+        logger (object): logger object (optional, defaults to None). If
+            'all_kwargs' is True, a logger object should be supplied.
 
     Returns:
-        (iterable): downsampled closed loop
+        kwarg_dict (dict): dictionary of keyword arguments and values.
     """
-    return np.append(list[:-1:sample_mod], [list[0]], axis=0)
+    allowed_keys = dict.keys() & allowed_kwargs
+    extra_keys = dict.keys() - allowed_kwargs
+
+    if all_kwargs and extra_keys:
+        e = ValueError(
+            f"{extra_keys} not supported keyword argument(s) of "
+            f'"{fn_name}"'
+        )
+        logger.error(e.args[0])
+        raise e
+
+    return {name: dict[name] for name in allowed_keys}
+
+
+def normalize(vec_list):
+    """Normalizes a set of vectors.
+
+    Arguments:
+        vec_list (1 or 2D np array): single 1D vector or array of 1D vectors
+            to be normalized
+    Returns:
+        vec_list (np array of same shape as input): single 1D normalized vector
+            or array of normalized 1D vectors
+    """
+    if len(vec_list.shape) == 1:
+        return vec_list / np.linalg.norm(vec_list)
+    elif len(vec_list.shape) == 2:
+        return vec_list / np.linalg.norm(vec_list, axis=1)[:, np.newaxis]
+    else:
+        print('Input "vec_list" must be 1-D or 2-D NumPy array')
 
 
 def enforce_helical_symmetry(matrix):
@@ -80,6 +129,34 @@ def enforce_helical_symmetry(matrix):
     matrix = flattened_matrix.reshape((num_rows, num_columns))
 
     return matrix
+
+
+def smooth_matrix(matrix, steps, sigma):
+    """Smooths a matrix via Gaussian filtering, without allowing matrix
+    elements to increase in value.
+
+    Arguments:
+        matrix (2-D iterable of float): matrix to be smoothed.
+        steps (int): number of smoothing steps.
+        sigma (float): standard deviation for Gaussian kernel.
+
+    Returns:
+        smoothed_matrix (2-D iterable of float): smoothed matrix.
+    """
+    previous_matrix = matrix
+
+    for step in range(steps):
+        smoothed_matrix = np.minimum(
+            previous_matrix,
+            gaussian_filter(
+                previous_matrix,
+                sigma=sigma,
+                mode="wrap",
+            ),
+        )
+        previous_matrix = smoothed_matrix
+
+    return smoothed_matrix
 
 
 def expand_list(list_to_expand, num):
@@ -152,66 +229,17 @@ def check_ascending(iterable):
     )
 
 
-def filter_kwargs(
-    dict, allowed_kwargs, all_kwargs=False, fn_name=None, logger=None
-):
-    """Constructs a dictionary of keyword arguments with corresponding values
-    for a class method from an input dictionary based on a list of allowable
-    keyword argument argument names. Conditionally raises an exception if the
-    user flags that the supplied list of allowable arguments should represent
-    all keys present in the input dictionary of arguments.
+def downsample_loop(list, sample_mod):
+    """Downsamples a list representing a closed loop.
 
     Arguments:
-        dict (dict): dictionary of arguments and corresponding values.
-        allowed_kwargs (list of str): list of allowed keyword argument names.
-        all_kwargs (bool): flag to indicate whether 'allowed_kwargs' should
-            represent all keys present in 'dict' (optional, defaults to False).
-        fn_name (str): name of class method (optional, defaults to None). If
-            'all_kwargs' is True, a method name should be supplied.
-        logger (object): logger object (optional, defaults to None). If
-            'all_kwargs' is True, a logger object should be supplied.
+        list (iterable): closed loop.
+        sample_mod (int): sampling modifier.
 
     Returns:
-        kwarg_dict (dict): dictionary of keyword arguments and values.
+        (iterable): downsampled closed loop
     """
-    allowed_keys = dict.keys() & allowed_kwargs
-    extra_keys = dict.keys() - allowed_kwargs
-
-    if all_kwargs and extra_keys:
-        e = ValueError(
-            f"{extra_keys} not supported keyword argument(s) of "
-            f'"{fn_name}"'
-        )
-        logger.error(e.args[0])
-        raise e
-
-    return {name: dict[name] for name in allowed_keys}
-
-
-def normalize(vec_list):
-    """Normalizes a set of vectors.
-
-    Arguments:
-        vec_list (1 or 2D np array): single 1D vector or array of 1D vectors
-            to be normalized
-    Returns:
-        vec_list (np array of same shape as input): single 1D normalized vector
-            or array of normalized 1D vectors
-    """
-    if len(vec_list.shape) == 1:
-        return vec_list / np.linalg.norm(vec_list)
-    elif len(vec_list.shape) == 2:
-        return vec_list / np.linalg.norm(vec_list, axis=1)[:, np.newaxis]
-    else:
-        print('Input "vec_list" must be 1-D or 2-D NumPy array')
-
-
-def read_yaml_config(filename):
-    """Read YAML file describing ParaStell configuration and extract all data."""
-    with open(filename) as yaml_file:
-        all_data = yaml.safe_load(yaml_file)
-
-    return all_data
+    return np.append(list[:-1:sample_mod], [list[0]], axis=0)
 
 
 def reorder_loop(list, index):
@@ -227,32 +255,89 @@ def reorder_loop(list, index):
     return np.concatenate([list[index:], list[1 : index + 1]])
 
 
-def smooth_matrix(matrix, steps, sigma):
-    """Smooths a matrix via Gaussian filtering, without allowing matrix
-    elements to increase in value.
+def get_obmp_index(coords):
+    """Finds the index of the outboard midplane (or nearest to) coordinate on a
+    closed loop. Assumes the first and final points of the loop are equal.
 
     Arguments:
-        matrix (2-D iterable of float): matrix to be smoothed.
-        steps (int): number of smoothing steps.
-        sigma (float): standard deviation for Gaussian kernel.
+        coords (Nx2 numpy.array of float): list of R, Z coordinates for the
+            closed loop.
 
     Returns:
-        smoothed_matrix (2-D iterable of float): smoothed matrix.
+        obmp_index (int): index of the outboard midplane point.
     """
-    previous_matrix = matrix
+    # Define small value
+    eps = 1e-10
+    # Shift some coordinates by eps to compute appropriate midplane flags
+    # If z = 0, then midplane flag = 0, then incorrect maximum radius computed,
+    # then incorrect OB midplane index
+    # Replace z-coordinates at 0 with eps
+    np.place(coords[:, 1], np.abs(coords[:, 1]) < eps, [eps])
 
-    for step in range(steps):
-        smoothed_matrix = np.minimum(
-            previous_matrix,
-            gaussian_filter(
-                previous_matrix,
-                sigma=sigma,
-                mode="wrap",
-            ),
+    radii = coords[:, 0]
+    # Determine whether adjacent points cross the midplane (if so, they will
+    # have opposite signs)
+    shifted_coords = np.append(coords[1:], [coords[1]], axis=0)
+    midplane_flags = -np.sign(coords[:, 1] * shifted_coords[:, 1])
+
+    # Count number of crossing points (will have positive magnitude)
+    count = np.count_nonzero(midplane_flags > 0)
+
+    # If no crossing points, loop does not cross midplane
+    if count == 0:
+        # Find index of point closest to midplane
+        obmp_index = np.argmin(np.abs(coords[:, 1]))
+    # If 1 crossing point, coordinates likely do not represent a closed loop
+    elif count == 1:
+        e = AssertionError(
+            "Only one crossing point found. Coordinates given likely do not "
+            "represent a closed loop."
         )
-        previous_matrix = smoothed_matrix
+        raise e
+    # If 2 or more crossing points, loop crosses midplane
+    elif count >= 2:
+        # Find index of outboard midplane point
+        obmp_index = np.argmax(midplane_flags * radii)
 
-    return smoothed_matrix
+        # Check adjacent points
+        obmp_index = obmp_index + (
+            np.argmin(
+                np.abs(
+                    [
+                        coords[obmp_index - 1, 1],
+                        coords[obmp_index, 1],
+                        coords[obmp_index + 1, 1],
+                    ]
+                )
+            )
+            - 1
+        )
+
+        if obmp_index == len(coords) - 1:
+            obmp_index = 0
+
+    return obmp_index
+
+
+def orient_coords(coords, positive=True):
+    """Orients closed loop coordinates such that they initially
+    progress positively or negatively in the z-direction.
+
+    Arguments:
+        coords (Nx2 numpy.array of float): list of R, Z coordinates for the
+            closed loop.
+        positive (bool): progress coordinates in positive z-direciton
+            (defaults to True). If negative, coordinates will progress in
+            negative direction.
+
+    Returns:
+        coords (Nx2 numpy.array of float): reordered list of R, Z coordinates
+            for the closed loop.
+    """
+    if positive == (coords[0, -1] > coords[1, -1]):
+        coords = np.flip(coords, axis=0)
+
+    return coords
 
 
 def create_vol_mesh_from_surf_mesh(
@@ -301,66 +386,6 @@ def create_vol_mesh_from_surf_mesh(
     gmsh.clear()
 
     return filename
-
-
-class DAGMCRenumberizer(object):
-    """Class to facilitate renumbering of entities to combine DAGMC models.
-
-    Arguments:
-        mb (PyMOAB Core): PyMOAB core with the DAGMC models to be renumbered
-        loaded. Optional.
-    """
-
-    def __init__(self, mb=None):
-        self.mb = mb
-        if mb is None:
-            self.mb = core.Core()
-
-    @cached_property
-    def global_id_tag(self):
-        return self.mb.tag_get_handle(
-            "GLOBAL_ID", 1, types.MB_TYPE_INTEGER, types.MB_TAG_DENSE
-        )
-
-    @cached_property
-    def category_tag(self):
-        """Returns the category tag used to intidate the use of meshset. Values
-        include "Group", "Volume", "Surface", "Curve" and "Vertex".
-        """
-        return self.mb.tag_get_handle(
-            types.CATEGORY_TAG_NAME,
-            types.CATEGORY_TAG_SIZE,
-            types.MB_TYPE_OPAQUE,
-            types.MB_TAG_SPARSE,
-            create_if_missing=True,
-        )
-
-    def load_file(self, filename):
-        """Load DAGMC model from file.
-
-        Arguments:
-            filename (str): Path to DAGMC model to be loaded.
-        """
-        self.mb.load_file(filename)
-
-    def renumber_ids(self):
-        """Renumbers the ids from 1 to N where N is the total number of
-        entities in that category.
-        """
-        categories = ["Vertex", "Curve", "Surface", "Volume", "Group"]
-        root_set = self.mb.get_root_set()
-        for category in categories:
-            category_set = self.mb.get_entities_by_type_and_tag(
-                root_set, types.MBENTITYSET, self.category_tag, [category]
-            )
-            num_ids = len(category_set)
-            if num_ids != 0:
-                set_ids = list(range(1, num_ids + 1))
-                self.mb.tag_set_data(
-                    self.global_id_tag,
-                    category_set,
-                    set_ids,
-                )
 
 
 def combine_dagmc_models(models_to_merge):
@@ -456,90 +481,6 @@ def dagmc_volume_to_step(
         )
 
     cq_solid.exportStep(str(Path(step_file_path).with_suffix(".step")))
-
-
-def get_obmp_index(coords):
-    """Finds the index of the outboard midplane (or nearest to) coordinate on a
-    closed loop. Assumes the first and final points of the loop are equal.
-
-    Arguments:
-        coords (Nx2 numpy.array of float): list of R, Z coordinates for the
-            closed loop.
-
-    Returns:
-        obmp_index (int): index of the outboard midplane point.
-    """
-    # Define small value
-    eps = 1e-10
-    # Shift some coordinates by eps to compute appropriate midplane flags
-    # If z = 0, then midplane flag = 0, then incorrect maximum radius computed,
-    # then incorrect OB midplane index
-    # Replace z-coordinates at 0 with eps
-    np.place(coords[:, 1], np.abs(coords[:, 1]) < eps, [eps])
-
-    radii = coords[:, 0]
-    # Determine whether adjacent points cross the midplane (if so, they will
-    # have opposite signs)
-    shifted_coords = np.append(coords[1:], [coords[1]], axis=0)
-    midplane_flags = -np.sign(coords[:, 1] * shifted_coords[:, 1])
-
-    # Count number of crossing points (will have positive magnitude)
-    count = np.count_nonzero(midplane_flags > 0)
-
-    # If no crossing points, loop does not cross midplane
-    if count == 0:
-        # Find index of point closest to midplane
-        obmp_index = np.argmin(np.abs(coords[:, 1]))
-    # If 1 crossing point, coordinates likely do not represent a closed loop
-    elif count == 1:
-        e = AssertionError(
-            "Only one crossing point found. Coordinates given likely do not "
-            "represent a closed loop."
-        )
-        raise e
-    # If 2 or more crossing points, loop crosses midplane
-    elif count >= 2:
-        # Find index of outboard midplane point
-        obmp_index = np.argmax(midplane_flags * radii)
-
-        obmp_index = obmp_index + (
-            np.argmin(
-                np.abs(
-                    [
-                        coords[obmp_index - 1, 1],
-                        coords[obmp_index, 1],
-                        coords[obmp_index + 1, 1],
-                    ]
-                )
-            )
-            - 1
-        )
-
-        if obmp_index == len(coords) - 1:
-            obmp_index = 0
-
-    return obmp_index
-
-
-def orient_coords(coords, positive=True):
-    """Orients closed loop coordinates such that they initially
-    progress positively or negatively in the z-direction.
-
-    Arguments:
-        coords (Nx2 numpy.array of float): list of R, Z coordinates for the
-            closed loop.
-        positive (bool): progress coordinates in positive z-direciton
-            (defaults to True). If negative, coordinates will progress in
-            negative direction.
-
-    Returns:
-        coords (Nx2 numpy.array of float): reordered list of R, Z coordinates
-            for the closed loop.
-    """
-    if positive == (coords[0, 1] > coords[1, 1]):
-        coords = np.flip(coords, axis=0)
-
-    return coords
 
 
 def format_surface_coords(surface_coords):
@@ -658,6 +599,66 @@ def ribs_from_kisslinger_format(
         periods,
         surface_coords,
     )
+
+
+class DAGMCRenumberizer(object):
+    """Class to facilitate renumbering of entities to combine DAGMC models.
+
+    Arguments:
+        mb (PyMOAB Core): PyMOAB core with the DAGMC models to be renumbered
+        loaded. Optional.
+    """
+
+    def __init__(self, mb=None):
+        self.mb = mb
+        if mb is None:
+            self.mb = core.Core()
+
+    @cached_property
+    def global_id_tag(self):
+        return self.mb.tag_get_handle(
+            "GLOBAL_ID", 1, types.MB_TYPE_INTEGER, types.MB_TAG_DENSE
+        )
+
+    @cached_property
+    def category_tag(self):
+        """Returns the category tag used to intidate the use of meshset. Values
+        include "Group", "Volume", "Surface", "Curve" and "Vertex".
+        """
+        return self.mb.tag_get_handle(
+            types.CATEGORY_TAG_NAME,
+            types.CATEGORY_TAG_SIZE,
+            types.MB_TYPE_OPAQUE,
+            types.MB_TAG_SPARSE,
+            create_if_missing=True,
+        )
+
+    def load_file(self, filename):
+        """Load DAGMC model from file.
+
+        Arguments:
+            filename (str): Path to DAGMC model to be loaded.
+        """
+        self.mb.load_file(filename)
+
+    def renumber_ids(self):
+        """Renumbers the ids from 1 to N where N is the total number of
+        entities in that category.
+        """
+        categories = ["Vertex", "Curve", "Surface", "Volume", "Group"]
+        root_set = self.mb.get_root_set()
+        for category in categories:
+            category_set = self.mb.get_entities_by_type_and_tag(
+                root_set, types.MBENTITYSET, self.category_tag, [category]
+            )
+            num_ids = len(category_set)
+            if num_ids != 0:
+                set_ids = list(range(1, num_ids + 1))
+                self.mb.tag_set_data(
+                    self.global_id_tag,
+                    category_set,
+                    set_ids,
+                )
 
 
 class ToroidalMesh(ABC):
