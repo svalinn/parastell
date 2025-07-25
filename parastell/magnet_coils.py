@@ -72,11 +72,10 @@ class MagnetSet(ABC):
         self.volume_ids = list(range(first_vol_id, last_vol_id + 1))
 
     def merge_surfaces(self):
-        """Merges ParaStell in-vessel component surfaces in Coreform Cubit
-        based on surface IDs rather than imprinting and merging all. Assumes
-        that the radial_build dictionary is ordered radially outward. Note that
-        overlaps between magnet volumes and in-vessel components will not be
-        merged in this workflow.
+        """Merges ParaStell magnet volumes in Coreform Cubit based on volume
+        IDs rather than imprinting and merging all. Note that overlaps between
+        magnet volumes and in-vessel components will not be merged in this
+        workflow.
         """
         for outer_volume_idx, inner_volume_idx in zip(
             self.volume_ids[::2], self.volume_ids[1::2]
