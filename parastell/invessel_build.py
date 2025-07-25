@@ -192,16 +192,16 @@ class RibBasedSurface(ReferenceSurface):
 
         # Toroidal Periodicity Before Period
         toroidal_shift = -max(self.toroidal_angles)
-        shifted_toroidal_angles = self.toroidal_angles[0:-1] + toroidal_shift
-        rib_subset = self.rib_data[0:-1]
+        shifted_toroidal_angles = self.toroidal_angles[:-1] + toroidal_shift
+        rib_subset = self.rib_data[:-1]
         self._extract_rib_data(
             rib_subset, shifted_toroidal_angles, self.poloidal_angles
         )
 
         # Poloidal Periodicity Before Period
-        poloidal_shift = -max(self.poloidal_angles)
-        shifted_poloidal_angles = self.poloidal_angles[0:-1] - poloidal_shift
-        rib_subset = self.rib_data[:, 0:-1, :]
+        poloidal_shift = -360.0
+        shifted_poloidal_angles = self.poloidal_angles[:-1] + poloidal_shift
+        rib_subset = self.rib_data[:, :-1]
         self._extract_rib_data(
             rib_subset, self.toroidal_angles, shifted_poloidal_angles
         )
@@ -222,9 +222,9 @@ class RibBasedSurface(ReferenceSurface):
         )
 
         # Poloidal Periodicity After Period
-        poloidal_shift = max(self.poloidal_angles)
+        poloidal_shift = 360.0
         shifted_poloidal_angles = self.poloidal_angles[1:] + poloidal_shift
-        rib_subset = self.rib_data[:, 1:, :]
+        rib_subset = self.rib_data[:, 1:]
         self._extract_rib_data(
             rib_subset, self.toroidal_angles, shifted_poloidal_angles
         )
@@ -1116,8 +1116,8 @@ class Rib(object):
             (phi).
         s (float): the normalized closed flux surface label defining the point
             of reference for offset.
-        phi (np.array(double)): the toroidal angle defining the plane in which
-            the rib is located [rad].
+        phi (float): the toroidal angle defining the plane in which the rib is
+            located [rad].
         theta_list (np.array(double)): the set of poloidal angles specified for
             the rib [rad].
         offset_list (np.array(double)): the set of offsets from the curve
@@ -1164,16 +1164,22 @@ class Rib(object):
             r_loci (np.array(double)): Cartesian point-loci of reference
                 surface rib [cm].
         """
-        eps = 1e-4
-        next_pt_loci = self._calculate_cartesian_coordinates(eps)
+        eps = 1e-1
 
-        tangent = next_pt_loci - self.rib_loci
+        forward_pt_loci = self._calculate_cartesian_coordinates(
+            poloidal_offset=eps
+        )
+        backward_pt_loci = self._calculate_cartesian_coordinates(
+            poloidal_offset=-eps
+        )
+
+        tangents = normalize(forward_pt_loci - backward_pt_loci)
 
         plane_norm = np.array([-np.sin(self.phi), np.cos(self.phi), 0])
 
-        norm = np.cross(plane_norm, tangent)
+        normals = np.cross(plane_norm, tangents)
 
-        return normalize(norm)
+        return normalize(normals)
 
     def calculate_loci(self):
         """Generates Cartesian point-loci for stellarator rib. Sets the last
