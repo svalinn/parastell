@@ -107,12 +107,8 @@ class MagnetSet(ABC):
 
         create_new_cubit_instance()
 
+        # Overwrite any volume IDs
         self.import_geom_cubit()
-
-        mesh_surface_coarse_trimesh(
-            anisotropic_ratio=anisotropic_ratio,
-            deviation_angle=deviation_angle,
-        )
 
         if volumes_to_mesh == "inner":
             volume_ids = self.volume_ids[1::2]
@@ -120,7 +116,17 @@ class MagnetSet(ABC):
             volume_ids = self.volume_ids[::2]
         elif volumes_to_mesh == "both":
             volume_ids = self.volume_ids
+        else:
+            e = ValueError(
+                f"Value specified for volumes_to_mesh, {volumes_to_mesh}, "
+                "not recognized. Please use 'inner', 'outer', or 'both'."
+            )
+            raise e
 
+        mesh_surface_coarse_trimesh(
+            anisotropic_ratio=anisotropic_ratio,
+            deviation_angle=deviation_angle,
+        )
         mesh_volume_auto_factor(volume_ids, mesh_size=mesh_size)
 
     def export_mesh_cubit(self, filename="magnet_mesh", export_dir=""):
@@ -500,7 +506,7 @@ class MagnetSetFromFilaments(MagnetSet):
             for magnet_coil in self.magnet_coils
         ]
 
-        # Check outer solid for volume only - if volume = 0, don't include
+        # Check outer solid for volume only; if volume = 0, don't include
         self.magnet_coils = [
             coil
             for coil in self.magnet_coils
