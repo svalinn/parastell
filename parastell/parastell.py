@@ -505,7 +505,7 @@ class Stellarator(object):
                     self.magnet_set.mat_tag, block_id, volume_id_str
                 )
             else:
-                for idx, _ in enumerate("outer", "inner"):
+                for idx, _ in enumerate(["outer", "inner"]):
                     mat_tag = self.magnet_set.mat_tag[0]
                     volume_ids = list(self.magnet_set.volume_ids[idx::2])
                     volume_id_str = " ".join(str(i) for i in volume_ids)
