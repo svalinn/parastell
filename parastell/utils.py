@@ -86,7 +86,7 @@ def normalize(vec_list):
         print('Input "vec_list" must be 1-D or 2-D NumPy array')
 
 
-def enforce_helical_symmetry(matrix):
+def enforce_helical_symmetry_matrix(matrix):
     """Ensures that a matrix is helically symmetric according to stellarator
     geometry by overwriting certain matrix elements.
 
@@ -129,6 +129,69 @@ def enforce_helical_symmetry(matrix):
     matrix = flattened_matrix.reshape((num_rows, num_columns))
 
     return matrix
+
+
+def enforce_helical_symmetry_coords(coords):
+    """Ensures that a set of coordinates is helically symmetric according to
+    stellarator geometry by overwriting certain coordinates.
+
+    Assumes several qualities about the input coordinates:
+        - Regular spacing between angles defining coordinates
+        - Coordinates represent a full stellarator period
+        - The first entry of first axis corresponds to a toroidal angle at the
+          beginning of a period (i.e., poloidal symmetry is expected)
+        - The beginning, toroidal midplane, and end of the period are symmetric
+          about the axial midplane
+
+    Arguments:
+        coords (3-D iterable of float): coordinates to be made helically
+            symmetric.
+
+    Returns:
+        coords (3-D iterable of float): helically symmetric coordinates.
+    """
+    original_shape = coords.shape
+    num_rows, num_columns, num_other = original_shape
+    flattened_shape = (num_rows * num_columns, num_other)
+
+    # Ensure rows represent closed loops
+    coords[:, -1] = coords[:, 0]
+
+    # Ensure poloidal symmetry at beginning of period
+    coords[0] = np.concatenate(
+        [
+            # Ceil and floor ensure middle element of odd sized array is
+            # included only once
+            coords[0, : math.ceil(num_columns / 2)],
+            np.flip(coords[0, : math.floor(num_columns / 2)], axis=0),
+        ]
+    )
+
+    # Reflect initial poloidal profile about midplane
+    coords[0, math.ceil(num_columns / 2) : -1, -1] *= -1
+    # TODO: document Kisslinger expectations, central difference for normal
+
+    # Ensure helical symmetry toroidally and poloidally by mirroring the period
+    # about both coords axes
+    flattened_coords = coords.reshape(flattened_shape)
+    flattened_length = flattened_coords.shape[0]
+
+    first_half = flattened_coords[: math.ceil(flattened_length / 2)]
+    # Copy poloidal profiles in second half of period
+    last_half = np.flip(
+        flattened_coords.copy()[: math.floor(flattened_length / 2)], axis=0
+    )
+    # Reflect poloidal profiles in second half of period about midplane
+    last_half[:, -1] *= -1
+
+    flattened_coords = np.concatenate([first_half, last_half])
+
+    coords = flattened_coords.reshape(original_shape)
+
+    # Ensure periodicity at ends of period
+    coords[-1] = coords[0]
+
+    return coords
 
 
 def smooth_matrix(matrix, steps, sigma):
