@@ -77,17 +77,36 @@ class ReferenceSurface(ABC):
         constant to x, y, z coordinates.
 
         Arguments:
-            toroidal_angles (float): Toroidal angle at which to
-                evaluate cartesian coordinates. Measured in radians.
-            poloidal_angles (iterable of float): Poloidal angles at which to
-                evaluate cartesian coordinates. Measured in radians.
+            toroidal_angles (float): toroidal angle at which to evaluate
+                Cartesian coordinates [rad].
+            poloidal_angles (iterable of float): poloidal angles at which to
+                evaluate Cartesian coordinates [rad].
             s (float): Generic parameter which may affect the evaluation of
                 the cartesian coordinate at a given angle pair.
             scale (float): a scaling factor between input and output data.
 
         Returns:
-            coords (numpy array): Nx3 array of Cartesian coordinates at each
+            coords (Nx3 numpy.array): array of Cartesian coordinates at each
                 angle pair specified.
+        """
+        pass
+
+    def calculate_tangents(self, toroidal_angle, poloidal_angles, s, scale):
+        """Compute the tangents of a set of points, defined by a set of
+        poloidal angles, at a given toroidal angle.
+
+        Arguments:
+            toroidal_angles (float): toroidal angle at which to evaluate
+                tangents [rad].
+            poloidal_angles (iterable of float): poloidal angles at which to
+                evaluate tangents [rad].
+            s (float): Generic parameter which may affect the evaluation of
+                the cartesian coordinate at a given angle pair.
+            scale (float): a scaling factor between input and output data.
+
+        Returns:
+            (Nx3 numpy.array): array of poloidal tangents at each angle pair
+                specified.
         """
         pass
 
