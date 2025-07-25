@@ -108,27 +108,57 @@ class VMECSurface(ReferenceSurface):
         self.vmec_obj = vmec_obj
 
     def angles_to_xyz(self, toroidal_angle, poloidal_angles, s, scale):
-        """Evaluate the cartesian coordinates for a set of toroidal and
+        """Evaluate the Cartesian coordinates for a set of toroidal and
         poloidal angles and flux surface label.
 
         Arguments:
-            toroidal_angles (float): Toroidal angle at which to
-                    evaluate cartesian coordinates. Measured in radians.
-            poloidal_angles (iterable of float): Poloidal angles at which to
-                    evaluate cartesian coordinates. Measured in radians.
+            toroidal_angles (float): toroidal angle at which to evaluate
+                Cartesian coordinates [rad].
+            poloidal_angles (iterable of float): poloidal angles at which to
+                evaluate Cartesian coordinates [rad].
             s (float): the normalized closed flux surface label defining the
                 point of reference for offset.
             scale (float): a scaling factor between input and output data.
 
         Returns:
-            coords (numpy array): Nx3 array of Cartesian coordinates at each
+            coords (Nx3 numpy.array): array of Cartesian coordinates at each
                 poloidal angle specified.
         """
         coords = []
+
         for poloidal_angle in poloidal_angles:
             x, y, z = self.vmec_obj.vmec2xyz(s, poloidal_angle, toroidal_angle)
             coords.append([x, y, z])
+
         return np.array(coords) * scale
+
+    def calculate_tangents(self, toroidal_angle, poloidal_angles, s, scale):
+        """Compute the tangents of a set of points, defined by a set of
+        poloidal angles, at a given toroidal angle.
+
+        Arguments:
+            toroidal_angles (float): toroidal angle at which to evaluate
+                tangents [rad].
+            poloidal_angles (iterable of float): poloidal angles at which to
+                evaluate tangents [rad].
+            s (float): the normalized closed flux surface label defining the
+                point of reference for offset.
+            scale (float): a scaling factor between input and output data.
+
+        Returns:
+            (Nx3 numpy.array): array of poloidal tangents at each angle pair
+                specified.
+        """
+        eps = 1e-4
+
+        backward_pt_loci = self.angles_to_xyz(
+            toroidal_angle, poloidal_angles - eps, s, scale
+        )
+        forward_pt_loci = self.angles_to_xyz(
+            toroidal_angle, poloidal_angles + eps, s, scale
+        )
+
+        return normalize(forward_pt_loci - backward_pt_loci)
 
 
 class RibBasedSurface(ReferenceSurface):
@@ -242,20 +272,21 @@ class RibBasedSurface(ReferenceSurface):
         compatibility, but does nothing with it.
 
         Arguments:
-            toroidal_angles (float): Toroidal angle at which to
-                    evaluate cartesian coordinates. Measured in radians.
-            poloidal_angles (iterable of float): Poloidal angles at which to
-                    evaluate cartesian coordinates. Measured in radians.
+            toroidal_angles (float): toroidal angle at which to evaluate
+                Cartesian coordinates [rad].
+            poloidal_angles (iterable of float): poloidal angles at which to
+                evaluate Cartesian coordinates [rad].
             s (float): Not used.
             scale (float): a scaling factor between input and output data.
 
         Returns:
-            coords (numpy array): Nx3 array of Cartesian coordinates at each
+            coords (Nx3 numpy.array): array of Cartesian coordinates at each
                 angle pair specified.
         """
         coords = []
         toroidal_angle = np.rad2deg(toroidal_angle)
         poloidal_angles = np.rad2deg(poloidal_angles)
+
         for poloidal_angle in poloidal_angles:
             r = self.r_interp(toroidal_angle, poloidal_angle)
             z = self.z_interp(toroidal_angle, poloidal_angle)
@@ -265,6 +296,34 @@ class RibBasedSurface(ReferenceSurface):
             coords.append(coord)
 
         return np.array(coords) * scale
+
+    def calculate_tangents(self, toroidal_angle, poloidal_angles, s, scale):
+        """Compute the tangents of a set of points, defined by a set of
+        poloidal angles, at a given toroidal angle. Takes s as a argument for
+        compatibility, but does nothing with it.
+
+        Arguments:
+            toroidal_angles (float): toroidal angle at which to evaluate
+                tangents [rad].
+            poloidal_angles (iterable of float): poloidal angles at which to
+                evaluate tangents [rad].
+            s (float): not used.
+            scale (float): a scaling factor between input and output data.
+
+        Returns:
+            (Nx3 numpy.array): array of poloidal tangents at each angle pair
+                specified.
+        """
+        eps = 1e-1
+
+        backward_pt_loci = self.angles_to_xyz(
+            toroidal_angle, poloidal_angles - eps, s, scale
+        )
+        forward_pt_loci = self.angles_to_xyz(
+            toroidal_angle, poloidal_angles + eps, s, scale
+        )
+
+        return normalize(forward_pt_loci - backward_pt_loci)
 
 
 class InVesselBuild(object):
@@ -1135,24 +1194,6 @@ class Rib(object):
         self.offset_list = offset_list
         self.scale = scale
 
-    def _calculate_cartesian_coordinates(self, poloidal_offset=0):
-        """Return an N x 3 NumPy array containing the Cartesian coordinates of
-        the points at this toroidal angle and N different poloidal angles, each
-        offset slightly.
-        (Internal function not intended to be called externally)
-
-        Arguments:
-            poloidal_offset (float) : some offset to apply to the full set of
-                poloidal angles for evaluating the location of the Cartesian
-                points (defaults to 0).
-        """
-        return self.ref_surf.angles_to_xyz(
-            self.phi,
-            self.theta_list + poloidal_offset,
-            self.s,
-            self.scale,
-        )
-
     def _normals(self):
         """Approximate the normal to the curve at each poloidal angle by first
         approximating the tangent to the curve and then taking the
@@ -1164,16 +1205,9 @@ class Rib(object):
             r_loci (np.array(double)): Cartesian point-loci of reference
                 surface rib [cm].
         """
-        eps = 1e-1
-
-        forward_pt_loci = self._calculate_cartesian_coordinates(
-            poloidal_offset=eps
+        tangents = self.ref_surf.calculate_tangents(
+            self.phi, self.theta_list, self.s, self.scale
         )
-        backward_pt_loci = self._calculate_cartesian_coordinates(
-            poloidal_offset=-eps
-        )
-
-        tangents = normalize(forward_pt_loci - backward_pt_loci)
 
         plane_norm = np.array([-np.sin(self.phi), np.cos(self.phi), 0])
 
@@ -1185,7 +1219,10 @@ class Rib(object):
         """Generates Cartesian point-loci for stellarator rib. Sets the last
         element to the value of the first to ensure the loop is closed exactly.
         """
-        self.rib_loci = self._calculate_cartesian_coordinates()
+        self.rib_loci = self.ref_surf.angles_to_xyz(
+            self.phi, self.theta_list, self.s, self.scale
+        )
+
         if not np.all(self.offset_list == 0):
             self.rib_loci += self.offset_list[:, np.newaxis] * self._normals()
 
