@@ -809,7 +809,7 @@ class MagnetCoil(object):
 
         return cq.Solid.makeSolid(shell)
 
-    def create_magnet(self, toroidal_domain):
+    def create_magnet(self, toroidal_domain=None):
         """Creates a single magnet coil CAD solid in CadQuery.
 
         Arguments:
@@ -820,7 +820,9 @@ class MagnetCoil(object):
             coil (object): cq.Solid object representing a single magnet coil.
         """
         outer_solid = self._create_magnet_solid(self.width, self.thickness)
-        outer_solid = outer_solid.intersect(toroidal_domain)
+
+        if toroidal_domain:
+            outer_solid = outer_solid.intersect(toroidal_domain)
 
         if self.case_thickness != 0.0:
             inner_solid = self._create_magnet_solid(
