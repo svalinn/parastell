@@ -624,7 +624,7 @@ class Stellarator(object):
             else:
                 magnet_mat_tags = [
                     mat_tag
-                    for _ in self.maget_set.coil_solids
+                    for _ in self.magnet_set.coil_solids
                     for mat_tag in self.magnet_set.mat_tag
                 ]
 
