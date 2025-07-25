@@ -1,7 +1,7 @@
 import parastell.parastell as ps
 import parastell.invessel_build as ivb
 import parastell.radial_distance_utils as rdu
-from parastell.utils import enforce_helical_symmetry, smooth_matrix
+from parastell.utils import enforce_helical_symmetry_matrix, smooth_matrix
 from parastell.pystell import read_vmec
 import numpy as np
 
@@ -38,7 +38,7 @@ available_space = rdu.measure_fw_coils_separation(
 # For matrices defined by angles that are regularly spaced, measurement can
 # result in matrix elements that are close to, but not exactly, helcially
 # symmetric
-available_space = enforce_helical_symmetry(available_space)
+available_space = enforce_helical_symmetry_matrix(available_space)
 # Smooth matrix
 steps = 25  # Apply Gaussian filter 25 times
 sigma = 0.5  # Smooth using half a standard deviation for the Gaussian kernel
@@ -46,7 +46,7 @@ available_space = smooth_matrix(available_space, steps, sigma)
 # For matrices defined by angles that are regularly spaced, matrix smoothing
 # can result in matrix elements that are close to, but not exactly, helcially
 # symmetric
-available_space = enforce_helical_symmetry(available_space)
+available_space = enforce_helical_symmetry_matrix(available_space)
 # Modify available space to account for thickness of magnets
 available_space = available_space - max(width, thickness)
 
