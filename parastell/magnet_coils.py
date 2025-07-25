@@ -12,6 +12,7 @@ from .cubit_utils import (
     create_new_cubit_instance,
     import_geom_to_cubit,
     export_mesh_cubit,
+    merge_volumes,
     mesh_volume_auto_factor,
     mesh_surface_coarse_trimesh,
     get_last_id,
@@ -70,11 +71,24 @@ class MagnetSet(ABC):
         )
         self.volume_ids = list(range(first_vol_id, last_vol_id + 1))
 
+    def merge_surfaces(self):
+        """Merges ParaStell in-vessel component surfaces in Coreform Cubit
+        based on surface IDs rather than imprinting and merging all. Assumes
+        that the radial_build dictionary is ordered radially outward. Note that
+        overlaps between magnet volumes and in-vessel components will not be
+        merged in this workflow.
+        """
+        for outer_volume_idx, inner_volume_idx in zip(
+            self.volume_ids[::2], self.volume_ids[1::2]
+        ):
+            merge_volumes(outer_volume_idx, inner_volume_idx)
+
     def mesh_magnets_cubit(
         self,
         mesh_size=5,
         anisotropic_ratio=100.0,
         deviation_angle=5.0,
+        volumes_to_mesh="both",
     ):
         """Creates tetrahedral mesh of magnet volumes via Coreform Cubit.
 
@@ -86,19 +100,29 @@ class MagnetSet(ABC):
             deviation_angle (float): controls deviation angle of facet from
                 surface (i.e., lesser deviation angle results in more elements
                 in areas with higher curvature) (defaults to 5.0).
+            volumes_to_mesh (str): volumes to include in mesh. Acceptable
+                values are "inner", "outer", and "both" (defaults to "both").
+                If no casing was modeled, use "both".
         """
         self._logger.info("Generating tetrahedral mesh of magnet coils...")
 
         create_new_cubit_instance()
 
-        if not hasattr(self, "volume_ids"):
-            self.import_geom_cubit()
+        self.import_geom_cubit()
 
         mesh_surface_coarse_trimesh(
             anisotropic_ratio=anisotropic_ratio,
             deviation_angle=deviation_angle,
         )
-        mesh_volume_auto_factor(self.volume_ids, mesh_size=mesh_size)
+
+        if volumes_to_mesh == "inner":
+            volume_ids = self.volume_ids[1::2]
+        elif volumes_to_mesh == "outer":
+            volume_ids = self.volume_ids[::2]
+        elif volumes_to_mesh == "both":
+            volume_ids = self.volume_ids
+
+        mesh_volume_auto_factor(volume_ids, mesh_size=mesh_size)
 
     def export_mesh_cubit(self, filename="magnet_mesh", export_dir=""):
         """Exports a tetrahedral mesh of magnet volumes in H5M format via
@@ -119,7 +143,11 @@ class MagnetSet(ABC):
         )
 
     def mesh_magnets_gmsh(
-        self, min_mesh_size=5.0, max_mesh_size=20.0, algorithm=1
+        self,
+        min_mesh_size=5.0,
+        max_mesh_size=20.0,
+        algorithm=1,
+        volumes_to_mesh="both",
     ):
         """Creates tetrahedral mesh of magnet volumes via Gmsh.
 
@@ -135,13 +163,34 @@ class MagnetSet(ABC):
                 5: Delaunay, 6: Frontal-Delaunay, 7: BAMG, 8: Frontal-Delaunay
                 for Quads, 9: Packing of Parallelograms, 11: Quasi-structured
                 Quad.
+            volumes_to_mesh (str): volumes to include in mesh. Acceptable
+                values are "inner", "outer", and "both" (defaults to "both").
+                If no casing was modeled, use "both".
         """
         self._logger.info("Generating tetrahedral mesh of magnets via Gmsh...")
 
         gmsh.initialize()
 
-        for solid in self.coil_solids:
-            gmsh.model.occ.importShapesNativePointer(solid.wrapped._address())
+        if volumes_to_mesh == "inner":
+            solids_to_mesh = [solids[1] for solids in self.coil_solids]
+        elif volumes_to_mesh == "outer":
+            solids_to_mesh = [solids[0] for solids in self.coil_solids]
+        elif volumes_to_mesh == "both":
+            solids_to_mesh = [
+                solid for solids in self.coil_solids for solid in solids
+            ]
+        else:
+            e = ValueError(
+                f"Value specified for volumes_to_mesh, {volumes_to_mesh}, "
+                "not recognized. Please use 'inner', 'outer', or 'both'."
+            )
+            raise e
+
+        mesh_geometry = cq.Compound.makeCompound(solids_to_mesh)
+
+        gmsh.model.occ.importShapesNativePointer(
+            mesh_geometry.wrapped._address()
+        )
 
         gmsh.model.occ.synchronize()
 
@@ -188,6 +237,9 @@ class MagnetSetFromFilaments(MagnetSet):
         thickness (float): thickness of coil cross-section in radial direction
             [cm].
         toroidal_extent (float): toroidal extent to model [deg].
+        case_thickness (float): thickness of outer coil casing (defaults to
+            0.0) [cm]. This amount will be subtracted from the width and
+            thickness parameters to form the inner coil volume.
         logger (object): logger object (optional, defaults to None). If no
             logger is supplied, a default logger will be instantiated.
 
@@ -198,8 +250,11 @@ class MagnetSetFromFilaments(MagnetSet):
             1). For a user-defined value n, every nth point will be sampled.
         scale (float): a scaling factor between input and output data
             (defaults to m2cm = 100).
-        mat_tag (str): DAGMC material tag to use for magnets in DAGMC
-            neutronics model (defaults to 'magnets').
+        mat_tag (str or iterable of str): DAGMC material tag(s) to use for
+            magnets in DAGMC neutronics model (defaults to 'magnets'). If an
+            iterable is given, the first entry will be applied to coil casing
+            and the second to the inner volume. If just one is given, it will
+            be applied to all magnet volumes.
     """
 
     def __init__(
@@ -208,6 +263,7 @@ class MagnetSetFromFilaments(MagnetSet):
         width,
         thickness,
         toroidal_extent,
+        case_thickness=0.0,
         logger=None,
         **kwargs,
     ):
@@ -222,6 +278,7 @@ class MagnetSetFromFilaments(MagnetSet):
         self.width = width
         self.thickness = thickness
         self.toroidal_extent = toroidal_extent
+        self.case_thickness = case_thickness
 
         # Define maximum length of coil cross-section
         self.max_cs_len = max(self._width, self._thickness)
@@ -278,6 +335,19 @@ class MagnetSetFromFilaments(MagnetSet):
             e = ValueError("Toroidal extent cannot exceed 360.0 degrees.")
             self._logger.error(e.args[0])
             raise e
+
+    @property
+    def case_thickness(self):
+        return self._case_thickness
+
+    @case_thickness.setter
+    def case_thickness(self, value):
+        if value < 0.0:
+            e = ValueError("Coil case thickness cannot be negative.")
+            self._logger.error(e.args[0])
+            raise e
+
+        self._case_thickness = value
 
     def _instantiate_filaments(self):
         """Extracts filament coordinate data from input data file and
@@ -349,7 +419,11 @@ class MagnetSetFromFilaments(MagnetSet):
         for filament in self.filaments:
             self.magnet_coils.append(
                 MagnetCoil(
-                    filament, self.width, self.thickness, self.sample_mod
+                    filament,
+                    self.width,
+                    self.thickness,
+                    self.case_thickness,
+                    self.sample_mod,
                 )
             )
 
@@ -371,48 +445,29 @@ class MagnetSetFromFilaments(MagnetSet):
 
         self.average_radial_distance /= radii_count
 
-    def _cut_magnets(self):
-        """Cuts the magnets at the planes defining the toriodal extent.
+    def _create_magnet_boundary(self):
+        """Creates a CadQuery solid spanning the toroidal domain of the
+        magnets.
         (Internal function not intended to be called externally)
+
+        Returns:
+            (object): cq.Solid object representing the boundary of the toroidal
+                domain of the magnets.
         """
         side_length = 1.25 * self.max_radial_distance
 
-        toroidal_region = cq.Workplane("XZ")
-        toroidal_region = toroidal_region.transformed(
+        toroidal_domain = cq.Workplane("XZ")
+        toroidal_domain = toroidal_domain.transformed(
             offset=(side_length / 2, 0)
         )
-        toroidal_region = toroidal_region.rect(side_length, side_length)
-        toroidal_region = toroidal_region.revolve(
+        toroidal_domain = toroidal_domain.rect(side_length, side_length)
+        toroidal_domain = toroidal_domain.revolve(
             np.rad2deg(self._toroidal_extent),
             (-side_length / 2, 0),
             (-side_length / 2, 1),
         )
-        toroidal_region = toroidal_region.val()
 
-        for coil in self.magnet_coils:
-            cut_coil = coil.solid.intersect(toroidal_region)
-            coil.solid = cut_coil
-
-    def export_step(self, filename="magnet_set", export_dir=""):
-        """Export CAD solids as a STEP file via CadQuery.
-
-        Arguments:
-            filename (str): name of STEP output file (optional, defaults to
-                'magnet_set').
-            export_dir (str): directory to which to export the STEP output file
-                (optional, defaults to empty string).
-        """
-        self._logger.info("Exporting STEP file for magnet coils...")
-
-        self.working_dir = export_dir
-        self.geometry_file = Path(filename).with_suffix(".step")
-
-        export_path = Path(self.working_dir) / self.geometry_file
-
-        coil_set = cq.Compound.makeCompound(
-            [coil.solid for coil in self.magnet_coils]
-        )
-        cq.exporters.export(coil_set, str(export_path))
+        return toroidal_domain.val()
 
     def populate_magnet_coils(self):
         """Populates MagnetCoil class objects representing each of the magnetic
@@ -431,19 +486,50 @@ class MagnetSetFromFilaments(MagnetSet):
 
     def build_magnet_coils(self):
         """Builds each filament in self.filtered_filaments in cubit, then cuts
-        to the toroidal extent using self._cut_magnets().
+        to the toroidal extent using self._create_magnet_boundary().
         """
         self._logger.info("Constructing magnet coils...")
 
-        [magnet_coil.create_magnet() for magnet_coil in self.magnet_coils]
+        toroidal_domain = self._create_magnet_boundary()
 
-        self._cut_magnets()
-
-        self.magnet_coils = [
-            coil for coil in self.magnet_coils if coil.solid.Volume() != 0
+        [
+            magnet_coil.create_magnet(toroidal_domain)
+            for magnet_coil in self.magnet_coils
         ]
 
-        self.coil_solids = [coil.solid for coil in self.magnet_coils]
+        # Check outer solid for volume only - if volume = 0, don't include
+        self.magnet_coils = [
+            coil
+            for coil in self.magnet_coils
+            if (coil.solids[0].Volume() != 0)
+        ]
+
+        self.coil_solids = [coil.solids for coil in self.magnet_coils]
+
+    def export_step(self, filename="magnet_set", export_dir=""):
+        """Export CAD solids as a STEP file via CadQuery.
+
+        Arguments:
+            filename (str): name of STEP output file (optional, defaults to
+                'magnet_set').
+            export_dir (str): directory to which to export the STEP output file
+                (optional, defaults to empty string).
+        """
+        self._logger.info("Exporting STEP file for magnet coils...")
+
+        self.working_dir = export_dir
+        self.geometry_file = Path(filename).with_suffix(".step")
+
+        export_path = Path(self.working_dir) / self.geometry_file
+
+        # Flatten list of solids (inner, outer solid pairs)
+        solids_list = []
+        for solids in self.coil_solids:
+            [solids_list.append(solid) for solid in solids]
+
+        coil_set = cq.Compound.makeCompound(solids_list)
+
+        cq.exporters.export(coil_set, str(export_path))
 
 
 class MagnetSetFromGeometry(MagnetSet):
@@ -484,9 +570,9 @@ class MagnetSetFromGeometry(MagnetSet):
     @property
     def coil_solids(self):
         if self._coil_solids is None:
-            self._coil_solids = cq.importers.importStep(
-                str(self.geometry_file)
-            ).vals()
+            solids = cq.importers.importStep(str(self.geometry_file)).vals()
+            self._coil_solids = [[solid] for solid in solids]
+
         return self._coil_solids
 
 
@@ -608,10 +694,13 @@ class MagnetCoil(object):
         width (float): width of coil cross-section in toroidal direction [cm].
         thickness (float): thickness of coil cross-section in radial direction
             [cm].
+        case_thickness (float): thickness of outer coil casing (defaults to 0)
+            [cm]. This amount will be subtracted from the width and thickness
+            parameters to form the inner coil volume.
         sample_mod (int): Length of stride when sampling from coordinate data.
     """
 
-    def __init__(self, filament, width, thickness, sample_mod):
+    def __init__(self, filament, width, thickness, case_thickness, sample_mod):
 
         self.filament = filament
         self.sample_mod = sample_mod
@@ -620,12 +709,20 @@ class MagnetCoil(object):
         self.tangents = filament.tangents
         self.width = width
         self.thickness = thickness
+        self.case_thickness = case_thickness
 
-    def create_magnet(self):
-        """Creates a single magnet coil CAD solid in CadQuery.
+    def _create_magnet_solid(self, width, thickness):
+        """Creates a single magnet CAD solid in CadQuery.
+        (Internal function not intended to be called externally)
+
+        Arguments:
+            width (float): width of solid cross-section in toroidal direction
+                [cm].
+            thickness (float): thickness of solid cross-section in radial
+                direction [cm].
 
         Returns:
-            coil (object): cq.Solid object representing a single magnet coil.
+            (object): cq.Solid object representing a single magnet volume.
         """
         # Sample filament coordinates and tangents by modifier
         coords = self.coords[0 : -1 : self.sample_mod]
@@ -663,8 +760,8 @@ class MagnetCoil(object):
         for edge_offset in edge_offsets:
             coil_edge = (
                 coords
-                + edge_offset[0] * binormals * (self.width / 2)
-                + edge_offset[1] * normals * (self.thickness / 2)
+                + edge_offset[0] * binormals * (width / 2)
+                + edge_offset[1] * normals * (thickness / 2)
             )
 
             coil_edge_coords.append(
@@ -685,7 +782,35 @@ class MagnetCoil(object):
         ]
 
         shell = cq.Shell.makeShell(face_list)
-        self.solid = cq.Solid.makeSolid(shell)
+
+        return cq.Solid.makeSolid(shell)
+
+    def create_magnet(self, toroidal_domain):
+        """Creates a single magnet coil CAD solid in CadQuery.
+
+        Arguments:
+            toroidal_domain (object): cq.Solid object representing the boundary
+                of the toroidal domain of the magnets.
+
+        Returns:
+            coil (object): cq.Solid object representing a single magnet coil.
+        """
+        outer_solid = self._create_magnet_solid(self.width, self.thickness)
+        outer_solid = outer_solid.intersect(toroidal_domain)
+
+        if self.case_thickness != 0.0:
+            inner_solid = self._create_magnet_solid(
+                self.width - 2 * self.case_thickness,
+                self.thickness - 2 * self.case_thickness,
+            )
+            inner_solid = inner_solid.intersect(toroidal_domain)
+
+            cut_solid = outer_solid.cut(inner_solid)
+
+            self.solids = [cut_solid, inner_solid]
+
+        else:
+            self.solids = [outer_solid]
 
 
 def parse_args():
