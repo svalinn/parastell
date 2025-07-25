@@ -186,12 +186,6 @@ def make_material_block(mat_tag, block_id, vol_id_str):
     cubit.cmd(f'block {block_id} material "{mat_tag}"')
 
 
-def imprint_and_merge():
-    """Imprints and merges all volumes in Cubit."""
-    cubit.cmd("imprint volume all")
-    cubit.cmd("merge volume all")
-
-
 def orient_spline_surfaces(volume_id):
     """Extracts the inner and outer surface IDs for a given ParaStell in-vessel
     component volume in Coreform Cubit.
@@ -237,6 +231,16 @@ def merge_surfaces(surface_1, surface_2):
         surface_2 (int): Cubit ID of the other surface to be merged.
     """
     cubit.cmd(f"merge surface {surface_1} {surface_2}")
+
+
+def merge_volumes(volume_1, volume_2):
+    """Merges two volumes in Cubit.
+
+    Arguments:
+        surface_1 (int): Cubit ID of one volume to be merged.
+        surface_2 (int): Cubit ID of the other volume to be merged.
+    """
+    cubit.cmd(f"merge surface {volume_1} {volume_2}")
 
 
 def mesh_volume_auto_factor(volume_ids=None, mesh_size=5.0):
