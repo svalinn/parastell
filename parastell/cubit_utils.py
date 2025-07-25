@@ -233,14 +233,14 @@ def merge_surfaces(surface_1, surface_2):
     cubit.cmd(f"merge surface {surface_1} {surface_2}")
 
 
-def merge_volumes(volume_1, volume_2):
+def merge_volumes(volume_ids):
     """Merges two volumes in Cubit.
 
     Arguments:
-        surface_1 (int): Cubit ID of one volume to be merged.
-        surface_2 (int): Cubit ID of the other volume to be merged.
+        volume_ids (iterable of int): Cubit IDs of volumes to be merged.
     """
-    cubit.cmd(f"merge surface {volume_1} {volume_2}")
+    volume_id_str = " ".join(str(i) for i in volume_ids)
+    cubit.cmd(f"merge volume {volume_id_str}")
 
 
 def mesh_volume_auto_factor(volume_ids=None, mesh_size=5.0):

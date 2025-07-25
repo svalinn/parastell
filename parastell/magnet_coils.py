@@ -81,7 +81,7 @@ class MagnetSet(ABC):
         for outer_volume_idx, inner_volume_idx in zip(
             self.volume_ids[::2], self.volume_ids[1::2]
         ):
-            merge_volumes(outer_volume_idx, inner_volume_idx)
+            merge_volumes([outer_volume_idx, inner_volume_idx])
 
     def mesh_magnets_cubit(
         self,
