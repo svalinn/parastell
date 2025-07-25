@@ -14,7 +14,6 @@ from .cubit_utils import (
     export_dagmc_cubit,
     export_cub5,
     make_material_block,
-    imprint_and_merge,
 )
 from .utils import read_yaml_config, filter_kwargs, m2cm, combine_dagmc_models
 from .pystell import read_vmec
@@ -290,7 +289,13 @@ class Stellarator(object):
         self.invessel_build.export_mesh_cubit(filename, export_dir=export_dir)
 
     def construct_magnets_from_filaments(
-        self, coils_file, width, thickness, toroidal_extent, **kwargs
+        self,
+        coils_file,
+        width,
+        thickness,
+        toroidal_extent,
+        case_thickness=0.0,
+        **kwargs,
     ):
         """Constructs MagnetSetFromFilaments class object.
 
@@ -301,6 +306,9 @@ class Stellarator(object):
             thickness (float): thickness of coil cross-section in radial
                 direction [cm].
             toroidal_extent (float): toroidal extent to model [deg].
+            case_thickness (float): thickness of outer coil casing (defaults to
+                0.0) [cm]. This amount will be subtracted from the width and
+                thickness parameters to form the inner coil volume.
 
         Optional attributes:
             start_line (int): starting line index for data in filament data file
@@ -317,6 +325,7 @@ class Stellarator(object):
             width,
             thickness,
             toroidal_extent,
+            case_thickness=case_thickness,
             logger=self._logger,
             **kwargs,
         )
@@ -359,6 +368,7 @@ class Stellarator(object):
         mesh_size=5,
         anisotropic_ratio=100.0,
         deviation_angle=5.0,
+        volumes_to_mesh="both",
         export_dir="",
     ):
         """Creates a tetrahedral mesh of magnet volumes via Coreform Cubit and
@@ -374,6 +384,9 @@ class Stellarator(object):
             deviation_angle (float): controls deviation angle of facet from
                 surface (i.e., lesser deviation angle results in more elements
                 in areas with higher curvature) (defaults to 5.0).
+            volumes_to_mesh (str): volumes to include in mesh. Acceptable
+                values are "inner", "outer", and "both" (defaults to "both").
+                If no casing was modeled, use "both".
             export_dir (str): directory to which to export the h5m output file
                 (defaults to empty string).
         """
@@ -381,6 +394,7 @@ class Stellarator(object):
             mesh_size=mesh_size,
             anisotropic_ratio=anisotropic_ratio,
             deviation_angle=deviation_angle,
+            volumes_to_mesh=volumes_to_mesh,
         )
         self.magnet_set.export_mesh_cubit(
             filename=filename, export_dir=export_dir
@@ -389,9 +403,10 @@ class Stellarator(object):
     def export_magnet_mesh_gmsh(
         self,
         filename="magnet_mesh",
-        min_mesh_size=20.0,
-        max_mesh_size=50.0,
+        min_mesh_size=5.0,
+        max_mesh_size=20.0,
         algorithm=1,
+        volumes_to_mesh="both",
         export_dir="",
     ):
         """Creates a tetrahedral mesh of magnet volumes via Coreform Cubit and
@@ -411,6 +426,9 @@ class Stellarator(object):
                 5: Delaunay, 6: Frontal-Delaunay, 7: BAMG, 8: Frontal-Delaunay
                 for Quads, 9: Packing of Parallelograms, 11: Quasi-structured
                 Quad.
+            volumes_to_mesh (str): volumes to include in mesh. Acceptable
+                values are "inner", "outer", and "both" (defaults to "both").
+                If no casing was modeled, use "both".
             export_dir (str): directory to which to export the h5m output file
                 (defaults to empty string).
         """
@@ -418,6 +436,7 @@ class Stellarator(object):
             min_mesh_size=min_mesh_size,
             max_mesh_size=max_mesh_size,
             algorithm=algorithm,
+            volumes_to_mesh=volumes_to_mesh,
         )
         self.magnet_set.export_mesh_gmsh(
             filename=filename, export_dir=export_dir
@@ -478,10 +497,20 @@ class Stellarator(object):
         (Internal function not intended to be called externally)
         """
         if self.magnet_set:
-            vol_list = list(self.magnet_set.volume_ids)
-            block_id = min(vol_list)
-            vol_id_str = " ".join(str(i) for i in vol_list)
-            make_material_block(self.magnet_set.mat_tag, block_id, vol_id_str)
+            if len(self.magnet_set.mat_tag) == 1:
+                volume_ids = list(self.magnet_set.volume_ids)
+                volume_id_str = " ".join(str(i) for i in volume_ids)
+                block_id = min(volume_ids)
+                make_material_block(
+                    self.magnet_set.mat_tag, block_id, volume_id_str
+                )
+            else:
+                for idx, _ in enumerate("outer", "inner"):
+                    mat_tag = self.magnet_set.mat_tag[0]
+                    volume_ids = list(self.magnet_set.volume_ids[idx::2])
+                    volume_id_str = " ".join(str(i) for i in volume_ids)
+                    block_id = min(volume_ids)
+                    make_material_block(mat_tag, block_id, volume_id_str)
 
         if self.invessel_build and not self.invessel_build.use_pydagmc:
             for data in self.invessel_build.radial_build.radial_build.values():
@@ -489,14 +518,9 @@ class Stellarator(object):
                 vol_id_str = str(block_id)
                 make_material_block(data["mat_tag"], block_id, vol_id_str)
 
-    def build_cubit_model(self, skip_imprint=False):
+    def build_cubit_model(self):
         """Build model for DAGMC neutronics H5M file of Parastell components via
-        Coreform Cubit
-
-        Arguments:
-            skip_imprint (bool): choose whether to imprint and merge all in
-                Coreform Cubit or to merge surfaces based on import order and
-                geometry information (optional, defaults to False).
+        Coreform Cubit.
         """
         self._logger.info(
             "Building DAGMC neutronics model via Coreform Cubit..."
@@ -507,14 +531,13 @@ class Stellarator(object):
 
         if self.invessel_build and not self.use_pydagmc:
             self.invessel_build.import_step_cubit()
-            if skip_imprint:
-                self.invessel_build.merge_layer_surfaces()
+            self.invessel_build.merge_surfaces()
 
         if self.magnet_set:
             self.magnet_set.import_geom_cubit()
-
-        if not skip_imprint:
-            imprint_and_merge()
+            # Merge magnet volumes if casing was built
+            if self.magnet_set.case_thickness != 0.0:
+                self.magnet_set.merge_surfaces()
 
         self._tag_materials()
 
@@ -587,10 +610,25 @@ class Stellarator(object):
             self._material_tags.extend(ivb_material_tags)
 
         if self.magnet_set:
-            solids.extend(self.magnet_set.coil_solids)
-            self._material_tags.extend(
-                [self.magnet_set.mat_tag] * len(self.magnet_set.coil_solids)
-            )
+            magnet_solids = [
+                solid
+                for solids in self.magnet_set.coil_solids
+                for solid in solids
+            ]
+            solids.extend(magnet_solids)
+
+            if len(self.magnet_set.mat_tag) == 1:
+                magnet_mat_tags = [self.magnet_set.mat_tag] * len(
+                    magnet_solids
+                )
+            else:
+                magnet_mat_tags = [
+                    mat_tag
+                    for _ in self.maget_set.coil_solids
+                    for mat_tag in self.magnet_set.mat_tag
+                ]
+
+            self._material_tags.extend(magnet_mat_tags)
 
         self._geometry = cq.Compound.makeCompound(solids)
 
