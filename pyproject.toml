@@ -6,20 +6,20 @@ version = "0.0.2"
 readme = "README.md"
 requires-python = ">=3.11.0"
 maintainers = [
-	{name = "Connor Moreno", email = "camoreno@wisc.edu"},
-	{name = "Paul Wilson", email = "paul.wilson@wisc.edu"}
+    {name = "Connor Moreno", email = "camoreno@wisc.edu"},
+    {name = "Paul Wilson", email = "paul.wilson@wisc.edu"}
 ]
 
 authors = [
-	{name = "Connor Moreno"},
-	{name = "Edgar Pflug"},
-	{name = "Paul Wilson"},
-	{name = "Eitan Weinstein"},
-	{name = "Enrique Miralles-Dolz"},
-	{name = "Joshua Smandych"},
-	{name = "Paul Romano"},
-	{name = "Bowen Quan"},
-	{name = "Jonathan Shimwell"}
+    {name = "Connor Moreno"},
+    {name = "Edgar Pflug"},
+    {name = "Paul Wilson"},
+    {name = "Eitan Weinstein"},
+    {name = "Enrique Miralles-Dolz"},
+    {name = "Joshua Smandych"},
+    {name = "Paul Romano"},
+    {name = "Bowen Quan"},
+    {name = "Jonathan Shimwell"}
 ]
 
 keywords = ["stellarator", "fusion", "reactor", "parametric", "cad", "model", "dagmc", "geometry"]
@@ -39,16 +39,16 @@ classifiers = [
 ]
 
 dependencies = [
-	"numpy~=1.26.4",
-	"scipy",
-	"cadquery",
-	"pymoab~=5.5.1",
-	"cad_to_dagmc>=0.9.1",
-	"openmc>=0.15.0",
-	"matplotlib",
-	"netcdf4",
-	"pyyaml",
-        "pydagmc"
+    "numpy>=1.26.4",
+    "scipy",
+    "cadquery",
+    "pymoab>=5.5.1",
+    "cad_to_dagmc>=0.9.1",
+    "openmc>=0.15.0",
+    "matplotlib",
+    "netcdf4",
+    "pyyaml",
+    "pydagmc"
 ]
 
 [project.optional-dependencies]
