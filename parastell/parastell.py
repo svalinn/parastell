@@ -747,7 +747,7 @@ class Stellarator(object):
 
 def parse_args():
     """Parser for running as a script."""
-    parser = argparse.ArgumentParser(prog="stellarator")
+    parser = argparse.ArgumentParser(prog="parastell")
 
     parser.add_argument(
         "filename",
