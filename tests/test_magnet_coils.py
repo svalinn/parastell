@@ -79,7 +79,7 @@ def filament_not_crossing_mp():
 
 @pytest.fixture
 def single_coil(filament_crossing_mp):
-    return magnet_coils.MagnetCoil(filament_crossing_mp, 10, 20, 1)
+    return magnet_coils.MagnetCoil(filament_crossing_mp, 10, 20, 0, 1)
 
 
 def test_filament_crossing_mp(filament_crossing_mp):
@@ -149,7 +149,7 @@ def test_single_coil(single_coil):
     remove_files()
 
     single_coil.create_magnet()
-    cq.exporters.export(single_coil.solid, "single_coil.step")
+    cq.exporters.export(single_coil.solids[0], "single_coil.step")
     assert Path("single_coil.step").exists()
 
     remove_files()
@@ -278,5 +278,5 @@ def test_zero_volume_volumes():
     ms = magnet_coils.MagnetSetFromFilaments(test_filaments, 40, 40, 89.8)
     ms.populate_magnet_coils()
     ms.build_magnet_coils()
-    for solid in ms.coil_solids:
-        assert not np.isclose(solid.Volume(), 0)
+    for solids in ms.coil_solids:
+        assert not np.isclose(solids[0].Volume(), 0)
