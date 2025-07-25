@@ -69,6 +69,12 @@ Now that all dependencies have been installed, you can install ParaStell with `p
 pip install .
 ```
 
+or to install in develop mode for `pytest` and other support run:
+
+``` bash
+pip install .[develop]
+```
+
 ## Executing ParaStell Scripts with YAML Input
 While ParaStell can imported as a module to make use of its Python API, ParaStell also has an executable to alternatively call functionality via command line. This executable uses a YAML configuration file as a command-line argument to define input parameters.
 
