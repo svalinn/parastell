@@ -124,17 +124,34 @@ def test_ribs_from_kisslinger_format():
         and poloidal angles expected.
       * The first and last ribs have the same R, Z data.
       * The first and second ribs do not have the same R, Z data.
+      * Data is formatted correctly.
     """
-    ribs_file = Path("files_for_tests") / "kisslinger_file_example.txt"
+    original_ribs_file = (
+        Path("files_for_tests") / "kisslinger_file_example.txt"
+    )
+    scrambled_ribs_file = (
+        Path("files_for_tests") / "kisslinger_file_scrambled.txt"
+    )
 
     (
-        custom_surface_toroidal_angles,
+        _,
+        _,
+        _,
+        _,
+        original_surface_coords,
+    ) = ribs_from_kisslinger_format(
+        original_ribs_file,
+        delimiter=" ",
+        scale=1,
+    )
+    (
+        toroidal_angles,
         num_toroidal_angles,
         num_poloidal_angles,
         periods,
-        custom_surface_rz_ribs,
+        unscrambled_surface_coords,
     ) = ribs_from_kisslinger_format(
-        ribs_file,
+        scrambled_ribs_file,
         delimiter=" ",
         scale=1,
     )
@@ -142,16 +159,17 @@ def test_ribs_from_kisslinger_format():
     num_toroidal_angles_exp = 121
     num_poloidal_angles_exp = 121
     periods_exp = 4
-    custom_surface_rz_ribs_shape_exp = (121, 121, 2)
+    surface_coords_shape_exp = (121, 121, 2)
 
-    assert np.allclose(np.linspace(0, 90, 121), custom_surface_toroidal_angles)
-    assert num_toroidal_angles_exp == num_toroidal_angles
-    assert num_poloidal_angles_exp == num_poloidal_angles
-    assert periods_exp == periods
-    assert custom_surface_rz_ribs_shape_exp == custom_surface_rz_ribs.shape
+    assert np.allclose(np.linspace(0, 90, 121), toroidal_angles)
+    assert num_toroidal_angles == num_toroidal_angles_exp
+    assert num_poloidal_angles == num_poloidal_angles_exp
+    assert periods == periods_exp
+    assert unscrambled_surface_coords.shape == surface_coords_shape_exp
     assert np.allclose(
-        custom_surface_rz_ribs[0] - custom_surface_rz_ribs[-1], 0
+        unscrambled_surface_coords[0] - unscrambled_surface_coords[-1], 0
     )
     assert not np.allclose(
-        custom_surface_rz_ribs[0], custom_surface_rz_ribs[1]
+        unscrambled_surface_coords[0], unscrambled_surface_coords[1]
     )
+    assert np.allclose(unscrambled_surface_coords, original_surface_coords)

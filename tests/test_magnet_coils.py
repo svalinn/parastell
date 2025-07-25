@@ -55,9 +55,13 @@ def filament_crossing_mp():
     coords = np.array(
         [
             [100, 0, 0],
+            [87.5, 0, 12.5],
             [75, 0, 25],
+            [62.5, 0, 12.5],
             [50, 0, 0],
+            [62.5, 0, -12.5],
             [75, 0, -25],
+            [87.5, 0, -12.5],
             [100, 0, 0],
         ]
     )
@@ -93,9 +97,13 @@ def test_filament_crossing_mp(filament_crossing_mp):
     tangents_exp = np.array(
         [
             [0.0, 0.0, 1.0],
+            [-1 / np.sqrt(2), 0, 1 / np.sqrt(2)],
             [-1.0, 0.0, 0.0],
+            [-1 / np.sqrt(2), 0, -1 / np.sqrt(2)],
             [0.0, 0.0, -1.0],
+            [1 / np.sqrt(2), 0, -1 / np.sqrt(2)],
             [1.0, 0.0, 0.0],
+            [1 / np.sqrt(2), 0, 1 / np.sqrt(2)],
             [0.0, 0.0, 1.0],
         ]
     )
@@ -109,7 +117,7 @@ def test_filament_crossing_mp(filament_crossing_mp):
     assert np.isclose(
         com_toroidal_angle_exp, filament_crossing_mp.com_toroidal_angle
     )
-    assert filament_crossing_mp.get_ob_mp_index() == ob_mp_idx_exp
+    assert filament_crossing_mp.get_obmp_index() == ob_mp_idx_exp
 
 
 def test_filament_not_crossing_mp(filament_not_crossing_mp):
@@ -138,7 +146,7 @@ def test_filament_not_crossing_mp(filament_not_crossing_mp):
     assert np.isclose(
         com_toroidal_angle_exp, filament_not_crossing_mp.com_toroidal_angle
     )
-    assert filament_not_crossing_mp.get_ob_mp_index() == ob_mp_idx_exp
+    assert filament_not_crossing_mp.get_obmp_index() == ob_mp_idx_exp
 
 
 def test_single_coil(single_coil):

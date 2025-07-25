@@ -133,7 +133,7 @@ class VMECSurface(ReferenceSurface):
 
 class RibBasedSurface(ReferenceSurface):
     """An object that uses closed loops of R, Z points (ribs) on planes of
-    constant toroidal angle to approximate the innermost surface of an in
+    constant toroidal angle to approximate the first wall surface of an in-
     vessel build. This class must be used with split_chamber = False.
 
     Arguments:
@@ -141,7 +141,18 @@ class RibBasedSurface(ReferenceSurface):
             dimension corresponds to the plane of constant toroidal angle on
             which the closed loop of points lies. The second dimension is the
             location on the closed loop at which the point lies, and the third
-            dimension is the R, Z values of that point.
+            dimension is the R, Z values of that point. ParaStell expects the
+            following from this data set:
+            - The data spans exactly one field period
+            - The coordinates of each toroidal slice (rib) precess counter-
+              clockwise
+            - The coordinates obey helical (stellarator) symmetry, i.e.,
+                - The (R,Z) coordinates of the first and final ribs are exactly
+                  equal
+                - The (R,Z) coordinates of the first, toroidal midplane, and
+                  final ribs are symmetric about the axial midplane
+                - The (R,Z) coordinates each half-period are a helical
+                  reflection of the other half-period
         toroidal_angles (iterable of float): List of toroidal angles
             corresponding to the first dimension of rib_data. Measured in
             degrees.
