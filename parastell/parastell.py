@@ -497,20 +497,20 @@ class Stellarator(object):
         (Internal function not intended to be called externally)
         """
         if self.magnet_set:
-            if len(self.magnet_set.mat_tag) == 1:
-                volume_ids = list(self.magnet_set.volume_ids)
-                volume_id_str = " ".join(str(i) for i in volume_ids)
-                block_id = min(volume_ids)
-                make_material_block(
-                    self.magnet_set.mat_tag, block_id, volume_id_str
-                )
-            else:
+            if isinstance(self.magnet_set.mat_tag, (list, tuple)):
                 for idx, _ in enumerate(["outer", "inner"]):
                     mat_tag = self.magnet_set.mat_tag[0]
                     volume_ids = list(self.magnet_set.volume_ids[idx::2])
                     volume_id_str = " ".join(str(i) for i in volume_ids)
                     block_id = min(volume_ids)
                     make_material_block(mat_tag, block_id, volume_id_str)
+            else:
+                volume_ids = list(self.magnet_set.volume_ids)
+                volume_id_str = " ".join(str(i) for i in volume_ids)
+                block_id = min(volume_ids)
+                make_material_block(
+                    self.magnet_set.mat_tag, block_id, volume_id_str
+                )
 
         if self.invessel_build and not self.invessel_build.use_pydagmc:
             for data in self.invessel_build.radial_build.radial_build.values():
@@ -536,7 +536,9 @@ class Stellarator(object):
         if self.magnet_set:
             self.magnet_set.import_geom_cubit()
             # Merge magnet volumes if casing was built
-            if self.magnet_set.case_thickness != 0.0:
+            if (hasattr(self.magnet_set, "case_thickness")) and (
+                self.magnet_set.case_thickness != 0.0
+            ):
                 self.magnet_set.merge_surfaces()
 
         self._tag_materials()
@@ -617,16 +619,16 @@ class Stellarator(object):
             ]
             solids.extend(magnet_solids)
 
-            if len(self.magnet_set.mat_tag) == 1:
-                magnet_mat_tags = [self.magnet_set.mat_tag] * len(
-                    magnet_solids
-                )
-            else:
+            if isinstance(self.magnet_set.mat_tag, (list, tuple)):
                 magnet_mat_tags = [
                     mat_tag
                     for _ in self.magnet_set.coil_solids
                     for mat_tag in self.magnet_set.mat_tag
                 ]
+            else:
+                magnet_mat_tags = [self.magnet_set.mat_tag] * len(
+                    magnet_solids
+                )
 
             self._material_tags.extend(magnet_mat_tags)
 
