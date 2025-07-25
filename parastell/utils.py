@@ -169,7 +169,6 @@ def enforce_helical_symmetry_coords(coords):
 
     # Reflect initial poloidal profile about midplane
     coords[0, math.ceil(num_columns / 2) : -1, -1] *= -1
-    # TODO: document Kisslinger expectations, central difference for normal
 
     # Ensure helical symmetry toroidally and poloidally by mirroring the period
     # about both coords axes
