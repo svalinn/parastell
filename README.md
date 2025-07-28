@@ -47,8 +47,6 @@ conda env create -f environment.yml
 conda activate parastell_env
 ```
 
-Alternatively, view `INSTALL.md` for instructions on manually installing these Python dependencies using mamba.
-
 ### Install Coreform Cubit
 To make use of ParaStell's Cubit functionality, download and install the latest version from [Coreform's Website](https://coreform.com/products/downloads/), then add the `/Coreform-Cubit-[version]/bin/` directory to your `PYTHONPATH` by adding a line similar to the following to your `.bashrc` file:
 
