@@ -39,7 +39,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "numpy>=1.26.4",
+    "numpy",
     "scipy",
     "cadquery",
     "pymoab>=5.5.1",
