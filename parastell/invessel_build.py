@@ -91,7 +91,9 @@ class ReferenceSurface(ABC):
         """
         pass
 
-    def calculate_tangents(self, toroidal_angle, poloidal_angles, s, scale):
+    def calculate_tangents(
+        self, toroidal_angle, poloidal_angles, s, scale, poloidal_perturbation
+    ):
         """Compute the tangents of a set of points, defined by a set of
         poloidal angles, at a given toroidal angle.
 
@@ -103,12 +105,21 @@ class ReferenceSurface(ABC):
             s (float): Generic parameter which may affect the evaluation of
                 the cartesian coordinate at a given angle pair.
             scale (float): a scaling factor between input and output data.
+            poloidal_perturbation (float): perturbation to apply to poloidal
+                angles for computing profile tangents via central difference.
 
         Returns:
             (Nx3 numpy.array): array of poloidal tangents at each angle pair
                 specified.
         """
-        pass
+        backward_pt_loci = self.angles_to_xyz(
+            toroidal_angle, poloidal_angles - poloidal_perturbation, s, scale
+        )
+        forward_pt_loci = self.angles_to_xyz(
+            toroidal_angle, poloidal_angles + poloidal_perturbation, s, scale
+        )
+
+        return normalize(forward_pt_loci - backward_pt_loci)
 
 
 class VMECSurface(ReferenceSurface):
@@ -125,6 +136,8 @@ class VMECSurface(ReferenceSurface):
 
     def __init__(self, vmec_obj):
         self.vmec_obj = vmec_obj
+
+        self.poloidal_perturbation = 1e-4
 
     def angles_to_xyz(self, toroidal_angle, poloidal_angles, s, scale):
         """Evaluate the Cartesian coordinates for a set of toroidal and
@@ -151,34 +164,6 @@ class VMECSurface(ReferenceSurface):
 
         return np.array(coords) * scale
 
-    def calculate_tangents(self, toroidal_angle, poloidal_angles, s, scale):
-        """Compute the tangents of a set of points, defined by a set of
-        poloidal angles, at a given toroidal angle.
-
-        Arguments:
-            toroidal_angles (float): toroidal angle at which to evaluate
-                tangents [rad].
-            poloidal_angles (iterable of float): poloidal angles at which to
-                evaluate tangents [rad].
-            s (float): the normalized closed flux surface label defining the
-                point of reference for offset.
-            scale (float): a scaling factor between input and output data.
-
-        Returns:
-            (Nx3 numpy.array): array of poloidal tangents at each angle pair
-                specified.
-        """
-        eps = 1e-4
-
-        backward_pt_loci = self.angles_to_xyz(
-            toroidal_angle, poloidal_angles - eps, s, scale
-        )
-        forward_pt_loci = self.angles_to_xyz(
-            toroidal_angle, poloidal_angles + eps, s, scale
-        )
-
-        return normalize(forward_pt_loci - backward_pt_loci)
-
 
 class RibBasedSurface(ReferenceSurface):
     """An object that uses closed loops of R, Z points (ribs) on planes of
@@ -203,6 +188,9 @@ class RibBasedSurface(ReferenceSurface):
         self.rib_data = rib_data
         self.toroidal_angles = toroidal_angles
         self.poloidal_angles = poloidal_angles
+
+        self.poloidal_perturbation = 1e-1
+
         self.build_analytic_surface()
 
     def _extract_rib_data(self, ribs, toroidal_angles, poloidal_angles):
@@ -315,34 +303,6 @@ class RibBasedSurface(ReferenceSurface):
             coords.append(coord)
 
         return np.array(coords) * scale
-
-    def calculate_tangents(self, toroidal_angle, poloidal_angles, s, scale):
-        """Compute the tangents of a set of points, defined by a set of
-        poloidal angles, at a given toroidal angle. Takes s as a argument for
-        compatibility, but does nothing with it.
-
-        Arguments:
-            toroidal_angles (float): toroidal angle at which to evaluate
-                tangents [rad].
-            poloidal_angles (iterable of float): poloidal angles at which to
-                evaluate tangents [rad].
-            s (float): not used.
-            scale (float): a scaling factor between input and output data.
-
-        Returns:
-            (Nx3 numpy.array): array of poloidal tangents at each angle pair
-                specified.
-        """
-        eps = 1e-1
-
-        backward_pt_loci = self.angles_to_xyz(
-            toroidal_angle, poloidal_angles - eps, s, scale
-        )
-        forward_pt_loci = self.angles_to_xyz(
-            toroidal_angle, poloidal_angles + eps, s, scale
-        )
-
-        return normalize(forward_pt_loci - backward_pt_loci)
 
 
 class InVesselBuild(object):
@@ -1225,7 +1185,11 @@ class Rib(object):
                 surface rib [cm].
         """
         tangents = self.ref_surf.calculate_tangents(
-            self.phi, self.theta_list, self.s, self.scale
+            self.phi,
+            self.theta_list,
+            self.s,
+            self.scale,
+            self.ref_surf.poloidal_perturbation,
         )
 
         plane_norm = np.array([-np.sin(self.phi), np.cos(self.phi), 0])
