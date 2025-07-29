@@ -91,9 +91,7 @@ class ReferenceSurface(ABC):
         """
         pass
 
-    def calculate_tangents(
-        self, toroidal_angle, poloidal_angles, s, scale, poloidal_perturbation
-    ):
+    def calculate_tangents(self, toroidal_angle, poloidal_angles, s, scale):
         """Compute the tangents of a set of points, defined by a set of
         poloidal angles, at a given toroidal angle.
 
@@ -105,18 +103,22 @@ class ReferenceSurface(ABC):
             s (float): Generic parameter which may affect the evaluation of
                 the cartesian coordinate at a given angle pair.
             scale (float): a scaling factor between input and output data.
-            poloidal_perturbation (float): perturbation to apply to poloidal
-                angles for computing profile tangents via central difference.
 
         Returns:
             (Nx3 numpy.array): array of poloidal tangents at each angle pair
                 specified.
         """
         backward_pt_loci = self.angles_to_xyz(
-            toroidal_angle, poloidal_angles - poloidal_perturbation, s, scale
+            toroidal_angle,
+            poloidal_angles - self.poloidal_perturbation,
+            s,
+            scale,
         )
         forward_pt_loci = self.angles_to_xyz(
-            toroidal_angle, poloidal_angles + poloidal_perturbation, s, scale
+            toroidal_angle,
+            poloidal_angles + self.poloidal_perturbation,
+            s,
+            scale,
         )
 
         return normalize(forward_pt_loci - backward_pt_loci)
@@ -182,14 +184,22 @@ class RibBasedSurface(ReferenceSurface):
         poloidal_angles (iterable of float): List of poloidal angles
             corresponding to the second dimension of rib_data. Measured in
             degrees. Should start at 0 degrees and end at 360 degrees.
+
+    Optional attributes:
+        poloidal_perturbation (float): perturbation to apply to poloidal angles
+            for computing profile tangents via central difference (defaults to
+            1e-4).
     """
 
-    def __init__(self, rib_data, toroidal_angles, poloidal_angles):
+    def __init__(self, rib_data, toroidal_angles, poloidal_angles, **kwargs):
         self.rib_data = rib_data
         self.toroidal_angles = toroidal_angles
         self.poloidal_angles = poloidal_angles
 
-        self.poloidal_perturbation = 1e-1
+        self.poloidal_perturbation = 1e-4
+
+        for name in kwargs.keys() & ("poloidal_perturbation"):
+            self.__setattr__(name, kwargs[name])
 
         self.build_analytic_surface()
 
@@ -1185,11 +1195,7 @@ class Rib(object):
                 surface rib [cm].
         """
         tangents = self.ref_surf.calculate_tangents(
-            self.phi,
-            self.theta_list,
-            self.s,
-            self.scale,
-            self.ref_surf.poloidal_perturbation,
+            self.phi, self.theta_list, self.s, self.scale
         )
 
         plane_norm = np.array([-np.sin(self.phi), np.cos(self.phi), 0])
