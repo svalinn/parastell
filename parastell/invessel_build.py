@@ -69,27 +69,59 @@ class ReferenceSurface(ABC):
     layers are built.
     """
 
-    def __init__():
-        pass
+    def __init__(self):
+        self.poloidal_perturbation = 1e-4
 
     def angles_to_xyz(self, toroidal_angle, poloidal_angles, s, scale):
         """Method to go from a location defined by two angles and some
         constant to x, y, z coordinates.
 
         Arguments:
-            toroidal_angles (float): Toroidal angle at which to
-                evaluate cartesian coordinates. Measured in radians.
-            poloidal_angles (iterable of float): Poloidal angles at which to
-                evaluate cartesian coordinates. Measured in radians.
+            toroidal_angles (float): toroidal angle at which to evaluate
+                Cartesian coordinates [rad].
+            poloidal_angles (iterable of float): poloidal angles at which to
+                evaluate Cartesian coordinates [rad].
             s (float): Generic parameter which may affect the evaluation of
                 the cartesian coordinate at a given angle pair.
             scale (float): a scaling factor between input and output data.
 
         Returns:
-            coords (numpy array): Nx3 array of Cartesian coordinates at each
+            coords (Nx3 numpy.array): array of Cartesian coordinates at each
                 angle pair specified.
         """
         pass
+
+    def calculate_tangents(self, toroidal_angle, poloidal_angles, s, scale):
+        """Compute the tangents of a set of points, defined by a set of
+        poloidal angles, at a given toroidal angle.
+
+        Arguments:
+            toroidal_angles (float): toroidal angle at which to evaluate
+                tangents [rad].
+            poloidal_angles (iterable of float): poloidal angles at which to
+                evaluate tangents [rad].
+            s (float): Generic parameter which may affect the evaluation of
+                the cartesian coordinate at a given angle pair.
+            scale (float): a scaling factor between input and output data.
+
+        Returns:
+            (Nx3 numpy.array): array of poloidal tangents at each angle pair
+                specified.
+        """
+        backward_pt_loci = self.angles_to_xyz(
+            toroidal_angle,
+            poloidal_angles - self.poloidal_perturbation,
+            s,
+            scale,
+        )
+        forward_pt_loci = self.angles_to_xyz(
+            toroidal_angle,
+            poloidal_angles + self.poloidal_perturbation,
+            s,
+            scale,
+        )
+
+        return normalize(forward_pt_loci - backward_pt_loci)
 
 
 class VMECSurface(ReferenceSurface):
@@ -105,29 +137,33 @@ class VMECSurface(ReferenceSurface):
     """
 
     def __init__(self, vmec_obj):
+        super().__init__()
+
         self.vmec_obj = vmec_obj
 
     def angles_to_xyz(self, toroidal_angle, poloidal_angles, s, scale):
-        """Evaluate the cartesian coordinates for a set of toroidal and
+        """Evaluate the Cartesian coordinates for a set of toroidal and
         poloidal angles and flux surface label.
 
         Arguments:
-            toroidal_angles (float): Toroidal angle at which to
-                    evaluate cartesian coordinates. Measured in radians.
-            poloidal_angles (iterable of float): Poloidal angles at which to
-                    evaluate cartesian coordinates. Measured in radians.
+            toroidal_angles (float): toroidal angle at which to evaluate
+                Cartesian coordinates [rad].
+            poloidal_angles (iterable of float): poloidal angles at which to
+                evaluate Cartesian coordinates [rad].
             s (float): the normalized closed flux surface label defining the
                 point of reference for offset.
             scale (float): a scaling factor between input and output data.
 
         Returns:
-            coords (numpy array): Nx3 array of Cartesian coordinates at each
+            coords (Nx3 numpy.array): array of Cartesian coordinates at each
                 poloidal angle specified.
         """
         coords = []
+
         for poloidal_angle in poloidal_angles:
             x, y, z = self.vmec_obj.vmec2xyz(s, poloidal_angle, toroidal_angle)
             coords.append([x, y, z])
+
         return np.array(coords) * scale
 
 
@@ -148,12 +184,23 @@ class RibBasedSurface(ReferenceSurface):
         poloidal_angles (iterable of float): List of poloidal angles
             corresponding to the second dimension of rib_data. Measured in
             degrees. Should start at 0 degrees and end at 360 degrees.
+
+    Optional attributes:
+        poloidal_perturbation (float): perturbation to apply to poloidal angles
+            for computing profile tangents via central difference (defaults to
+            1e-4).
     """
 
-    def __init__(self, rib_data, toroidal_angles, poloidal_angles):
+    def __init__(self, rib_data, toroidal_angles, poloidal_angles, **kwargs):
+        super().__init__()
+
         self.rib_data = rib_data
         self.toroidal_angles = toroidal_angles
         self.poloidal_angles = poloidal_angles
+
+        for name in kwargs.keys() & ("poloidal_perturbation", "stuff"):
+            self.__setattr__(name, kwargs[name])
+
         self.build_analytic_surface()
 
     def _extract_rib_data(self, ribs, toroidal_angles, poloidal_angles):
@@ -192,16 +239,16 @@ class RibBasedSurface(ReferenceSurface):
 
         # Toroidal Periodicity Before Period
         toroidal_shift = -max(self.toroidal_angles)
-        shifted_toroidal_angles = self.toroidal_angles[0:-1] + toroidal_shift
-        rib_subset = self.rib_data[0:-1]
+        shifted_toroidal_angles = self.toroidal_angles[:-1] + toroidal_shift
+        rib_subset = self.rib_data[:-1]
         self._extract_rib_data(
             rib_subset, shifted_toroidal_angles, self.poloidal_angles
         )
 
         # Poloidal Periodicity Before Period
-        poloidal_shift = -max(self.poloidal_angles)
-        shifted_poloidal_angles = self.poloidal_angles[0:-1] - poloidal_shift
-        rib_subset = self.rib_data[:, 0:-1, :]
+        poloidal_shift = -360.0
+        shifted_poloidal_angles = self.poloidal_angles[:-1] + poloidal_shift
+        rib_subset = self.rib_data[:, :-1]
         self._extract_rib_data(
             rib_subset, self.toroidal_angles, shifted_poloidal_angles
         )
@@ -222,9 +269,9 @@ class RibBasedSurface(ReferenceSurface):
         )
 
         # Poloidal Periodicity After Period
-        poloidal_shift = max(self.poloidal_angles)
+        poloidal_shift = 360.0
         shifted_poloidal_angles = self.poloidal_angles[1:] + poloidal_shift
-        rib_subset = self.rib_data[:, 1:, :]
+        rib_subset = self.rib_data[:, 1:]
         self._extract_rib_data(
             rib_subset, self.toroidal_angles, shifted_poloidal_angles
         )
@@ -242,20 +289,21 @@ class RibBasedSurface(ReferenceSurface):
         compatibility, but does nothing with it.
 
         Arguments:
-            toroidal_angles (float): Toroidal angle at which to
-                    evaluate cartesian coordinates. Measured in radians.
-            poloidal_angles (iterable of float): Poloidal angles at which to
-                    evaluate cartesian coordinates. Measured in radians.
+            toroidal_angles (float): toroidal angle at which to evaluate
+                Cartesian coordinates [rad].
+            poloidal_angles (iterable of float): poloidal angles at which to
+                evaluate Cartesian coordinates [rad].
             s (float): Not used.
             scale (float): a scaling factor between input and output data.
 
         Returns:
-            coords (numpy array): Nx3 array of Cartesian coordinates at each
+            coords (Nx3 numpy.array): array of Cartesian coordinates at each
                 angle pair specified.
         """
         coords = []
         toroidal_angle = np.rad2deg(toroidal_angle)
         poloidal_angles = np.rad2deg(poloidal_angles)
+
         for poloidal_angle in poloidal_angles:
             r = self.r_interp(toroidal_angle, poloidal_angle)
             z = self.z_interp(toroidal_angle, poloidal_angle)
@@ -1116,8 +1164,8 @@ class Rib(object):
             (phi).
         s (float): the normalized closed flux surface label defining the point
             of reference for offset.
-        phi (np.array(double)): the toroidal angle defining the plane in which
-            the rib is located [rad].
+        phi (float): the toroidal angle defining the plane in which the rib is
+            located [rad].
         theta_list (np.array(double)): the set of poloidal angles specified for
             the rib [rad].
         offset_list (np.array(double)): the set of offsets from the curve
@@ -1135,24 +1183,6 @@ class Rib(object):
         self.offset_list = offset_list
         self.scale = scale
 
-    def _calculate_cartesian_coordinates(self, poloidal_offset=0):
-        """Return an N x 3 NumPy array containing the Cartesian coordinates of
-        the points at this toroidal angle and N different poloidal angles, each
-        offset slightly.
-        (Internal function not intended to be called externally)
-
-        Arguments:
-            poloidal_offset (float) : some offset to apply to the full set of
-                poloidal angles for evaluating the location of the Cartesian
-                points (defaults to 0).
-        """
-        return self.ref_surf.angles_to_xyz(
-            self.phi,
-            self.theta_list + poloidal_offset,
-            self.s,
-            self.scale,
-        )
-
     def _normals(self):
         """Approximate the normal to the curve at each poloidal angle by first
         approximating the tangent to the curve and then taking the
@@ -1164,22 +1194,24 @@ class Rib(object):
             r_loci (np.array(double)): Cartesian point-loci of reference
                 surface rib [cm].
         """
-        eps = 1e-4
-        next_pt_loci = self._calculate_cartesian_coordinates(eps)
-
-        tangent = next_pt_loci - self.rib_loci
+        tangents = self.ref_surf.calculate_tangents(
+            self.phi, self.theta_list, self.s, self.scale
+        )
 
         plane_norm = np.array([-np.sin(self.phi), np.cos(self.phi), 0])
 
-        norm = np.cross(plane_norm, tangent)
+        normals = np.cross(plane_norm, tangents)
 
-        return normalize(norm)
+        return normalize(normals)
 
     def calculate_loci(self):
         """Generates Cartesian point-loci for stellarator rib. Sets the last
         element to the value of the first to ensure the loop is closed exactly.
         """
-        self.rib_loci = self._calculate_cartesian_coordinates()
+        self.rib_loci = self.ref_surf.angles_to_xyz(
+            self.phi, self.theta_list, self.s, self.scale
+        )
+
         if not np.all(self.offset_list == 0):
             self.rib_loci += self.offset_list[:, np.newaxis] * self._normals()
 
