@@ -79,7 +79,7 @@ def filament_not_crossing_mp():
 
 @pytest.fixture
 def single_coil(filament_crossing_mp):
-    return magnet_coils.MagnetCoil(filament_crossing_mp, 10, 20, 1)
+    return magnet_coils.MagnetCoil(filament_crossing_mp, 10, 20, 0, 1)
 
 
 def test_filament_crossing_mp(filament_crossing_mp):
@@ -149,13 +149,14 @@ def test_single_coil(single_coil):
     remove_files()
 
     single_coil.create_magnet()
-    cq.exporters.export(single_coil.solid, "single_coil.step")
+    cq.exporters.export(single_coil.solids[0], "single_coil.step")
     assert Path("single_coil.step").exists()
 
     remove_files()
 
 
-def test_magnet_construction(coil_set_from_filaments):
+@pytest.mark.parametrize("case_thickness", [0.0, 5.0])
+def test_magnet_construction(coil_set_from_filaments, case_thickness):
     """Tests whether the MagnetSetFromFilaments object is instantiated and
     constructed as expected, along with relevant data, by testing if:
         * after being set, member variables match inputs
@@ -171,8 +172,17 @@ def test_magnet_construction(coil_set_from_filaments):
     max_cs_len_exp = 50.0
     average_radial_distance_exp = 1023.7170384211436
     max_radial_distance_exp = 1646.3258131460148
-    len_coords_exp = 129
     len_coils_exp = 1
+    len_coords_exp = 129
+
+    if case_thickness == 0.0:
+        num_solids_exp = 1
+    else:
+        num_solids_exp = 2
+
+    case_thickness_exp = case_thickness
+
+    coil_set_from_filaments.case_thickness = case_thickness
 
     coil_set_from_filaments.populate_magnet_coils()
     coil_set_from_filaments.build_magnet_coils()
@@ -180,6 +190,7 @@ def test_magnet_construction(coil_set_from_filaments):
     assert coil_set_from_filaments.width == width_exp
     assert coil_set_from_filaments.thickness == thickness_exp
     assert coil_set_from_filaments.toroidal_extent == toroidal_extent_exp
+    assert coil_set_from_filaments.case_thickness == case_thickness_exp
     assert coil_set_from_filaments.max_cs_len == max_cs_len_exp
     assert (
         coil_set_from_filaments.average_radial_distance
@@ -188,16 +199,29 @@ def test_magnet_construction(coil_set_from_filaments):
     assert (
         coil_set_from_filaments.max_radial_distance == max_radial_distance_exp
     )
+    assert len(coil_set_from_filaments.magnet_coils) == len_coils_exp
 
     test_coil = coil_set_from_filaments.magnet_coils[0]
     assert len(test_coil.coords) == len_coords_exp
 
-    assert len(coil_set_from_filaments.coil_solids) == len_coils_exp
+    assert (
+        len(
+            [
+                solid
+                for solids in coil_set_from_filaments.coil_solids
+                for solid in solids
+            ]
+        )
+        == num_solids_exp
+    )
 
     remove_files()
 
 
-def test_magnet_exports_from_filaments(coil_set_from_filaments):
+@pytest.mark.parametrize("case_thickness", [0.0, 5.0])
+def test_magnet_exports_from_filaments(
+    coil_set_from_filaments, case_thickness
+):
     """Tests whether the MagnetSetFromFilaments' export functionality behaves
     as expected, by testing if:
         * the expected STEP file is produced
@@ -209,7 +233,12 @@ def test_magnet_exports_from_filaments(coil_set_from_filaments):
     """
     remove_files()
 
-    volume_ids_exp = list(range(1, 2))
+    if case_thickness == 0.0:
+        volume_ids_exp = [1]
+    else:
+        volume_ids_exp = [1, 2]
+
+    coil_set_from_filaments.case_thickness = case_thickness
 
     coil_set_from_filaments.populate_magnet_coils()
     coil_set_from_filaments.build_magnet_coils()
@@ -278,5 +307,5 @@ def test_zero_volume_volumes():
     ms = magnet_coils.MagnetSetFromFilaments(test_filaments, 40, 40, 89.8)
     ms.populate_magnet_coils()
     ms.build_magnet_coils()
-    for solid in ms.coil_solids:
-        assert not np.isclose(solid.Volume(), 0)
+    for solids in ms.coil_solids:
+        assert not np.isclose(solids[0].Volume(), 0)
