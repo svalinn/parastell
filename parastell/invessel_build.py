@@ -69,8 +69,8 @@ class ReferenceSurface(ABC):
     layers are built.
     """
 
-    def __init__():
-        pass
+    def __init__(self):
+        self.poloidal_perturbation = 1e-4
 
     def angles_to_xyz(self, toroidal_angle, poloidal_angles, s, scale):
         """Method to go from a location defined by two angles and some
@@ -137,9 +137,9 @@ class VMECSurface(ReferenceSurface):
     """
 
     def __init__(self, vmec_obj):
-        self.vmec_obj = vmec_obj
+        super().__init__()
 
-        self.poloidal_perturbation = 1e-4
+        self.vmec_obj = vmec_obj
 
     def angles_to_xyz(self, toroidal_angle, poloidal_angles, s, scale):
         """Evaluate the Cartesian coordinates for a set of toroidal and
@@ -192,13 +192,13 @@ class RibBasedSurface(ReferenceSurface):
     """
 
     def __init__(self, rib_data, toroidal_angles, poloidal_angles, **kwargs):
+        super().__init__()
+
         self.rib_data = rib_data
         self.toroidal_angles = toroidal_angles
         self.poloidal_angles = poloidal_angles
 
-        self.poloidal_perturbation = 1e-4
-
-        for name in kwargs.keys() & ("poloidal_perturbation"):
+        for name in kwargs.keys() & ("poloidal_perturbation", "stuff"):
             self.__setattr__(name, kwargs[name])
 
         self.build_analytic_surface()
