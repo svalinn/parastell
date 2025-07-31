@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.abspath("../.."))
 version = importlib.metadata.version("parastell")
 release = version
 html_logo = "parastell_logo.svg"
-favicons = ["parastell_logo.svg"]
+favicons = ["parastell_logo_sq.svg"]
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
