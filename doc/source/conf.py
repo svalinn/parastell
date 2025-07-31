@@ -18,6 +18,7 @@ sys.path.insert(0, os.path.abspath("../.."))
 
 version = importlib.metadata.version("parastell")
 release = version
+html_logo = "ParaStell-Logo.png"
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
