@@ -1346,6 +1346,7 @@ class InVesselComponentMesh(ToroidalMesh):
 
 class RadialBuild(object):
     """Parametrically defines ParaStell in-vessel component geometries.
+    
     In-vessel component thicknesses are defined on a grid of toroidal and
     poloidal angles, and the first wall profile is defined by a closed flux
     surface extrapolation.

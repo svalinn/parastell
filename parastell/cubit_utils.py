@@ -86,9 +86,11 @@ def export_step_cubit(filename, export_dir=""):
 
 def import_cub5_cubit(filename, import_dir):
     """Imports cub5 file with Coreform Cubit with default import settings.
+    
     Arguments:
         filename (str): name of cub5 input file.
         import_dir (str): directory from which to import cub5 file.
+    
     Returns:
         vol_id (int): Cubit volume ID of imported CAD solid.
     """
@@ -157,9 +159,11 @@ def tag_surface(surface_id, tag):
 def import_geom_to_cubit(filename, import_dir=""):
     """Attempts to open a geometry file with the appropriate cubit_io function,
         based on file extension
+    
     Arguments:
         filename (path): name of the file to import, including the suffix
         import_dir (str): directory from which to import the file.
+    
     Returns:
         vol_id (int): Cubit volume ID of imported CAD solid.
     """
