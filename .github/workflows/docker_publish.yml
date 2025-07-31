@@ -47,6 +47,8 @@ jobs:
       - name: Build and push ParaStell Docker image
         id: build-parastell
         uses: docker/build-push-action@v5
+        run:
+          pip install .[develop]
         with:
           no-cache: ${{ github.event.inputs.use_cache == 'false' }}
           cache-from: type=registry,ref=ghcr.io/svalinn/parastell:ci-layer-cache${{ env.EXTRA_TAG }}
@@ -70,7 +72,6 @@ jobs:
         run: |
           . /opt/etc/bashrc
           sed -e "s/@SERVER@/${rlmSERVER}/" -e "s/@PASSWORD@/${rlmPASSWD}/" /opt/Coreform-Cubit-2024.8/bin/licenses/rlmcloud.in > /opt/Coreform-Cubit-2024.8/bin/licenses/rlmcloud.lic
-          export PYTHONPATH=${PYTHONPATH}:`pwd`
           cd tests
           pytest -v .
         env:
