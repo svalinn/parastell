@@ -47,7 +47,6 @@ jobs:
       - name: Build and push ParaStell Docker image
         id: build-parastell
         uses: docker/build-push-action@v5
-        run: pip install .[develop]
         with:
           no-cache: ${{ github.event.inputs.use_cache == 'false' }}
           cache-from: type=registry,ref=ghcr.io/svalinn/parastell:ci-layer-cache${{ env.EXTRA_TAG }}
