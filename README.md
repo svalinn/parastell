@@ -1,4 +1,4 @@
-![Logo](ParaStell-Logo.png)
+![Logo](graphics/ParaStell-Logo.png)
 
 [![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/svalinn/parastell?tab=MIT-1-ov-file#readme)
 [![CI testing](https://github.com/svalinn/parastell/actions/workflows/ci.yml/badge.svg)](https://github.com/svalinn/parastell/actions/workflows/ci.yml)
