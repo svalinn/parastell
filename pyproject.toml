@@ -58,7 +58,7 @@ format = ["black==25.*"]
 
 build = ["build"]
 
-docs = ["sphinx", "sphinxcontrib.apidoc", "sphinx_rtd_theme"]
+docs = ["sphinx", "sphinxcontrib.apidoc", "sphinx_rtd_theme", "sphinx-favicon"]
 
 develop = ["parastell[test,format,build,docs]"]
 
