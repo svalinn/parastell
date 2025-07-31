@@ -73,6 +73,9 @@ Repository = "https://github.com/svalinn/parastell.git"
 requires = ["setuptools>=64.0.0"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools.packages.find]
+where=["parastell/"]
+
 [tool.black]
 line-length = 79
 target-version = ['py311', 'py312', 'py313']
