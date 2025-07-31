@@ -6,9 +6,11 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = 'ParaStell'
-copyright = '2023-2025 UW-Madison Computational Nuclear Engineering Research Group'
-author = 'Connor Moreno, Edgar Pflug, Paul Wilson, Eitan Weinstein, Enrique Miralles-Dolz, Joshua Smandych, Paul Romano, Bowen Quan, Jonathan Shimwell'
+project = "ParaStell"
+copyright = (
+    "2023-2025 UW-Madison Computational Nuclear Engineering Research Group"
+)
+author = "Connor Moreno, Edgar Pflug, Paul Wilson, Eitan Weinstein, Enrique Miralles-Dolz, Joshua Smandych, Paul Romano, Bowen Quan, Jonathan Shimwell"
 
 import importlib
 import os
@@ -31,7 +33,7 @@ extensions = [
     "sphinx_favicon",
 ]
 
-templates_path = ['_templates']
+templates_path = ["_templates"]
 exclude_patterns = []
 
 autodoc_typehints = "both"
@@ -51,11 +53,9 @@ autodoc_default_options = {
 apidoc_module_dir = "../../parastell"
 apidoc_module_first = True
 apidoc_separate_modules = True
-apidoc_excluded_paths = [
-    "tests"
-]
+apidoc_excluded_paths = ["tests"]
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = "sphinx_rtd_theme"
-html_static_path = ['_static']
+html_static_path = ["_static"]
