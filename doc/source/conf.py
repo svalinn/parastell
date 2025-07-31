@@ -30,11 +30,25 @@ extensions = [
 templates_path = ['_templates']
 exclude_patterns = []
 
+autodoc_typehints = "both"
+typehints_use_signature = True
+typehints_use_signature_return = True
+autodoc_typehints_description_target = "all"
+autodoc_member_order = "groupwise"
+# Display the version
+display_version = True
+autodoc_default_options = {
+    "autosummary": True,
+    "show-inheritance": True,
+    "inherited-members": True,
+}
 
 apidoc_module_dir = "../../parastell"
 apidoc_module_first = True
 apidoc_separate_modules = True
-
+apidoc_excluded_paths = [
+    "tests"
+]
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
