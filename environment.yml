@@ -3,15 +3,13 @@ channels:
   - conda-forge
 dependencies:
   - cadquery
-  - moab >=5.5.1[build=nompi_tempest_*]
-  - cad_to_dagmc >=0.9.1
-  - openmc >=0.15.0[build=dagmc_nompi_*]
-  - numpy
-  - scipy
+  - moab>=5.5.1[build=nompi_tempest_*]
+  - ca-certificates
+  - certifi
+  - openssl
+  - openmc>=0.15.0[build=dagmc_nompi_*]
+  - cad_to_dagmc>=0.9.1
   - matplotlib
+  - numpy 
+  - scipy
   - pip
-  - pip:
-      - netcdf4
-      - pyyaml
-      - pytest
-      - git+https://github.com/svalinn/pydagmc.git

@@ -29,7 +29,7 @@ Download and extract the ParaStell repository:
 git clone git@github.com:svalinn/parastell.git
 ```
 
-or download the ZIP file from the repository home page. Once extracted, add the repository directory to your `PYTHONPATH`.
+or download the ZIP file from the repository home page.
 
 ### Install Python Dependencies
 
@@ -47,8 +47,6 @@ conda env create -f environment.yml
 conda activate parastell_env
 ```
 
-Alternatively, view `INSTALL.md` for instructions on manually installing these Python dependencies using mamba.
-
 ### Install Coreform Cubit
 To make use of ParaStell's Cubit functionality, download and install the latest version from [Coreform's Website](https://coreform.com/products/downloads/), then add the `/Coreform-Cubit-[version]/bin/` directory to your `PYTHONPATH` by adding a line similar to the following to your `.bashrc` file:
 
@@ -61,24 +59,24 @@ While it is possible to use ParaStell with older versions of Cubit, additional s
 
 If you do not have a Coreform Cubit license, you may be able to get one through [Cubit Learn](https://coreform.com/products/coreform-cubit/free-meshing-software/) at no cost.
 
+### Finally Install Parastell
+
+Now that all dependencies have been installed, you can install ParaStell with `pip`. Run the following command from the root of the ParaStell repository:
+
+``` bash
+pip install .
+```
+
+or to install in develop mode for `pytest` and other support run:
+
+``` bash
+pip install .[develop]
+```
+
 ## Executing ParaStell Scripts with YAML Input
 While ParaStell can imported as a module to make use of its Python API, ParaStell also has an executable to alternatively call functionality via command line. This executable uses a YAML configuration file as a command-line argument to define input parameters.
 
-To make use of this feature, add the ParaStell `executables` directory to your `PATH` by adding a line similar to the following to your `.bashrc` file:
-
-```bash
-export PATH = $PATH:$HOME/parastell/executables/
-```
-
-Replace `$HOME` with the path to the ParaStell repository directory on your system. Information about adding directories to your `PATH` can be found [here](https://phoenixnap.com/kb/linux-add-to-path).
-
-Next, give any files in the `executables` directory file execution permission:
-
-```bash
-chmod -R u+x $HOME/parastell/executables/
-```
-
-Now, the executable can be run from command line with a corresponding YAML file argument. For example:
+The executable can be run from command line with a corresponding YAML file argument. For example:
 
 ```bash
 parastell config.yaml

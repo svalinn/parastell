@@ -13,8 +13,9 @@ jobs:
   test-dependency-img:
     runs-on: ubuntu-latest
     container: ghcr.io/svalinn/parastell-ci
-
+    
     name: Perform CI Tests
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
