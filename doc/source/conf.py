@@ -10,6 +10,11 @@ project = 'ParaStell'
 copyright = '2023-2025 UW-Madison Computational Nuclear Engineering Research Group'
 author = 'Connor Moreno, Edgar Pflug, Paul Wilson, Eitan Weinstein, Enrique Miralles-Dolz, Joshua Smandych, Paul Romano, Bowen Quan, Jonathan Shimwell'
 
+import os
+import sys
+
+sys.path.insert(0, os.path.abspath("../.."))
+
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
