@@ -1385,7 +1385,7 @@ class RadialBuild(object):
         logger (object): logger object (defaults to None). If no
             logger is supplied, a default logger will be instantiated.
 
-    Optional attributes:
+    Keyword Arguments:
         plasma_mat_tag (str): DAGMC material tag to use for plasma if
             split_chamber is True (defaults to 'Vacuum').
         sol_mat_tag (str): DAGMC material tag to use for scrape-off layer if
