@@ -21,7 +21,7 @@
 !config.yaml
 !wout_vmec.nc
 !one_cube.h5m
-!two_cubes.h5m
+`!two_cubes.h5m
 !nwl_geom.h5m
 !source_mesh.h5m
 !strengths.npy
@@ -161,3 +161,6 @@ dmypy.json
 
 # Viva la vim!
 *.sw*
+
+# ignore sphinx apidoc
+doc/source/api
