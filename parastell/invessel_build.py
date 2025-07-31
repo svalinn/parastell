@@ -917,6 +917,10 @@ class InVesselBuild(object):
 
         gmsh.initialize()
 
+        gmsh.option.setNumber(
+            "General.NumThreads", 0
+        )  # Use all available cores
+
         if self._use_pydagmc:
             self._gmsh_from_pydagmc(
                 components, min_mesh_size, max_mesh_size, algorithm

@@ -140,6 +140,10 @@ class MagnetSet(ABC):
 
         gmsh.initialize()
 
+        gmsh.option.setNumber(
+            "General.NumThreads", 0
+        )  # Use all available cores
+
         for solid in self.coil_solids:
             gmsh.model.occ.importShapesNativePointer(solid.wrapped._address())
 
