@@ -1361,20 +1361,20 @@ class RadialBuild(object):
             is specified. This array should always span 360 degrees [deg].
         wall_s (float): closed flux surface label extrapolation at wall.
         radial_build (dict): dictionary representing the three-dimensional
-            radial build of in-vessel components, including
-            {
-                'component': {
-                    'thickness_matrix': 2-D matrix defining component
-                        thickness at (toroidal angle, poloidal angle)
-                        locations. Rows represent toroidal angles, columns
-                        represent poloidal angles, and each must be in the same
-                        order provided in toroidal_angles and poloidal_angles
-                        [cm](ndarray(float)).
-                    'mat_tag': DAGMC material tag for component in DAGMC
-                        neutronics model (str, defaults to None). If None is
-                        supplied, the 'component' key will be used.
-                }
-            }.
+            radial build of in-vessel components, including:
+                
+                * ``'component'``: 
+                    
+                    * ``'thickness_matrix'``: 2-D matrix defining component
+                      thickness at (toroidal angle, poloidal angle)
+                      locations. Rows represent toroidal angles, columns
+                      represent poloidal angles, and each must be in the same
+                      order provided in toroidal_angles and poloidal_angles
+                      [cm](ndarray(float)).
+                    * ``'mat_tag'``: DAGMC material tag for component in DAGMC
+                      neutronics model (str, defaults to None). If None is
+                      supplied, the 'component' key will be used.
+
         split_chamber (bool): if wall_s > 1.0, separate interior vacuum
             chamber into plasma and scrape-off layer components (defaults to
             False). If an item with a 'sol' key is present in the radial_build
