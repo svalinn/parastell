@@ -32,6 +32,7 @@ templates_path = ['_templates']
 exclude_patterns = []
 
 autodoc_typehints = "both"
+autodoc_mock_imports = ["cubit"]
 typehints_use_signature = True
 typehints_use_signature_return = True
 autodoc_typehints_description_target = "all"
