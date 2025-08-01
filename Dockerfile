@@ -35,7 +35,7 @@ RUN wget -O /cubit.deb https://f002.backblazeb2.com/file/cubit-downloads/Corefor
 
 # Install Cubit
 RUN dpkg -i cubit.deb
-ENV PYTHONPATH=$PYTHONPATH:/opt/Coreform-Cubit-2024.8/bin/
+ENV PYTHONPATH=/opt/Coreform-Cubit-2024.8/bin/
 COPY ./rlmcloud.in /opt/Coreform-Cubit-2024.8/bin/licenses/rlmcloud.in
 
 RUN mkdir -p /opt/etc
@@ -46,6 +46,7 @@ COPY . .
 RUN conda env create -f environment.yml
 RUN echo "conda activate parastell_env" >> /opt/etc/bashrc
 RUN conda init && \
+    . /root/.bashrc && \
     conda activate parastell_env && \
     pip install .[develop]
 
