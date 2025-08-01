@@ -471,7 +471,6 @@ class MagnetSetFromGeometry(MagnetSet):
         super().__init__(logger, **kwargs)
         self.geometry_file = Path(geometry_file).resolve()
         self.working_dir = self.geometry_file.parent
-        self._coil_solids = None
 
         for name in kwargs.keys() & (
             "start_line",
@@ -482,14 +481,28 @@ class MagnetSetFromGeometry(MagnetSet):
             self.__setattr__(name, kwargs[name])
 
     @property
-    def coil_solids(self):
-        if self._coil_solids is None:
-            self._coil_solids = (
-                cq.importers.importStep(str(self.geometry_file))
-                .vals()[0]
-                .Solids()
-            )
-        return self._coil_solids
+    def geometry_file(self):
+        return self._geometry_file
+
+    @geometry_file.setter
+    def geometry_file(self, file_path):
+        self._geometry_file = file_path
+
+        imported_geometry = cq.importers.importStep(
+            str(self.geometry_file)
+        ).vals()
+
+        self.coil_solids = []
+        for item in imported_geometry:
+            if isinstance(item, cq.occ_impl.shapes.Compound):
+                self.coil_solids.extend(item.Solids())
+            elif isinstance(item, cq.occ_impl.shapes.Solid):
+                self.coil_solids.extend(item)
+            else:
+                e = ValueError(
+                    f"Imported object of type {type(item)} not recognized."
+                )
+                self._logger.error(e.args[0])
 
 
 class Filament(object):
