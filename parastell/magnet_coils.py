@@ -484,9 +484,11 @@ class MagnetSetFromGeometry(MagnetSet):
     @property
     def coil_solids(self):
         if self._coil_solids is None:
-            self._coil_solids = cq.importers.importStep(
-                str(self.geometry_file)
-            ).vals()
+            self._coil_solids = (
+                cq.importers.importStep(str(self.geometry_file))
+                .vals()[0]
+                .Solids()
+            )
         return self._coil_solids
 
 
