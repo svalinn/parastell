@@ -45,6 +45,6 @@ RUN cp /root/.bashrc /opt/etc/bashrc
 COPY . .
 RUN conda env create -f environment.yml
 RUN echo "conda activate parastell_env" >> /opt/etc/bashrc
-RUN pip install .[develop]
+RUN conda activate parastell_env && pip install .[develop]
 
 WORKDIR /
