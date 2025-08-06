@@ -1,7 +1,8 @@
-FROM continuumio/miniconda3 AS parastell-deps
+FROM continuumio/miniconda3:latest AS parastell-deps
 
 ENV TZ=America/Chicago
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
 RUN apt-get update -y
 RUN apt-get upgrade -y
 
@@ -38,16 +39,22 @@ RUN dpkg -i cubit.deb
 ENV PYTHONPATH=/opt/Coreform-Cubit-2024.8/bin/
 COPY ./rlmcloud.in /opt/Coreform-Cubit-2024.8/bin/licenses/rlmcloud.in
 
-RUN mkdir -p /opt/etc
-RUN cp /root/.bashrc /opt/etc/bashrc
-
 # Install Python dependencies in parastell env conda environment
+RUN mkdir parastell
+WORKDIR /parastell/
 COPY . .
+
+SHELL ["/bin/bash", "--login", "-c"]
+
 RUN conda env create -f environment.yml
-RUN echo "conda activate parastell_env" >> /opt/etc/bashrc
-RUN conda init && \
-    . /root/.bashrc && \
-    conda activate parastell_env && \
+
+RUN conda init bash
+
+RUN mkdir -p /opt/etc && \
+    cp /root/.bashrc /opt/etc/bashrc && \
+    echo "conda activate parastell_env" >> /opt/etc/bashrc
+
+RUN . /opt/etc/bashrc && \
     pip install .[develop]
 
 WORKDIR /
