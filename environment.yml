@@ -3,12 +3,10 @@ channels:
   - conda-forge
 dependencies:
   - cadquery
+  - gmsh
   - moab>=5.5.1[build=nompi_tempest_*]
-  - ca-certificates
-  - certifi
-  - openssl
-  - openmc>=0.15.0[build=dagmc_nompi_*]
   - cad_to_dagmc>=0.9.1
+  - openmc>=0.15.0[build=dagmc_nompi_*]
   - matplotlib
   - numpy 
   - scipy

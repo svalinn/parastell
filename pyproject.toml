@@ -39,13 +39,14 @@ classifiers = [
 ]
 
 dependencies = [
-    "numpy",
-    "scipy",
     "cadquery",
+    "gmsh",
     "pymoab>=5.5",
     "cad_to_dagmc>=0.9.1",
     "openmc>=0.15",
     "matplotlib",
+    "numpy",
+    "scipy",
     "netcdf4",
     "pyyaml",
     "pydagmc"
