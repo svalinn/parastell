@@ -40,8 +40,8 @@ ENV PYTHONPATH=/opt/Coreform-Cubit-2024.8/bin/
 COPY ./rlmcloud.in /opt/Coreform-Cubit-2024.8/bin/licenses/rlmcloud.in
 
 # Install Python dependencies in parastell env conda environment
-RUN mkdir parastell
-WORKDIR /parastell/
+RUN mkdir /opt/parastell
+WORKDIR /opt/parastell/
 COPY . .
 
 SHELL ["/bin/bash", "--login", "-c"]
