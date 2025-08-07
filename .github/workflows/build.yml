@@ -41,3 +41,6 @@ jobs:
 
       - name: Test running as executable module
         run: python -m parastell -h
+
+      - name: Test Python import
+        run: python -c "import parastell"
