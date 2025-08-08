@@ -48,6 +48,7 @@ class MagnetSet(ABC):
         self.logger = logger
 
         self.mat_tag = "magnets"
+        self.has_casing = False
 
         for name in kwargs.keys() & ("mat_tag",):
             self.__setattr__(name, kwargs[name])
@@ -59,6 +60,10 @@ class MagnetSet(ABC):
     @logger.setter
     def logger(self, logger_object):
         self._logger = log.check_init(logger_object)
+
+    @property
+    def all_coil_solids(self):
+        return [solid for solids in self.coil_solids for solid in solids]
 
     def import_geom_cubit(self):
         """Import geometry file for magnet set into Coreform Cubit."""
@@ -72,15 +77,16 @@ class MagnetSet(ABC):
         self.volume_ids = list(range(first_vol_id, last_vol_id + 1))
 
     def merge_surfaces(self):
-        """Merges ParaStell magnet volumes in Coreform Cubit based on volume
-        IDs rather than imprinting and merging all. Note that overlaps between
-        magnet volumes and in-vessel components will not be merged in this
-        workflow.
+        """Merges ParaStell inner and outer magnet volumes in Coreform Cubit
+        based on volume IDs rather than imprinting and merging all. Note that
+        overlaps between magnet volumes and in-vessel components will not be
+        merged in this workflow.
         """
-        for outer_volume_idx, inner_volume_idx in zip(
-            self.volume_ids[::2], self.volume_ids[1::2]
-        ):
-            merge_volumes([outer_volume_idx, inner_volume_idx])
+        if self.has_casing:
+            for outer_volume_idx, inner_volume_idx in zip(
+                self.volume_ids[::2], self.volume_ids[1::2]
+            ):
+                merge_volumes([outer_volume_idx, inner_volume_idx])
 
     def mesh_magnets_cubit(
         self,
@@ -101,7 +107,7 @@ class MagnetSet(ABC):
                 in areas with higher curvature) (defaults to 5.0).
             volumes_to_mesh (str): volumes to include in mesh. Acceptable
                 values are "inner", "outer", and "both" (defaults to "both").
-                If no casing was modeled, use "both".
+                If no casing was modeled, all volumes will be meshed.
         """
         self._logger.info("Generating tetrahedral mesh of magnet coils...")
 
@@ -110,18 +116,21 @@ class MagnetSet(ABC):
         # Overwrite any volume IDs
         self.import_geom_cubit()
 
-        if volumes_to_mesh == "inner":
-            volume_ids = self.volume_ids[1::2]
-        elif volumes_to_mesh == "outer":
-            volume_ids = self.volume_ids[::2]
-        elif volumes_to_mesh == "both":
-            volume_ids = self.volume_ids
+        if self.has_casing:
+            if volumes_to_mesh == "inner":
+                volume_ids = self.volume_ids[1::2]
+            elif volumes_to_mesh == "outer":
+                volume_ids = self.volume_ids[::2]
+            elif volumes_to_mesh == "both":
+                volume_ids = self.volume_ids
+            else:
+                e = ValueError(
+                    f"Value specified for volumes_to_mesh, {volumes_to_mesh}, "
+                    "not recognized. Please use 'inner', 'outer', or 'both'."
+                )
+                raise e
         else:
-            e = ValueError(
-                f"Value specified for volumes_to_mesh, {volumes_to_mesh}, "
-                "not recognized. Please use 'inner', 'outer', or 'both'."
-            )
-            raise e
+            volume_ids = self.volume_ids
 
         mesh_surface_coarse_trimesh(
             anisotropic_ratio=anisotropic_ratio,
@@ -170,7 +179,7 @@ class MagnetSet(ABC):
                 Quad.
             volumes_to_mesh (str): volumes to include in mesh. Acceptable
                 values are "inner", "outer", and "both" (defaults to "both").
-                If no casing was modeled, use "both".
+                If no casing was modeled, all volumes will be meshed.
         """
         self._logger.info("Generating tetrahedral mesh of magnets via Gmsh...")
 
@@ -180,20 +189,21 @@ class MagnetSet(ABC):
             "General.NumThreads", 0
         )  # Use all available cores
 
-        if volumes_to_mesh == "inner":
-            solids_to_mesh = [solids[1] for solids in self.coil_solids]
-        elif volumes_to_mesh == "outer":
-            solids_to_mesh = [solids[0] for solids in self.coil_solids]
-        elif volumes_to_mesh == "both":
-            solids_to_mesh = [
-                solid for solids in self.coil_solids for solid in solids
-            ]
+        if self.has_casing:
+            if volumes_to_mesh == "inner":
+                solids_to_mesh = [solids[1] for solids in self.coil_solids]
+            elif volumes_to_mesh == "outer":
+                solids_to_mesh = [solids[0] for solids in self.coil_solids]
+            elif volumes_to_mesh == "both":
+                solids_to_mesh = self.all_coil_solids
+            else:
+                e = ValueError(
+                    f"Value specified for volumes_to_mesh, {volumes_to_mesh}, "
+                    "not recognized. Please use 'inner', 'outer', or 'both'."
+                )
+                raise e
         else:
-            e = ValueError(
-                f"Value specified for volumes_to_mesh, {volumes_to_mesh}, "
-                "not recognized. Please use 'inner', 'outer', or 'both'."
-            )
-            raise e
+            solids_to_mesh = self.all_coil_solids
 
         mesh_geometry = cq.Compound.makeCompound(solids_to_mesh)
 
@@ -357,6 +367,7 @@ class MagnetSetFromFilaments(MagnetSet):
             raise e
 
         self._case_thickness = value
+        self.has_casing = True
 
     def _instantiate_filaments(self):
         """Extracts filament coordinate data from input data file and
@@ -546,9 +557,9 @@ class MagnetSetFromGeometry(MagnetSet):
     with previously defined geometry files.
 
     Arguments:
-        geometry_file (str): path to the existing coil geometry. Can be of
-            the types supported by cubit_io.import_geom_to_cubit(). For
-            cad_to_dagmc, only step files are supported.
+        geometry_file (str): path to the existing coil geometry. If using Cubit
+            functionality, can be of types STEP or CUB5. If using Gmsh or
+            CAD-to-DAGMC functionality, must be of type STEP.
         logger (object): logger object (optional, defaults to None). If no
             logger is supplied, a default logger will be instantiated.
 

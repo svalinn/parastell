@@ -386,7 +386,7 @@ class Stellarator(object):
                 in areas with higher curvature) (defaults to 5.0).
             volumes_to_mesh (str): volumes to include in mesh. Acceptable
                 values are "inner", "outer", and "both" (defaults to "both").
-                If no casing was modeled, use "both".
+                If no casing was modeled, all volumes will be meshed.
             export_dir (str): directory to which to export the h5m output file
                 (defaults to empty string).
         """
@@ -428,7 +428,7 @@ class Stellarator(object):
                 Quad.
             volumes_to_mesh (str): volumes to include in mesh. Acceptable
                 values are "inner", "outer", and "both" (defaults to "both").
-                If no casing was modeled, use "both".
+                If no casing was modeled, all volumes will be meshed.
             export_dir (str): directory to which to export the h5m output file
                 (defaults to empty string).
         """
@@ -612,11 +612,7 @@ class Stellarator(object):
             self._material_tags.extend(ivb_material_tags)
 
         if self.magnet_set:
-            magnet_solids = [
-                solid
-                for solids in self.magnet_set.coil_solids
-                for solid in solids
-            ]
+            magnet_solids = self.magnet_set.all_coil_solids
             solids.extend(magnet_solids)
 
             if isinstance(self.magnet_set.mat_tag, (list, tuple)):
