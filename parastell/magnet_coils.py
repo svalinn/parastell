@@ -830,10 +830,10 @@ class MagnetCoil(object):
         Returns:
             coil (object): cq.Solid object representing a single magnet coil.
         """
-        outer_solid = self._create_magnet_solid(self.width, self.thickness)
+        magnet_solid = self._create_magnet_solid(self.width, self.thickness)
 
         if toroidal_domain:
-            outer_solid = outer_solid.intersect(toroidal_domain)
+            magnet_solid = magnet_solid.intersect(toroidal_domain)
 
         if self.case_thickness != 0.0:
             inner_solid = self._create_magnet_solid(
@@ -842,12 +842,12 @@ class MagnetCoil(object):
             )
             inner_solid = inner_solid.intersect(toroidal_domain)
 
-            cut_solid = outer_solid.cut(inner_solid)
+            outer_solid = magnet_solid.cut(inner_solid)
 
-            self.solids = [cut_solid, inner_solid]
+            self.solids = [outer_solid, inner_solid]
 
         else:
-            self.solids = [outer_solid]
+            self.solids = [magnet_solid]
 
 
 def parse_args():

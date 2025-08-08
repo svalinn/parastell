@@ -535,11 +535,7 @@ class Stellarator(object):
 
         if self.magnet_set:
             self.magnet_set.import_geom_cubit()
-            # Merge magnet volumes if casing was built
-            if (hasattr(self.magnet_set, "case_thickness")) and (
-                self.magnet_set.case_thickness != 0.0
-            ):
-                self.magnet_set.merge_surfaces()
+            self.magnet_set.merge_surfaces()
 
         self._tag_materials()
 
