@@ -601,9 +601,9 @@ class MagnetSetFromGeometry(MagnetSet):
         self.coil_solids = []
         for item in imported_geometry:
             if isinstance(item, cq.occ_impl.shapes.Compound):
-                self.coil_solids.extend(item.Solids())
+                self.coil_solids.append([solid] for solid in item.Solids())
             elif isinstance(item, cq.occ_impl.shapes.Solid):
-                self.coil_solids.append(item)
+                self.coil_solids.append([item])
             else:
                 e = ValueError(
                     f"Imported object of type {type(item)} not recognized."
