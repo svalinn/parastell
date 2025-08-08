@@ -499,7 +499,7 @@ class Stellarator(object):
         if self.magnet_set:
             if isinstance(self.magnet_set.mat_tag, (list, tuple)):
                 for idx, _ in enumerate(["outer", "inner"]):
-                    mat_tag = self.magnet_set.mat_tag[0]
+                    mat_tag = self.magnet_set.mat_tag[idx]
                     volume_ids = list(self.magnet_set.volume_ids[idx::2])
                     volume_id_str = " ".join(str(i) for i in volume_ids)
                     block_id = min(volume_ids)
@@ -612,11 +612,7 @@ class Stellarator(object):
             solids.extend(magnet_solids)
 
             if isinstance(self.magnet_set.mat_tag, (list, tuple)):
-                magnet_mat_tags = [
-                    mat_tag
-                    for _ in self.magnet_set.coil_solids
-                    for mat_tag in self.magnet_set.mat_tag
-                ]
+                magnet_mat_tags = self.magnet_set.mat_tag * len(self.magnet_set.coil_solids)
             else:
                 magnet_mat_tags = [self.magnet_set.mat_tag] * len(
                     magnet_solids
