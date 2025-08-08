@@ -732,7 +732,7 @@ class InVesselBuild(object):
             [surface.get_loci() for surface in self.Surfaces.values()]
         )
 
-    def merge_layer_surfaces(self):
+    def merge_surfaces(self):
         """Merges ParaStell in-vessel component surfaces in Coreform Cubit
         based on surface IDs rather than imprinting and merging all. Assumes
         that the radial_build dictionary is ordered radially outward. Note that
