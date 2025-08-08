@@ -612,7 +612,9 @@ class Stellarator(object):
             solids.extend(magnet_solids)
 
             if isinstance(self.magnet_set.mat_tag, (list, tuple)):
-                magnet_mat_tags = self.magnet_set.mat_tag * len(self.magnet_set.coil_solids)
+                magnet_mat_tags = self.magnet_set.mat_tag * len(
+                    self.magnet_set.coil_solids
+                )
             else:
                 magnet_mat_tags = [self.magnet_set.mat_tag] * len(
                     magnet_solids
