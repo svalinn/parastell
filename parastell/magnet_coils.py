@@ -35,8 +35,11 @@ class MagnetSet(ABC):
             logger is supplied, a default logger will be instantiated.
 
     Optional attributes:
-        mat_tag (str): DAGMC material tag to use for magnets in DAGMC
-            neutronics model (defaults to 'magnets').
+        mat_tag (str or iterable of str): DAGMC material tag(s) to use for
+            magnets in DAGMC neutronics model (defaults to 'magnets'). If an
+            iterable is given, the first entry will be applied to coil casing
+            and the second to the inner volume. If just one is given, it will
+            be applied to all magnet volumes.
     """
 
     def __init__(
@@ -48,10 +51,11 @@ class MagnetSet(ABC):
         self.logger = logger
 
         self.mat_tag = "magnets"
-        self.has_casing = False
 
         for name in kwargs.keys() & ("mat_tag",):
             self.__setattr__(name, kwargs[name])
+
+        self.has_casing = False
 
     @property
     def logger(self):
@@ -71,10 +75,8 @@ class MagnetSet(ABC):
         if cubit_utils.initialized:
             first_vol_id += get_last_id("volume")
 
-        last_vol_id = import_geom_to_cubit(
-            self.geometry_file, self.working_dir
-        )
-        self.volume_ids = list(range(first_vol_id, last_vol_id + 1))
+        import_geom_to_cubit(self.geometry_file, self.working_dir)
+        self.cubit_volume_ids = self.volume_ids + first_vol_id
 
     def merge_surfaces(self):
         """Merges ParaStell inner and outer magnet volumes in Coreform Cubit
@@ -83,10 +85,7 @@ class MagnetSet(ABC):
         merged in this workflow.
         """
         if self.has_casing:
-            for outer_volume_idx, inner_volume_idx in zip(
-                self.volume_ids[::2], self.volume_ids[1::2]
-            ):
-                merge_volumes([outer_volume_idx, inner_volume_idx])
+            [merge_volumes(id_pair) for id_pair in self.cubit_volume_ids]
 
     def mesh_magnets_cubit(
         self,
@@ -118,11 +117,11 @@ class MagnetSet(ABC):
 
         if self.has_casing:
             if volumes_to_mesh == "inner":
-                volume_ids = self.volume_ids[1::2]
+                volume_ids = self.cubit_volume_ids[:, 1]
             elif volumes_to_mesh == "outer":
-                volume_ids = self.volume_ids[::2]
+                volume_ids = self.cubit_volume_ids[:, 0]
             elif volumes_to_mesh == "both":
-                volume_ids = self.volume_ids
+                volume_ids = self.cubit_volume_ids.flatten()
             else:
                 e = ValueError(
                     f"Value specified for volumes_to_mesh, {volumes_to_mesh}, "
@@ -130,7 +129,7 @@ class MagnetSet(ABC):
                 )
                 raise e
         else:
-            volume_ids = self.volume_ids
+            volume_ids = self.cubit_volume_ids.flatten()
 
         mesh_surface_coarse_trimesh(
             anisotropic_ratio=anisotropic_ratio,
@@ -367,7 +366,9 @@ class MagnetSetFromFilaments(MagnetSet):
             raise e
 
         self._case_thickness = value
-        self.has_casing = True
+
+        if value > 0.0:
+            self.has_casing = True
 
     def _instantiate_filaments(self):
         """Extracts filament coordinate data from input data file and
@@ -526,6 +527,15 @@ class MagnetSetFromFilaments(MagnetSet):
 
         self.coil_solids = [coil.solids for coil in self.magnet_coils]
 
+        if self.has_casing:
+            self.volume_ids = np.array(
+                [(idx, idx + 1) for idx, _ in enumerate(self.coil_solids)]
+            )
+        else:
+            self.volume_ids = np.array(
+                [(idx) for idx, _ in enumerate(self.coil_solids)]
+            )
+
     def export_step(self, filename="magnet_set", export_dir=""):
         """Export CAD solids as a STEP file via CadQuery.
 
@@ -543,9 +553,9 @@ class MagnetSetFromFilaments(MagnetSet):
         export_path = Path(self.working_dir) / self.geometry_file
 
         # Flatten list of solids (inner, outer solid pairs)
-        solids_list = []
-        for solids in self.coil_solids:
-            [solids_list.append(solid) for solid in solids]
+        solids_list = [
+            solid for solids in self.coil_solids for solid in solids
+        ]
 
         coil_set = cq.Compound.makeCompound(solids_list)
 
@@ -564,8 +574,13 @@ class MagnetSetFromGeometry(MagnetSet):
             logger is supplied, a default logger will be instantiated.
 
     Optional attributes:
-        mat_tag (str): DAGMC material tag to use for magnets in DAGMC
-            neutronics model (defaults to 'magnets').
+        mat_tag (str or iterable of str): DAGMC material tag(s) to use for
+            magnets in DAGMC neutronics model (defaults to 'magnets'). If an
+            iterable is given, the first entry will be applied to coil casing
+            and the second to the inner volume. If just one is given, it will
+            be applied to all magnet volumes.
+        volume_ids (2-D iterable of int): list of ID pairs for (outer, inner)
+            volume pairs, as imported by CadQuery or Cubit, beginning from 0.
     """
 
     def __init__(
@@ -578,11 +593,14 @@ class MagnetSetFromGeometry(MagnetSet):
         self.geometry_file = Path(geometry_file).resolve()
         self.working_dir = self.geometry_file.parent
 
+        self.volume_ids = None
+
         for name in kwargs.keys() & (
             "start_line",
             "sample_mod",
             "scale",
             "mat_tag",
+            "volume_ids",
         ):
             self.__setattr__(name, kwargs[name])
 
@@ -601,7 +619,7 @@ class MagnetSetFromGeometry(MagnetSet):
         self.coil_solids = []
         for item in imported_geometry:
             if isinstance(item, cq.occ_impl.shapes.Compound):
-                self.coil_solids.append([solid] for solid in item.Solids())
+                self.coil_solids.extend([[solid] for solid in item.Solids()])
             elif isinstance(item, cq.occ_impl.shapes.Solid):
                 self.coil_solids.append([item])
             else:
@@ -609,6 +627,41 @@ class MagnetSetFromGeometry(MagnetSet):
                     f"Imported object of type {type(item)} not recognized."
                 )
                 self._logger.error(e.args[0])
+
+    @property
+    def volume_ids(self):
+        return self._volume_ids
+
+    @volume_ids.setter
+    def volume_ids(self, value):
+        if value is None:
+            self._volume_ids = np.array(
+                [[idx] for idx, _ in enumerate(self.coil_solids)]
+            )
+        elif isinstance(self.mat_tag, (list, tuple)):
+            self.has_casing = True
+            value = np.array(value)
+
+            if set(value[:, 0]) & set(value[:, 1]):
+                e = ValueError(
+                    "At least one ID pair is not unique. Ensure all IDs are "
+                    "included only once."
+                )
+                self._logger.error(e.args[0])
+
+            if len(value.flatten()) != len(self.all_coil_solids):
+                e = ValueError(
+                    "Total number of IDs given does not match the number of "
+                    "imported solids."
+                )
+                self._logger.error(e.args[0])
+
+            self._volume_ids = value
+
+            self.coil_solids = [
+                [self.coil_solids[outer_id][0], self.coil_solids[inner_id][0]]
+                for outer_id, inner_id in value
+            ]
 
 
 class Filament(object):

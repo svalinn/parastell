@@ -317,8 +317,11 @@ class Stellarator(object):
                 1). For a user-defined value n, every nth point will be sampled.
             scale (float): a scaling factor between input and output data
                 (defaults to m2cm = 100).
-            mat_tag (str): DAGMC material tag to use for magnets in DAGMC
-                neutronics model (defaults to 'magnets').
+            mat_tag (str or iterable of str): DAGMC material tag(s) to use for
+                magnets in DAGMC neutronics model (defaults to 'magnets'). If
+                an iterable is given, the first entry will be applied to coil
+                casing and the second to the inner volume. If just one is
+                given, it will be applied to all magnet volumes.
         """
         self.magnet_set = mc.MagnetSetFromFilaments(
             coils_file,
@@ -342,8 +345,14 @@ class Stellarator(object):
                 logger is supplied, a default logger will be instantiated.
 
         Optional attributes:
-            mat_tag (str): DAGMC material tag to use for magnets in DAGMC
-                neutronics model (defaults to 'magnets').
+            mat_tag (str or iterable of str): DAGMC material tag(s) to use for
+                magnets in DAGMC neutronics model (defaults to 'magnets'). If
+                an iterable is given, the first entry will be applied to coil
+                casing and the second to the inner volume. If just one is
+                given, it will be applied to all magnet volumes.
+            volume_ids (2-D iterable of int): list of ID pairs for
+                (outer, inner) volume pairs, as imported by CadQuery or Cubit,
+                beginning from 0.
         """
         self.magnet_set = mc.MagnetSetFromGeometry(
             geometry_file,
@@ -500,12 +509,12 @@ class Stellarator(object):
             if isinstance(self.magnet_set.mat_tag, (list, tuple)):
                 for idx, _ in enumerate(["outer", "inner"]):
                     mat_tag = self.magnet_set.mat_tag[idx]
-                    volume_ids = list(self.magnet_set.volume_ids[idx::2])
+                    volume_ids = list(self.magnet_set.volume_ids[:, idx])
                     volume_id_str = " ".join(str(i) for i in volume_ids)
                     block_id = min(volume_ids)
                     make_material_block(mat_tag, block_id, volume_id_str)
             else:
-                volume_ids = list(self.magnet_set.volume_ids)
+                volume_ids = self.magnet_set.volume_ids.flatten()
                 volume_id_str = " ".join(str(i) for i in volume_ids)
                 block_id = min(volume_ids)
                 make_material_block(
