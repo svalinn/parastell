@@ -2,7 +2,8 @@
 
 [![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/svalinn/parastell?tab=MIT-1-ov-file#readme)
 [![CI testing](https://github.com/svalinn/parastell/actions/workflows/ci.yml/badge.svg)](https://github.com/svalinn/parastell/actions/workflows/ci.yml)
-[![Build status](https://github.com/svalinn/parastell/actions/workflows/docker_publish.yml/badge.svg)](https://github.com/svalinn/parastell/actions/workflows/docker_publish.yml)
+[![Docker status](https://github.com/svalinn/parastell/actions/workflows/docker_publish.yml/badge.svg)](https://github.com/svalinn/parastell/actions/workflows/docker_publish.yml)
+[![Build status](https://github.com/svalinn/parastell/actions/workflows/build.yml/badge.svg)](https://github.com/svalinn/parastell/actions/workflows/build.yml)
 ---
 
 Open-source Python package featuring a parametric 3-D CAD modeling toolset for stellarator fusion devices with additional neutronics support. ParaStell uses plasma equilibrium VMEC data or custom first wall data and a user-defined radial build to model in-vessel components of varying thickness in medium-fidelity. Furthermore, coil filament point-locus data and a user-defined cross-section are used to model magnet coils. Additional neutronics support includes the generation of tetrahedral neutron source definitions and DAGMC geometries for use in Monte Carlo radiation transport software. In addition, an option is included to generate tetrahedral meshes of in-vessel components and magnets using Coreform Cubit for use in Monte Carlo mesh tallies. A neutron wall-loading utility is included that uses OpenMC to fire rays from a ParaStell neutron source mesh onto a ParaStell first wall CAD geometry.
