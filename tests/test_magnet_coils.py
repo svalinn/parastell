@@ -213,16 +213,7 @@ def test_magnet_construction(coil_set_from_filaments, case_thickness):
     test_coil = coil_set_from_filaments.magnet_coils[0]
     assert len(test_coil.coords) == len_coords_exp
 
-    assert (
-        len(
-            [
-                solid
-                for solids in coil_set_from_filaments.coil_solids
-                for solid in solids
-            ]
-        )
-        == num_solids_exp
-    )
+    assert len(coil_set_from_filaments.all_coil_solids) == num_solids_exp
 
     remove_files()
 
@@ -243,9 +234,9 @@ def test_magnet_exports_from_filaments(
     remove_files()
 
     if case_thickness == 0.0:
-        volume_ids_exp = [[1]]
+        cubit_volume_ids_exp = [[1]]
     else:
-        volume_ids_exp = [[1, 2]]
+        cubit_volume_ids_exp = [[1, 2]]
 
     coil_set_from_filaments.case_thickness = case_thickness
 
@@ -259,7 +250,7 @@ def test_magnet_exports_from_filaments(
 
         coil_set_from_filaments.mesh_magnets_cubit()
         assert np.allclose(
-            coil_set_from_filaments.cubit_volume_ids, volume_ids_exp
+            coil_set_from_filaments.cubit_volume_ids, cubit_volume_ids_exp
         )
 
         coil_set_from_filaments.export_mesh_cubit()

@@ -307,8 +307,8 @@ class Stellarator(object):
                 direction [cm].
             toroidal_extent (float): toroidal extent to model [deg].
             case_thickness (float): thickness of outer coil casing (defaults to
-                0.0) [cm]. This amount will be subtracted from the width and
-                thickness parameters to form the inner coil volume.
+                0.0) [cm]. Double this amount will be subtracted from the width
+                and thickness parameters to form the inner coil volume.
 
         Optional attributes:
             start_line (int): starting line index for data in filament data file

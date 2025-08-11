@@ -135,7 +135,7 @@ class MagnetSet(ABC):
             anisotropic_ratio=anisotropic_ratio,
             deviation_angle=deviation_angle,
         )
-        mesh_volume_auto_factor(volume_ids, mesh_size=mesh_size)
+        mesh_volume_auto_factor([id for id in volume_ids], mesh_size=mesh_size)
 
     def export_mesh_cubit(self, filename="magnet_mesh", export_dir=""):
         """Exports a tetrahedral mesh of magnet volumes in H5M format via
@@ -256,7 +256,7 @@ class MagnetSetFromFilaments(MagnetSet):
             [cm].
         toroidal_extent (float): toroidal extent to model [deg].
         case_thickness (float): thickness of outer coil casing (defaults to
-            0.0) [cm]. This amount will be subtracted from the width and
+            0.0) [cm]. Double this amount will be subtracted from the width and
             thickness parameters to form the inner coil volume.
         logger (object): logger object (optional, defaults to None). If no
             logger is supplied, a default logger will be instantiated.
@@ -782,9 +782,9 @@ class MagnetCoil(object):
         width (float): width of coil cross-section in toroidal direction [cm].
         thickness (float): thickness of coil cross-section in radial direction
             [cm].
-        case_thickness (float): thickness of outer coil casing (defaults to 0)
-            [cm]. This amount will be subtracted from the width and thickness
-            parameters to form the inner coil volume.
+        case_thickness (float): thickness of outer coil casing (defaults to
+            0.0) [cm]. Double this amount will be subtracted from the width and
+            thickness parameters to form the inner coil volume.
         sample_mod (int): Length of stride when sampling from coordinate data.
     """
 

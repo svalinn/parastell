@@ -252,8 +252,7 @@ def mesh_volume_auto_factor(volume_ids=None, mesh_size=5.0):
         mesh_size (float): controls the size of the mesh. Takes values between
             1.0 (finer) and 10.0 (coarser) (optional, defaults to 5.0).
     """
-    # If a numpy.array is passed, it will fail if tested as "if volume_ids"
-    if volume_ids is not None:
+    if volume_ids:
         volume_ids_str = " ".join(str(id) for id in volume_ids)
     else:
         volume_ids_str = "all"
