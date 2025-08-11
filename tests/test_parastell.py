@@ -345,7 +345,7 @@ def test_cubit_ps_geom(stellarator):
     chamber_volume_id_exp = 1
     component_volume_id_exp = 2
     component_name_exp = "component"
-    magnet_volume_ids_exp = list(range(3, 4))
+    magnet_volume_ids_exp = [3]
     filename_exp = "dagmc"
 
     # Each in-vessel component (2 present) gives 3 unique surfaces; each magnet
@@ -367,7 +367,9 @@ def test_cubit_ps_geom(stellarator):
         ]["vol_id"]
         == component_volume_id_exp
     )
-    assert stellarator.magnet_set.volume_ids == magnet_volume_ids_exp
+    assert np.allclose(
+        stellarator.magnet_set.cubit_volume_ids, magnet_volume_ids_exp
+    )
 
     stellarator.export_cubit_dagmc(filename=filename_exp)
     stellarator.export_cub5(filename=filename_exp)
@@ -400,7 +402,7 @@ def test_cubit_cad_magnets(stellarator):
     chamber_volume_id_exp = 1
     component_volume_id_exp = 2
     component_name_exp = "component"
-    magnet_volume_ids_exp = list(range(3, 5))
+    magnet_volume_ids_exp = [3, 4]
     filename_exp = "dagmc"
 
     # Each in-vessel component (2 present) gives 3 unique surfaces; each magnet
@@ -422,7 +424,9 @@ def test_cubit_cad_magnets(stellarator):
         ]["vol_id"]
         == component_volume_id_exp
     )
-    assert stellarator.magnet_set.volume_ids == magnet_volume_ids_exp
+    assert np.allclose(
+        stellarator.magnet_set.cubit_volume_ids, magnet_volume_ids_exp
+    )
 
     stellarator.export_cubit_dagmc(filename=filename_exp)
     stellarator.export_cub5(filename=filename_exp)
