@@ -345,7 +345,7 @@ def test_cubit_ps_geom(stellarator):
     chamber_volume_id_exp = 1
     component_volume_id_exp = 2
     component_name_exp = "component"
-    magnet_volume_ids_exp = [3]
+    magnet_volume_ids_exp = [[3]]
     filename_exp = "dagmc"
 
     # Each in-vessel component (2 present) gives 3 unique surfaces; each magnet
@@ -402,7 +402,7 @@ def test_cubit_cad_magnets(stellarator):
     chamber_volume_id_exp = 1
     component_volume_id_exp = 2
     component_name_exp = "component"
-    magnet_volume_ids_exp = [3, 4]
+    magnet_volume_ids_exp = [[3], [4]]
     filename_exp = "dagmc"
 
     # Each in-vessel component (2 present) gives 3 unique surfaces; each magnet
