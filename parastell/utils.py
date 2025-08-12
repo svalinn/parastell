@@ -86,7 +86,7 @@ def normalize(vec_list):
         print('Input "vec_list" must be 1-D or 2-D NumPy array')
 
 
-def enforce_helical_symmetry_matrix(matrix):
+def enforce_helical_symmetry(matrix):
     """Ensures that a matrix is helically symmetric according to stellarator
     geometry by overwriting certain matrix elements.
 
@@ -95,14 +95,30 @@ def enforce_helical_symmetry_matrix(matrix):
         - Matrix represents a full stellarator period
         - The first row corresponds to a toroidal angle at the beginning of a
           period (i.e., poloidal symmetry is expected)
+        - The beginning, toroidal midplane, and end of the period are symmetric
+          about the axial midplane
 
     Arguments:
-        matrix (2-D iterable of float): matrix to be made helically symmetric.
+        matrix (2-D or 3-D iterable of float): matrix to be made helically
+            symmetric.
 
     Returns:
-        matrix (2-D iterable of float): helically symmetric matrix.
+        matrix (2-D or 3-D iterable of float): helically symmetric matrix.
     """
-    num_rows, num_columns = matrix.shape
+    original_shape = matrix.shape
+
+    if len(original_shape) == 2:
+        num_rows, num_columns = original_shape
+        flattened_shape = num_rows * num_columns
+    elif len(original_shape) == 3:
+        num_rows, num_columns, num_coords = original_shape
+        flattened_shape = (num_rows * num_columns, num_coords)
+    else:
+        e = ValueError(
+            f"Input matrix is of shape {original_shape}, but only 2-D and 3-D "
+            "arrays are supported."
+        )
+        raise e
 
     # Ensure rows represent closed loops
     matrix[:, -1] = matrix[:, 0]
@@ -113,84 +129,36 @@ def enforce_helical_symmetry_matrix(matrix):
             # Ceil and floor ensure middle element of odd sized array is
             # included only once
             matrix[0, : math.ceil(num_columns / 2)],
-            np.flip(matrix[0, : math.floor(num_columns / 2)]),
+            np.flip(matrix[0, : math.floor(num_columns / 2)], axis=0),
         ]
     )
+    if len(original_shape) == 3:
+        # Reflect initial poloidal profile about midplane
+        matrix[0, math.ceil(num_columns / 2) : -1, -1] *= -1
 
     # Ensure helical symmetry toroidally and poloidally by mirroring the period
     # about both matrix axes
-    flattened_matrix = matrix.flatten()
-    flattened_length = len(flattened_matrix)
+    flattened_matrix = matrix.reshape(flattened_shape)
+    flattened_length = flattened_matrix.shape[0]
 
     first_half = flattened_matrix[: math.ceil(flattened_length / 2)]
-    last_half = np.flip(flattened_matrix[: math.floor(flattened_length / 2)])
+
+    last_half = np.flip(
+        flattened_matrix.copy()[: math.floor(flattened_length / 2)], axis=0
+    )
+    if len(original_shape) == 3:
+        # Reflect poloidal profiles in second half of period about midplane
+        last_half[:, -1] *= -1
+
     flattened_matrix = np.concatenate([first_half, last_half])
 
-    matrix = flattened_matrix.reshape((num_rows, num_columns))
+    matrix = flattened_matrix.reshape(original_shape)
+
+    if len(original_shape) == 3:
+        # Ensure periodicity at ends of period
+        matrix[-1] = matrix[0]
 
     return matrix
-
-
-def enforce_helical_symmetry_coords(coords):
-    """Ensures that a set of coordinates is helically symmetric according to
-    stellarator geometry by overwriting certain coordinates.
-
-    Assumes several qualities about the input coordinates:
-        - Regular spacing between angles defining coordinates
-        - Coordinates represent a full stellarator period
-        - The first entry of first axis corresponds to a toroidal angle at the
-          beginning of a period (i.e., poloidal symmetry is expected)
-        - The beginning, toroidal midplane, and end of the period are symmetric
-          about the axial midplane
-
-    Arguments:
-        coords (3-D iterable of float): coordinates to be made helically
-            symmetric.
-
-    Returns:
-        coords (3-D iterable of float): helically symmetric coordinates.
-    """
-    original_shape = coords.shape
-    num_rows, num_columns, num_other = original_shape
-    flattened_shape = (num_rows * num_columns, num_other)
-
-    # Ensure rows represent closed loops
-    coords[:, -1] = coords[:, 0]
-
-    # Ensure poloidal symmetry at beginning of period
-    coords[0] = np.concatenate(
-        [
-            # Ceil and floor ensure middle element of odd sized array is
-            # included only once
-            coords[0, : math.ceil(num_columns / 2)],
-            np.flip(coords[0, : math.floor(num_columns / 2)], axis=0),
-        ]
-    )
-
-    # Reflect initial poloidal profile about midplane
-    coords[0, math.ceil(num_columns / 2) : -1, -1] *= -1
-
-    # Ensure helical symmetry toroidally and poloidally by mirroring the period
-    # about both coords axes
-    flattened_coords = coords.reshape(flattened_shape)
-    flattened_length = flattened_coords.shape[0]
-
-    first_half = flattened_coords[: math.ceil(flattened_length / 2)]
-    # Copy poloidal profiles in second half of period
-    last_half = np.flip(
-        flattened_coords.copy()[: math.floor(flattened_length / 2)], axis=0
-    )
-    # Reflect poloidal profiles in second half of period about midplane
-    last_half[:, -1] *= -1
-
-    flattened_coords = np.concatenate([first_half, last_half])
-
-    coords = flattened_coords.reshape(original_shape)
-
-    # Ensure periodicity at ends of period
-    coords[-1] = coords[0]
-
-    return coords
 
 
 def smooth_matrix(matrix, steps, sigma):
