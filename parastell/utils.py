@@ -582,17 +582,17 @@ class ToroidalMesh(ABC):
         self.mesh_set = self.mbc.create_meshset()
         self.mbc.add_entity(self.mesh_set, self.verts)
 
-    def _create_tet(self, tet_ids):
+    def _create_tet(self, vert_ids):
         """Creates tetrahedron and adds to PyMOAB core.
         (Internal function not intended to be called externally)
 
         Arguments:
-            tet_ids (list of int): tetrahedron vertex indices.
+            vert_ids (list of int): tetrahedron vertex indices.
 
         Returns:
             tet (object): pymoab.EntityHandle of tetrahedron.
         """
-        tet_verts = [self.verts[int(id)] for id in tet_ids]
+        tet_verts = [self.verts[int(id)] for id in vert_ids]
         tet = self.mbc.create_element(types.MBTET, tet_verts)
         self.mbc.add_entity(self.mesh_set, tet)
 
@@ -726,18 +726,18 @@ class ToroidalMesh(ABC):
 
         return tets, vertex_id_list
 
-    def _compute_tet_volume(self, tet_ids):
+    def _compute_tet_volume(self, vert_ids):
         """Computes tetrahedron volume.
         (Internal function not intended to be called externally)
 
         Arguments:
-            tet_ids (list of int): tetrahedron vertex indices.
+            vert_ids (list of int): tetrahedron vertex indices.
 
         Returns:
             tet_vol (float): volume of tetrahedron
         """
         # Initialize list of vertex coordinates for each tetrahedron vertex
-        tet_coords = [self.coords[id] for id in tet_ids]
+        tet_coords = [self.coords[id] for id in vert_ids]
 
         # Compute edge vectors between tetrahedron vertices
         edge_vectors = np.subtract(tet_coords[:3], tet_coords[3]).T

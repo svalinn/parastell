@@ -1295,19 +1295,23 @@ class InVesselComponentMesh(ToroidalMesh):
         self.coords = np.array(self.coords)
         self.add_vertices(self.coords)
 
-    def _compute_tet_data(self, tet_ids, tet):
+    def _compute_and_tag_tet_volume(self, vert_ids, tet):
         """Computes tetrahedron volume, and sets the corresponding value of
         the respective tag for that tetrahedron.
         (Internal function not intended to be called externally)
 
         Arguments:
-            tet_ids (list of int): tetrahedron vertex indices.
+            vert_ids (list of int): tetrahedron vertex indices.
             tet (object): pymoab.EntityHandle of tetrahedron.
+
+        Returns:
+            tet_vol (float): volume of tetrahedron.
         """
-        tet_vol = self._compute_tet_volume(tet_ids)
-        self.volumes.append(tet_vol)
+        tet_vol = self._compute_tet_volume(vert_ids)
         # Tag tetrahedra with data
         self.mbc.tag_set_data(self.volume_tag, tet, [tet_vol])
+
+        return tet_vol
 
     def create_mesh(self):
         """Creates volumetric mesh in real space."""
@@ -1319,10 +1323,12 @@ class InVesselComponentMesh(ToroidalMesh):
                     tets, vertex_id_list = self._create_tets_from_hex(
                         surface_idx, poloidal_idx, toroidal_idx
                     )
-                    [
-                        self._compute_tet_data(tet_ids, tet)
-                        for tet_ids, tet in zip(vertex_id_list, tets)
-                    ]
+                    self.volumes.extend(
+                        [
+                            self._compute_and_tag_tet_volume(vert_ids, tet)
+                            for vert_ids, tet in zip(vertex_id_list, tets)
+                        ]
+                    )
 
     def _get_vertex_id(self, vertex_idx):
         """Computes vertex index in row-major order as stored by MOAB from
