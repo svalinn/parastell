@@ -164,8 +164,12 @@ def test_single_coil(single_coil):
     remove_files()
 
 
-@pytest.mark.parametrize("case_thickness", [0.0, 5.0])
-def test_magnet_construction(coil_set_from_filaments, case_thickness):
+@pytest.mark.parametrize(
+    "case_thickness, num_solids_exp", [(0.0, 1), (5.0, 2)]
+)
+def test_magnet_construction(
+    coil_set_from_filaments, case_thickness, num_solids_exp
+):
     """Tests whether the MagnetSetFromFilaments object is instantiated and
     constructed as expected, along with relevant data, by testing if:
         * after being set, member variables match inputs
@@ -183,11 +187,6 @@ def test_magnet_construction(coil_set_from_filaments, case_thickness):
     max_radial_distance_exp = 1646.3258131460148
     len_coils_exp = 1
     len_coords_exp = 129
-
-    if case_thickness == 0.0:
-        num_solids_exp = 1
-    else:
-        num_solids_exp = 2
 
     case_thickness_exp = case_thickness
 
@@ -218,9 +217,11 @@ def test_magnet_construction(coil_set_from_filaments, case_thickness):
     remove_files()
 
 
-@pytest.mark.parametrize("case_thickness", [0.0, 5.0])
+@pytest.mark.parametrize(
+    "case_thickness, cubit_volume_ids_exp", [(0.0, [[1]]), (5.0, [[1, 2]])]
+)
 def test_magnet_exports_from_filaments(
-    coil_set_from_filaments, case_thickness
+    coil_set_from_filaments, case_thickness, cubit_volume_ids_exp
 ):
     """Tests whether the MagnetSetFromFilaments' export functionality behaves
     as expected, by testing if:
@@ -232,11 +233,6 @@ def test_magnet_exports_from_filaments(
     imported.
     """
     remove_files()
-
-    if case_thickness == 0.0:
-        cubit_volume_ids_exp = [[1]]
-    else:
-        cubit_volume_ids_exp = [[1, 2]]
 
     coil_set_from_filaments.case_thickness = case_thickness
 
@@ -266,9 +262,18 @@ def test_magnet_exports_from_filaments(
 
 
 @pytest.mark.parametrize(
-    "geometry_file", ["magnet_geom", "magnet_geom_with_casing"]
+    "geometry_file, num_total_solids_exp, volume_ids_exp, cubit_volume_ids_exp",
+    [
+        ("magnet_geom", 2, [[0], [1]], [[1], [2]]),
+        ("magnet_geom_with_casing", 4, [[0, 1], [2, 3]], [[1, 2], [3, 4]]),
+    ],
 )
-def test_magnet_exports_from_geometry(coil_set_from_geometry):
+def test_magnet_exports_from_geometry(
+    coil_set_from_geometry,
+    num_total_solids_exp,
+    volume_ids_exp,
+    cubit_volume_ids_exp,
+):
     """Tests whether the MagnetSetFromGeometry's export functionality behaves
     as expected, by testing if:
         * the expected number of solids are present in coil_set_from_geometry
@@ -278,15 +283,6 @@ def test_magnet_exports_from_geometry(coil_set_from_geometry):
     This test is skipped if Cubit cannot be imported.
     """
     num_coil_solids_exp = 2
-
-    if "with_casing" in str(coil_set_from_geometry.geometry_file):
-        num_total_solids_exp = 4
-        volume_ids_exp = [[0, 1], [2, 3]]
-        cubit_volume_ids_exp = [[1, 2], [3, 4]]
-    else:
-        num_total_solids_exp = 2
-        volume_ids_exp = [[0], [1]]
-        cubit_volume_ids_exp = [[1], [2]]
 
     remove_files()
 
