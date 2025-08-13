@@ -297,27 +297,20 @@ class SourceMesh(ToroidalMesh):
 
         self.add_vertices(self.coords)
 
-    def _compute_tet_data(self, tet_ids, tet):
+    def _compute_and_tag_tet_data(self, vert_ids, tet):
         """Computes tetrahedron neutron source strength, using five-node
         Gaussian quadrature, and volume, and sets the corresponding values of
         the respective tags for that tetrahedron.
         (Internal function not intended to be called externally)
 
         Arguments:
-            tet_ids (list of int): tetrahedron vertex indices.
+            vert_ids (list of int): tetrahedron vertex indices.
             tet (object): pymoab.EntityHandle of tetrahedron.
-
-        Returns:
-            ss (float): integrated source strength for tetrahedron.
-            tet_vol (float): volume of tetrahedron
         """
-        # Initialize list of vertex coordinates for each tetrahedron vertex
-        tet_coords = [self.coords[id] for id in tet_ids]
-
         # Initialize list of source strengths for each tetrahedron vertex
         vertex_strengths = [
             self.reaction_rate(*self.plasma_conditions(self.coords_cfs[id]))
-            for id in tet_ids
+            for id in vert_ids
         ]
 
         # Define barycentric coordinates for integration points
@@ -337,10 +330,7 @@ class SourceMesh(ToroidalMesh):
         # Interpolate source strength at integration points
         ss_int_pts = np.dot(bary_coords, vertex_strengths)
 
-        # Compute edge vectors between tetrahedron vertices
-        edge_vectors = np.subtract(tet_coords[:3], tet_coords[3]).T
-
-        tet_vol = -np.linalg.det(edge_vectors) / 6
+        tet_vol = self._compute_tet_volume(vert_ids)
 
         ss = np.abs(tet_vol) * np.dot(int_w, ss_int_pts)
 
@@ -405,8 +395,8 @@ class SourceMesh(ToroidalMesh):
                     poloidal_idx, toroidal_idx
                 )
                 [
-                    self._compute_tet_data(tet_ids, tet)
-                    for tet_ids, tet in zip(vertex_id_list, tets)
+                    self._compute_and_tag_tet_data(vert_ids, tet)
+                    for vert_ids, tet in zip(vertex_id_list, tets)
                 ]
 
             # Create tetrahedra for hexahedra beyond center of plasma
@@ -417,8 +407,8 @@ class SourceMesh(ToroidalMesh):
                         cfs_idx, poloidal_idx, toroidal_idx
                     )
                     [
-                        self._compute_tet_data(tet_ids, tet)
-                        for tet_ids, tet in zip(vertex_id_list, tets)
+                        self._compute_and_tag_tet_data(vert_ids, tet)
+                        for vert_ids, tet in zip(vertex_id_list, tets)
                     ]
 
 
