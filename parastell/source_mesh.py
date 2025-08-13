@@ -311,16 +311,12 @@ class SourceMesh(ToroidalMesh):
             ss (float): integrated source strength for tetrahedron.
             tet_vol (float): volume of tetrahedron
         """
-        # Initialize list of vertex coordinates for each tetrahedron vertex
-        tet_coords = [self.coords[id] for id in tet_ids]
+        # Initialize list of vertex coordinates and CFS values for each
+        # tetrahedral vertex
+        tet_vertices = [self.coords[id] for id in tet_ids]
+        cfs_vertices = [self.coords_cfs[id] for id in tet_ids]
 
-        # Initialize list of source strengths for each tetrahedron vertex
-        vertex_strengths = [
-            self.reaction_rate(*self.plasma_conditions(self.coords_cfs[id]))
-            for id in tet_ids
-        ]
-
-        # Define barycentric coordinates for integration points
+        # Define barycentric coordinates for Gaussian nodes
         bary_coords = np.array(
             [
                 [0.25, 0.25, 0.25, 0.25],
@@ -331,25 +327,32 @@ class SourceMesh(ToroidalMesh):
             ]
         )
 
-        # Define weights for integration points
+        # Define weights for Gaussian nodes
         int_w = np.array([-0.8, 0.45, 0.45, 0.45, 0.45])
 
-        # Interpolate source strength at integration points
-        ss_int_pts = np.dot(bary_coords, vertex_strengths)
+        # Interpolate CFS values at Gaussian nodes
+        cfs_int_pts = np.dot(bary_coords, cfs_vertices)
+
+        # Compute source density at each Gaussian node
+        ss_int_pts = [
+            self.reaction_rate(*self.plasma_conditions(cfs))
+            for cfs in cfs_int_pts
+        ]
 
         # Compute edge vectors between tetrahedron vertices
-        edge_vectors = np.subtract(tet_coords[:3], tet_coords[3]).T
+        edge_vectors = np.subtract(tet_vertices[:3], tet_vertices[3]).T
+        # Compute tetrahedral volume
+        volume = -np.linalg.det(edge_vectors) / 6
 
-        tet_vol = -np.linalg.det(edge_vectors) / 6
+        # Integrate source density across tetrahedral volume
+        source_strength = np.abs(volume) * np.dot(int_w, ss_int_pts)
 
-        ss = np.abs(tet_vol) * np.dot(int_w, ss_int_pts)
-
-        self.strengths.append(ss)
-        self.volumes.append(tet_vol)
+        self.strengths.append(source_strength)
+        self.volumes.append(volume)
 
         # Tag tetrahedra with data
-        self.mbc.tag_set_data(self.source_strength_tag, tet, [ss])
-        self.mbc.tag_set_data(self.volume_tag, tet, [tet_vol])
+        self.mbc.tag_set_data(self.source_strength_tag, tet, [source_strength])
+        self.mbc.tag_set_data(self.volume_tag, tet, [volume])
 
     def _get_vertex_id(self, vertex_idx):
         """Computes vertex index in row-major order as stored by MOAB from
