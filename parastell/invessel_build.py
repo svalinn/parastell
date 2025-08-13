@@ -145,7 +145,7 @@ class RibBasedSurface(ReferenceSurface):
             following from this data set:
             - The data spans exactly one field period
             - The coordinates of each toroidal slice (rib) precess counter-
-              clockwise
+              clockwise (facing in the positive toroidal direction)
             - The coordinates obey helical (stellarator) symmetry, i.e.,
                 - The (R,Z) coordinates of the first and final ribs are exactly
                   equal

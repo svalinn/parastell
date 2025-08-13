@@ -142,17 +142,11 @@ def test_ribs_from_kisslinger_format():
         Path("files_for_tests") / "kisslinger_file_scrambled.txt"
     )
 
-    (
-        _,
-        _,
-        _,
-        _,
-        original_surface_coords,
-    ) = ribs_from_kisslinger_format(
-        original_ribs_file,
-        delimiter=" ",
-        scale=1,
-    )
+    num_toroidal_angles_exp = 121
+    num_poloidal_angles_exp = 121
+    periods_exp = 4
+    surface_coords_shape_exp = (121, 121, 2)
+
     (
         toroidal_angles,
         num_toroidal_angles,
@@ -165,11 +159,6 @@ def test_ribs_from_kisslinger_format():
         scale=1,
     )
 
-    num_toroidal_angles_exp = 121
-    num_poloidal_angles_exp = 121
-    periods_exp = 4
-    surface_coords_shape_exp = (121, 121, 2)
-
     assert np.allclose(np.linspace(0, 90, 121), toroidal_angles)
     assert num_toroidal_angles == num_toroidal_angles_exp
     assert num_poloidal_angles == num_poloidal_angles_exp
@@ -181,7 +170,19 @@ def test_ribs_from_kisslinger_format():
     assert not np.allclose(
         unscrambled_surface_coords[0], unscrambled_surface_coords[1]
     )
-    assert np.allclose(unscrambled_surface_coords, original_surface_coords)
+
+    (
+        _,
+        _,
+        _,
+        _,
+        surface_coords_exp,
+    ) = ribs_from_kisslinger_format(
+        original_ribs_file,
+        delimiter=" ",
+        scale=1,
+    )
+    assert np.allclose(unscrambled_surface_coords, surface_coords_exp)
 
 
 def test_stl_surfaces_to_cq_solid():
