@@ -1,9 +1,13 @@
 ![Logo](images/parastell-logo.svg)
 
 [![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/svalinn/parastell?tab=MIT-1-ov-file#readme)
+
 [![CI testing](https://github.com/svalinn/parastell/actions/workflows/ci.yml/badge.svg)](https://github.com/svalinn/parastell/actions/workflows/ci.yml)
+
 [![Docker status](https://github.com/svalinn/parastell/actions/workflows/docker_publish.yml/badge.svg)](https://github.com/svalinn/parastell/actions/workflows/docker_publish.yml)
+
 [![Build status](https://github.com/svalinn/parastell/actions/workflows/build.yml/badge.svg)](https://github.com/svalinn/parastell/actions/workflows/build.yml)
+
 ---
 
 Open-source Python package featuring a parametric, 3-D, medium-fidelity modeling toolset for stellarator fusion devices. ParaStell has the following core capabilities:
