@@ -74,3 +74,6 @@ build-backend = "setuptools.build_meta"
 [tool.black]
 line-length = 79
 target-version = ['py311', 'py312', 'py313']
+
+[tool.setuptools.packages.find]
+exclude = ["images"]
