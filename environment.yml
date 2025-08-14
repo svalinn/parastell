@@ -18,4 +18,4 @@ dependencies:
     - pytest
     - pytest-cov
     - build
-    - black=25
+    - black==25.*
