@@ -11,3 +11,11 @@ dependencies:
   - numpy 
   - scipy
   - pip
+  - pip:
+    - netcdf4
+    - pyyaml
+    - pydagmc
+    - pytest
+    - pytest-cov
+    - build
+    - black=25.*
