@@ -55,6 +55,6 @@ RUN mkdir -p /opt/etc && \
     echo "conda activate parastell_env" >> /opt/etc/bashrc
 
 RUN . /opt/etc/bashrc && \
-    pip install .[develop]
+    pip install --no-deps .
 
 WORKDIR /
