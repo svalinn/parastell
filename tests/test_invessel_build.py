@@ -3,8 +3,6 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-# import this before read_vmec to deal with conflicting
-# dependencies correctly
 import parastell.invessel_build as ivb
 from parastell.cubit_utils import (
     check_cubit_installation,

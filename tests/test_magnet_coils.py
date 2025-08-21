@@ -42,10 +42,19 @@ def coil_set_from_filaments():
 
 
 @pytest.fixture
-def coil_set_from_geometry():
-    geom_file = Path("files_for_tests") / "magnet_geom.step"
+def coil_set_from_geometry(geometry_file):
+    geom_file = Path("files_for_tests") / Path(geometry_file).with_suffix(
+        ".step"
+    )
 
-    coil_set_obj = magnet_coils.MagnetSetFromGeometry(geom_file)
+    if "with_casing" in str(geometry_file):
+        coil_set_obj = magnet_coils.MagnetSetFromGeometry(
+            geom_file, mat_tag=["mat1", "mat2"], volume_ids=[(0, 1), (2, 3)]
+        )
+    else:
+        coil_set_obj = magnet_coils.MagnetSetFromGeometry(
+            geom_file, mat_tag="mat1"
+        )
 
     return coil_set_obj
 
@@ -79,7 +88,7 @@ def filament_not_crossing_mp():
 
 @pytest.fixture
 def single_coil(filament_crossing_mp):
-    return magnet_coils.MagnetCoil(filament_crossing_mp, 10, 20, 1)
+    return magnet_coils.MagnetCoil(filament_crossing_mp, 10, 20, 0, 1)
 
 
 def test_filament_crossing_mp(filament_crossing_mp):
@@ -149,13 +158,18 @@ def test_single_coil(single_coil):
     remove_files()
 
     single_coil.create_magnet()
-    cq.exporters.export(single_coil.solid, "single_coil.step")
+    cq.exporters.export(single_coil.solids[0], "single_coil.step")
     assert Path("single_coil.step").exists()
 
     remove_files()
 
 
-def test_magnet_construction(coil_set_from_filaments):
+@pytest.mark.parametrize(
+    "case_thickness, num_solids_exp", [(0.0, 1), (5.0, 2)]
+)
+def test_magnet_construction(
+    coil_set_from_filaments, case_thickness, num_solids_exp
+):
     """Tests whether the MagnetSetFromFilaments object is instantiated and
     constructed as expected, along with relevant data, by testing if:
         * after being set, member variables match inputs
@@ -171,8 +185,12 @@ def test_magnet_construction(coil_set_from_filaments):
     max_cs_len_exp = 50.0
     average_radial_distance_exp = 1023.7170384211436
     max_radial_distance_exp = 1646.3258131460148
-    len_coords_exp = 129
     len_coils_exp = 1
+    len_coords_exp = 129
+
+    case_thickness_exp = case_thickness
+
+    coil_set_from_filaments.case_thickness = case_thickness
 
     coil_set_from_filaments.populate_magnet_coils()
     coil_set_from_filaments.build_magnet_coils()
@@ -180,6 +198,7 @@ def test_magnet_construction(coil_set_from_filaments):
     assert coil_set_from_filaments.width == width_exp
     assert coil_set_from_filaments.thickness == thickness_exp
     assert coil_set_from_filaments.toroidal_extent == toroidal_extent_exp
+    assert coil_set_from_filaments.case_thickness == case_thickness_exp
     assert coil_set_from_filaments.max_cs_len == max_cs_len_exp
     assert (
         coil_set_from_filaments.average_radial_distance
@@ -188,16 +207,22 @@ def test_magnet_construction(coil_set_from_filaments):
     assert (
         coil_set_from_filaments.max_radial_distance == max_radial_distance_exp
     )
+    assert len(coil_set_from_filaments.magnet_coils) == len_coils_exp
 
     test_coil = coil_set_from_filaments.magnet_coils[0]
     assert len(test_coil.coords) == len_coords_exp
 
-    assert len(coil_set_from_filaments.coil_solids) == len_coils_exp
+    assert len(coil_set_from_filaments.all_coil_solids) == num_solids_exp
 
     remove_files()
 
 
-def test_magnet_exports_from_filaments(coil_set_from_filaments):
+@pytest.mark.parametrize(
+    "case_thickness, cubit_volume_ids_exp", [(0.0, [[1]]), (5.0, [[1, 2]])]
+)
+def test_magnet_exports_from_filaments(
+    coil_set_from_filaments, case_thickness, cubit_volume_ids_exp
+):
     """Tests whether the MagnetSetFromFilaments' export functionality behaves
     as expected, by testing if:
         * the expected STEP file is produced
@@ -209,7 +234,7 @@ def test_magnet_exports_from_filaments(coil_set_from_filaments):
     """
     remove_files()
 
-    volume_ids_exp = list(range(1, 2))
+    coil_set_from_filaments.case_thickness = case_thickness
 
     coil_set_from_filaments.populate_magnet_coils()
     coil_set_from_filaments.build_magnet_coils()
@@ -220,7 +245,9 @@ def test_magnet_exports_from_filaments(coil_set_from_filaments):
         create_new_cubit_instance()
 
         coil_set_from_filaments.mesh_magnets_cubit()
-        assert coil_set_from_filaments.volume_ids == volume_ids_exp
+        assert np.allclose(
+            coil_set_from_filaments.cubit_volume_ids, cubit_volume_ids_exp
+        )
 
         coil_set_from_filaments.export_mesh_cubit()
         assert Path("magnet_mesh.h5m").exists()
@@ -234,7 +261,19 @@ def test_magnet_exports_from_filaments(coil_set_from_filaments):
     remove_files()
 
 
-def test_magnet_exports_from_geometry(coil_set_from_geometry):
+@pytest.mark.parametrize(
+    "geometry_file, num_total_solids_exp, volume_ids_exp, cubit_volume_ids_exp",
+    [
+        ("magnet_geom", 2, [[0], [1]], [[1], [2]]),
+        ("magnet_geom_with_casing", 4, [[0, 1], [2, 3]], [[1, 2], [3, 4]]),
+    ],
+)
+def test_magnet_exports_from_geometry(
+    coil_set_from_geometry,
+    num_total_solids_exp,
+    volume_ids_exp,
+    cubit_volume_ids_exp,
+):
     """Tests whether the MagnetSetFromGeometry's export functionality behaves
     as expected, by testing if:
         * the expected number of solids are present in coil_set_from_geometry
@@ -243,19 +282,21 @@ def test_magnet_exports_from_geometry(coil_set_from_geometry):
 
     This test is skipped if Cubit cannot be imported.
     """
-
-    assert len(coil_set_from_geometry.coil_solids) == 2
-    pytest.importorskip("cubit")
+    num_coil_solids_exp = 2
 
     remove_files()
 
-    volume_ids_exp = list(range(1, 3))
+    assert len(coil_set_from_geometry.coil_solids) == num_coil_solids_exp
+    assert len(coil_set_from_geometry.all_coil_solids) == num_total_solids_exp
+    assert np.allclose(coil_set_from_geometry.volume_ids, volume_ids_exp)
 
     if check_cubit_installation():
         create_new_cubit_instance()
 
         coil_set_from_geometry.mesh_magnets_cubit()
-        assert coil_set_from_geometry.volume_ids == volume_ids_exp
+        assert np.allclose(
+            coil_set_from_geometry.cubit_volume_ids, cubit_volume_ids_exp
+        )
 
         coil_set_from_geometry.export_mesh_cubit()
         assert Path("magnet_mesh.h5m").exists()
@@ -278,5 +319,5 @@ def test_zero_volume_volumes():
     ms = magnet_coils.MagnetSetFromFilaments(test_filaments, 40, 40, 89.8)
     ms.populate_magnet_coils()
     ms.build_magnet_coils()
-    for solid in ms.coil_solids:
-        assert not np.isclose(solid.Volume(), 0)
+    for solids in ms.coil_solids:
+        assert not np.isclose(solids[0].Volume(), 0)
