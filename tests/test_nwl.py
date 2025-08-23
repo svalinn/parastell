@@ -26,7 +26,9 @@ ribs_file = Path("files_for_tests") / "kisslinger_file_example.txt"
     num_poloidal_angles,
     periods,
     custom_surface_rz_ribs,
-) = ribs_from_kisslinger_format(ribs_file, delimiter=" ", scale=1.0)
+) = ribs_from_kisslinger_format(
+    ribs_file, delimiter=" ", scale=1.0, format=False
+)
 poloidal_angles = np.linspace(0, 360, num_poloidal_angles)
 rib_based_surface = invessel_build.RibBasedSurface(
     custom_surface_rz_ribs, custom_surface_toroidal_angles, poloidal_angles
