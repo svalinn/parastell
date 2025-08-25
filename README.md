@@ -79,13 +79,7 @@ If you do not have a Coreform Cubit license, you may be able to get one through 
 Now that all dependencies have been installed, you can install ParaStell with `pip`. Run the following command from the root of the ParaStell repository:
 
 ``` bash
-pip install .
-```
-
-or to install in develop mode for `pytest` and other support run:
-
-``` bash
-pip install .[develop]
+pip install --no-deps .
 ```
 
 ## Executing ParaStell Scripts with YAML Input
