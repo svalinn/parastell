@@ -97,6 +97,7 @@ def enforce_helical_symmetry(matrix):
           period (i.e., poloidal symmetry is expected)
         - The beginning, toroidal midplane, and end of the period are symmetric
           about the axial midplane
+        - If a 3-D matrix, the final axis represents R, Z coordinates.
 
     Arguments:
         matrix (2-D or 3-D iterable of float): matrix to be made helically
@@ -110,9 +111,11 @@ def enforce_helical_symmetry(matrix):
     if len(original_shape) == 2:
         num_rows, num_columns = original_shape
         flattened_shape = num_rows * num_columns
+        coordinate_data = False
     elif len(original_shape) == 3:
         num_rows, num_columns, num_coords = original_shape
         flattened_shape = (num_rows * num_columns, num_coords)
+        coordinate_data = True
     else:
         e = ValueError(
             f"Input matrix is of shape {original_shape}, but only 2-D and 3-D "
@@ -132,7 +135,7 @@ def enforce_helical_symmetry(matrix):
             np.flip(matrix[0, : math.floor(num_columns / 2)], axis=0),
         ]
     )
-    if len(original_shape) == 3:
+    if coordinate_data:
         # Reflect initial poloidal profile about midplane
         matrix[0, math.ceil(num_columns / 2) : -1, -1] *= -1
 
@@ -146,7 +149,7 @@ def enforce_helical_symmetry(matrix):
     last_half = np.flip(
         flattened_matrix.copy()[: math.floor(flattened_length / 2)], axis=0
     )
-    if len(original_shape) == 3:
+    if coordinate_data:
         # Reflect poloidal profiles in second half of period about midplane
         last_half[:, -1] *= -1
 
@@ -154,7 +157,13 @@ def enforce_helical_symmetry(matrix):
 
     matrix = flattened_matrix.reshape(original_shape)
 
-    if len(original_shape) == 3:
+    # The following operations only affect change when matrix is 3-D since
+    # reflection operation above flips sign of profile Z coordinate
+    if coordinate_data:
+        # Ensure midperiod profile is closed loop
+        matrix[math.floor(num_rows / 2), -1] = matrix[
+            math.floor(num_rows / 2), 0
+        ]
         # Ensure periodicity at ends of period
         matrix[-1] = matrix[0]
 
@@ -549,7 +558,7 @@ def format_surface_coords(surface_coords):
 
 
 def ribs_from_kisslinger_format(
-    filename, start_line=2, scale=1.0, delimiter="\t", format=True
+    filename, start_line=2, scale=1.0, delimiter="\t", format=False
 ):
     """Reads a Kisslinger format file and extracts the R, Z data, the number of
     periods, and the toroidal angles at which the R, Z data is specified.
@@ -587,7 +596,7 @@ def ribs_from_kisslinger_format(
         delimiter (str): delimiter used to signify new coordiante values
             (defaults to " ").
         format (bool): flag to indicate whether the data should be formatted
-            (defaults to True).
+            (defaults to False).
 
     Returns:
         toroidal_angles (numpy array): Toroidal angles in the
