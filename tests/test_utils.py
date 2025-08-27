@@ -1,39 +1,5 @@
+import pytest
 from parastell.utils import *
-
-
-def test_dagmc_renumbering():
-    """Tests whether multiple DAGMC models are correctly combined, renumbering
-    their IDs, by testing if:
-        * the expected number of surfaces is created
-        * the resulting largest surface ID is the expected value
-        * the expected number of volumes is created
-        * the resulting largest volume ID is the expected value
-        * the correct material tags, in the correct order, are applied
-
-    An example of three cubes is used for this test. two_cubes.h5m is two cubes
-    which share a face. one_cube.h5m has one cube. They do not overlap.
-    """
-    num_surfaces_exp = 17
-    max_surf_id_exp = 17
-    num_vol_exp = 3
-    max_vol_id_exp = 3
-
-    mats_exp = ["iron", "tungsten", "air"]
-
-    core_1 = core.Core()
-    core_2 = core.Core()
-    core_1.load_file("files_for_tests/two_cubes.h5m")
-    core_2.load_file("files_for_tests/one_cube.h5m")
-
-    combined_model = combine_dagmc_models([core_1, core_2])
-
-    mats = [vol.material for vol in combined_model.volumes]
-
-    assert len(combined_model.surfaces) == num_surfaces_exp
-    assert max(combined_model.surfaces_by_id.keys()) == max_surf_id_exp
-    assert len(combined_model.volumes) == num_vol_exp
-    assert max(combined_model.volumes_by_id.keys()) == max_vol_id_exp
-    assert all(mat in mats_exp for mat in mats)
 
 
 def test_expand_list():
@@ -82,6 +48,145 @@ def test_expand_list():
     assert np.allclose(expected_values, expanded_list)
 
 
+shape_2d_exp = (5, 5)
+matrix_2d = np.arange(25.0).reshape(shape_2d_exp)
+matrix_2d_exp = np.array(
+    [
+        [0.0, 1.0, 2.0, 1.0, 0.0],
+        [5.0, 6.0, 7.0, 8.0, 5.0],
+        [10.0, 11.0, 12.0, 11.0, 10.0],
+        [5.0, 8.0, 7.0, 6.0, 5.0],
+        [0.0, 1.0, 2.0, 1.0, 0.0],
+    ]
+)
+
+shape_3d_exp = (5, 5, 2)
+matrix_3d = np.arange(50.0).reshape(shape_3d_exp)
+matrix_3d_exp = np.array(
+    [
+        [
+            [0.0, 1.0],
+            [2.0, 3.0],
+            [4.0, 5.0],
+            [2.0, -3.0],
+            [0.0, 1.0],
+        ],
+        [
+            [10.0, 11.0],
+            [12.0, 13.0],
+            [14.0, 15.0],
+            [16.0, 17.0],
+            [10.0, 11.0],
+        ],
+        [
+            [20.0, 21.0],
+            [22.0, 23.0],
+            [24.0, 25.0],
+            [22.0, -23.0],
+            [20.0, 21.0],
+        ],
+        [
+            [10.0, -11.0],
+            [16.0, -17.0],
+            [14.0, -15.0],
+            [12.0, -13.0],
+            [10.0, -11.0],
+        ],
+        [
+            [0.0, 1.0],
+            [2.0, 3.0],
+            [4.0, 5.0],
+            [2.0, -3.0],
+            [0.0, 1.0],
+        ],
+    ]
+)
+
+
+@pytest.mark.parametrize(
+    "matrix, shape_exp, matrix_exp",
+    [
+        (matrix_2d, shape_2d_exp, matrix_2d_exp),
+        (matrix_3d, shape_3d_exp, matrix_3d_exp),
+    ],
+)
+def test_enforce_helical_symmetry(matrix, shape_exp, matrix_exp):
+    """Tests utils.enforce_helical_symmetry to ensure returned arrays are the
+    expected shape, and contain the expected values, by testing if:
+      * the returned matrix has the same 2-D or 3-D shape as the input
+      * the returned matrix has the expected values
+    """
+    matrix_symmetric = enforce_helical_symmetry(matrix)
+    assert matrix_symmetric.shape == shape_exp
+    assert np.allclose(matrix_symmetric, matrix_exp)
+
+
+def test_ribs_from_kisslinger_format():
+    """Tests that the example kisslinger format file is being read correctly by
+    checking if:
+      * The values for the toroidal angles match the original values, which
+        are 64 evenly spaced values between 0 and 90.
+      * The number of toroidal angles read from the file is correct.
+      * The number of poloidal locations is correct.
+      * The number of periods has been read correctly.
+      * The shape of the custom rib data matches with the number of toroidal
+        and poloidal angles expected.
+      * The first and last ribs have the same R, Z data.
+      * The first and second ribs do not have the same R, Z data.
+      * Data is formatted correctly.
+    """
+    original_ribs_file = (
+        Path("files_for_tests") / "kisslinger_file_example.txt"
+    )
+    scrambled_ribs_file = (
+        Path("files_for_tests") / "kisslinger_file_scrambled.txt"
+    )
+
+    num_toroidal_angles_exp = 121
+    num_poloidal_angles_exp = 121
+    periods_exp = 4
+    surface_coords_shape_exp = (121, 121, 2)
+
+    (
+        toroidal_angles,
+        num_toroidal_angles,
+        num_poloidal_angles,
+        periods,
+        unscrambled_surface_coords,
+    ) = ribs_from_kisslinger_format(
+        scrambled_ribs_file,
+        delimiter=" ",
+        scale=1,
+        format=True,
+    )
+
+    assert np.allclose(np.linspace(0, 90, 121), toroidal_angles)
+    assert num_toroidal_angles == num_toroidal_angles_exp
+    assert num_poloidal_angles == num_poloidal_angles_exp
+    assert periods == periods_exp
+    assert unscrambled_surface_coords.shape == surface_coords_shape_exp
+    assert np.allclose(
+        unscrambled_surface_coords[0] - unscrambled_surface_coords[-1], 0
+    )
+    assert not np.allclose(
+        unscrambled_surface_coords[0], unscrambled_surface_coords[1]
+    )
+
+    (
+        _,
+        _,
+        _,
+        _,
+        surface_coords_exp,
+    ) = ribs_from_kisslinger_format(
+        original_ribs_file,
+        delimiter=" ",
+        scale=1,
+        format=True,
+    )
+    assert np.allclose(unscrambled_surface_coords, surface_coords_exp)
+
+
 def test_stl_surfaces_to_cq_solid():
     """Tests utils.stl_surface_to_cq_solid() to verify that the correct number
     of faces are present in the CadQuery solid representation of the DAGMC
@@ -112,46 +217,36 @@ def test_stl_surfaces_to_cq_solid():
     assert np.isclose(dagmc_volume_volume, cq_solid_volume)
 
 
-def test_ribs_from_kisslinger_format():
-    """Tests that the example kisslinger format file is being read correctly by
-    checking if:
-      * The values for the toroidal angles match the original values, which
-        are 64 evenly spaced values between 0 and 90.
-      * The number of toroidal angles read from the file is correct.
-      * The number of poloidal locations is correct.
-      * The number of periods has been read correctly.
-      * The shape of the custom rib data matches with the number of toroidal
-        and poloidal angles expected.
-      * The first and last ribs have the same R, Z data.
-      * The first and second ribs do not have the same R, Z data.
+def test_dagmc_renumbering():
+    """Tests whether multiple DAGMC models are correctly combined, renumbering
+    their IDs, by testing if:
+        * the expected number of surfaces is created
+        * the resulting largest surface ID is the expected value
+        * the expected number of volumes is created
+        * the resulting largest volume ID is the expected value
+        * the correct material tags, in the correct order, are applied
+
+    An example of three cubes is used for this test. two_cubes.h5m is two cubes
+    which share a face. one_cube.h5m has one cube. They do not overlap.
     """
-    ribs_file = Path("files_for_tests") / "kisslinger_file_example.txt"
+    num_surfaces_exp = 17
+    max_surf_id_exp = 17
+    num_vol_exp = 3
+    max_vol_id_exp = 3
 
-    (
-        custom_surface_toroidal_angles,
-        num_toroidal_angles,
-        num_poloidal_angles,
-        periods,
-        custom_surface_rz_ribs,
-    ) = ribs_from_kisslinger_format(
-        ribs_file,
-        delimiter=" ",
-        scale=1,
-    )
+    mats_exp = ["iron", "tungsten", "air"]
 
-    num_toroidal_angles_exp = 121
-    num_poloidal_angles_exp = 121
-    periods_exp = 4
-    custom_surface_rz_ribs_shape_exp = (121, 121, 2)
+    core_1 = core.Core()
+    core_2 = core.Core()
+    core_1.load_file("files_for_tests/two_cubes.h5m")
+    core_2.load_file("files_for_tests/one_cube.h5m")
 
-    assert np.allclose(np.linspace(0, 90, 121), custom_surface_toroidal_angles)
-    assert num_toroidal_angles_exp == num_toroidal_angles
-    assert num_poloidal_angles_exp == num_poloidal_angles
-    assert periods_exp == periods
-    assert custom_surface_rz_ribs_shape_exp == custom_surface_rz_ribs.shape
-    assert np.allclose(
-        custom_surface_rz_ribs[0] - custom_surface_rz_ribs[-1], 0
-    )
-    assert not np.allclose(
-        custom_surface_rz_ribs[0], custom_surface_rz_ribs[1]
-    )
+    combined_model = combine_dagmc_models([core_1, core_2])
+
+    mats = [vol.material for vol in combined_model.volumes]
+
+    assert len(combined_model.surfaces) == num_surfaces_exp
+    assert max(combined_model.surfaces_by_id.keys()) == max_surf_id_exp
+    assert len(combined_model.volumes) == num_vol_exp
+    assert max(combined_model.volumes_by_id.keys()) == max_vol_id_exp
+    assert all(mat in mats_exp for mat in mats)

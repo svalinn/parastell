@@ -20,7 +20,7 @@ def reorder_filament(coil):
             coordinates defining a MagnetCoil filament.
     """
     # Start the filament at the outboard midplane
-    outboard_index = coil.filament.get_ob_mp_index()
+    outboard_index = coil.filament.get_obmp_index()
     if outboard_index != 0:
         coil.filament.reorder_coords(outboard_index)
     # Ensure points initially progress in positive z-direction
