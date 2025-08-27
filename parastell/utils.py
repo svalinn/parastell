@@ -97,10 +97,9 @@ def enforce_helical_symmetry(matrix):
           period (i.e., poloidal symmetry is expected)
         - The beginning, toroidal midplane, and end of the period are symmetric
           about the axial midplane
-        - The matrix values can be scalars, thus appearing 
-          as a 2-D matrix.  Alternatively, those values 
-          can be vectors of coordinates, thus appearing 
-          as a 3-D matrix.
+        - The matrix values can be scalars, thus appearing as a 2-D matrix.
+          Alternatively, those values can be vectors of coordinates, thus
+          appearing as a 3-D matrix.
 
     Arguments:
         matrix (2-D or 3-D iterable of float): matrix to be made helically
@@ -121,8 +120,8 @@ def enforce_helical_symmetry(matrix):
         coordinate_data = True
     else:
         e = ValueError(
-            f"Input matrix is of shape {original_shape}, but only 2-D arrays of either "
-            "scalars or coordinates are supported."
+            f"Input matrix is of shape {original_shape}, but only 2-D arrays "
+            "of either scalars or coordinates are supported."
         )
         raise e
 
