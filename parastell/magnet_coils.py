@@ -534,7 +534,7 @@ class MagnetSetFromFilaments(MagnetSet):
             ).reshape((len(self.coil_solids), 2))
         else:
             self.volume_ids = np.array(
-                [(idx) for idx, _ in enumerate(self.coil_solids)]
+                [[idx] for idx, _ in enumerate(self.coil_solids)]
             )
 
     def export_step(self, filename="magnet_set", export_dir=""):
