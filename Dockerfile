@@ -29,7 +29,8 @@ RUN apt-get install -y libgl1-mesa-glx \
                         libxm4 \
                         libtiff5-dev \
                         libxcursor1 \
-                        libxinerama1
+                        libxinerama1 \
+                        libinput10
 
 # Download Coreform Cubit
 RUN wget -O cubit.deb https://f002.backblazeb2.com/file/cubit-downloads/Coreform-Cubit/Releases/Linux/Coreform-Cubit-2025.8%2B61943-Lin64.deb
@@ -37,7 +38,6 @@ RUN wget -O cubit.deb https://f002.backblazeb2.com/file/cubit-downloads/Coreform
 # Install Cubit
 RUN dpkg -i cubit.deb
 ENV PYTHONPATH=/opt/Coreform-Cubit-2025.8/bin/
-ENV PATH=$PATH:/opt/Coreform-Cubit-2025.8/bin/
 
 # Install Python dependencies in parastell env conda environment
 RUN mkdir /opt/parastell
