@@ -30,7 +30,8 @@ RUN apt-get install -y libgl1-mesa-glx \
                         libtiff5-dev \
                         libxcursor1 \
                         libxinerama1 \
-                        libinput10
+                        libinput10 \
+                        libdbus-1-3
 
 # Download Coreform Cubit
 RUN wget -O cubit.deb https://f002.backblazeb2.com/file/cubit-downloads/Coreform-Cubit/Releases/Linux/Coreform-Cubit-2025.8%2B61943-Lin64.deb
