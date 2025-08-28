@@ -530,8 +530,8 @@ class MagnetSetFromFilaments(MagnetSet):
 
         if self.has_casing:
             self.volume_ids = np.array(
-                [(idx, idx + 1) for idx, _ in enumerate(self.coil_solids)]
-            )
+                [idx for idx, _ in enumerate(self.all_coil_solids)]
+            ).reshape((len(self.coil_solids, 2)))
         else:
             self.volume_ids = np.array(
                 [(idx) for idx, _ in enumerate(self.coil_solids)]
