@@ -37,7 +37,6 @@ RUN wget -O cubit.tar.gz https://f002.backblazeb2.com/file/cubit-downloads/Coref
 # Install Cubit
 RUN tar -xzf cubit.tar.gz -C /opt
 ENV PYTHONPATH=/opt/Coreform-Cubit-2025.8/bin/
-ENV PATH=$PATH:/opt/Coreform-Cubit-2025.8/bin/
 
 # Install Python dependencies in parastell env conda environment
 RUN mkdir /opt/parastell

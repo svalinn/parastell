@@ -23,7 +23,7 @@ jobs:
       - name: Populate environment and run tests
         run: |
           . /opt/etc/bashrc
-          rlm_activate --login ${EMAIL_SECRET} ${PASSWORD_SECRET}
+          /opt/Coreform-Cubit-2025.8/bin/rlm_activate --login ${EMAIL_SECRET} ${PASSWORD_SECRET}
           cd /opt/parastell/tests
           pytest -v .
         env:
