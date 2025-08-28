@@ -32,12 +32,12 @@ RUN apt-get install -y libgl1-mesa-glx \
                         libxinerama1
 
 # Download Coreform Cubit
-RUN wget -O /cubit.deb https://f002.backblazeb2.com/file/cubit-downloads/Coreform-Cubit/Releases/Linux/Coreform-Cubit-2024.8%2B52155-Lin64.deb
+RUN wget -O /cubit.deb https://f002.backblazeb2.com/file/cubit-downloads/Coreform-Cubit/Releases/Linux/Coreform-Cubit-2025.8%2B61943-Lin64.deb
 
 # Install Cubit
 RUN dpkg -i cubit.deb
-ENV PYTHONPATH=/opt/Coreform-Cubit-2024.8/bin/
-COPY ./rlmcloud.in /opt/Coreform-Cubit-2024.8/bin/licenses/rlmcloud.in
+ENV PYTHONPATH=/opt/Coreform-Cubit-2025.8/bin/
+ENV PATH=$PATH:/opt/Coreform-Cubit-2025.8/bin/
 
 # Install Python dependencies in parastell env conda environment
 RUN mkdir /opt/parastell

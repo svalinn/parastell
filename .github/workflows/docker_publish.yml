@@ -70,9 +70,9 @@ jobs:
       - name: Populate environment and run tests
         run: |
           . /opt/etc/bashrc
-          sed -e "s/@SERVER@/${rlmSERVER}/" -e "s/@PASSWORD@/${rlmPASSWD}/" /opt/Coreform-Cubit-2024.8/bin/licenses/rlmcloud.in > /opt/Coreform-Cubit-2024.8/bin/licenses/rlmcloud.lic
+          rlm_activate --login ${EMAIL_SECRET} ${PASSWORD_SECRET}
           cd /opt/parastell/tests
           pytest -v .
         env:
-          rlmSERVER: ${{ secrets.RLMSERVER }}
-          rlmPASSWD: ${{ secrets.RLMPASSWORD }}
+          EMAIL_SECRET: ${{ secrets.LICENSE_EMAIL }}
+          PASSWORD_SECRET: ${{ secrets.LICENSE_PASSWORD }}
