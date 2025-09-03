@@ -73,6 +73,7 @@ jobs:
           /opt/Coreform-Cubit-2025.8/bin/rlm_activate --login ${EMAIL_SECRET} ${PASSWORD_SECRET}
           cd /opt/parastell/tests
           pytest -v .
+          /opt/Coreform-Cubit-2025.8/bin/rlm_activate --logout
         env:
           EMAIL_SECRET: ${{ secrets.LICENSE_EMAIL }}
           PASSWORD_SECRET: ${{ secrets.LICENSE_PASSWORD }}
