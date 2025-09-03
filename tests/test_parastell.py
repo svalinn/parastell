@@ -44,8 +44,6 @@ def check_surfaces_and_volumes(filename, num_surfaces_exp, num_volumes_exp):
     """
     dagmc_model = pydagmc.Model(str(Path(filename).with_suffix(".h5m")))
 
-    print(dagmc_model.surfaces)
-
     assert len(dagmc_model.surfaces) == num_surfaces_exp
     assert len(dagmc_model.volumes) == num_volumes_exp
 
@@ -339,7 +337,7 @@ def test_cubit_ps_geom(stellarator):
     """
     pytest.importorskip("cubit")
 
-    # remove_files()
+    remove_files()
     create_new_cubit_instance()
 
     create_ivb_cad_magnets_from_filaments(stellarator)
@@ -382,7 +380,7 @@ def test_cubit_ps_geom(stellarator):
 
     check_surfaces_and_volumes(filename_exp, num_surfaces_exp, num_volumes_exp)
 
-    # remove_files()
+    remove_files()
 
 
 def test_cubit_cad_magnets(stellarator):
