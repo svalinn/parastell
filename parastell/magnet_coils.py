@@ -529,12 +529,12 @@ class MagnetSetFromFilaments(MagnetSet):
         self.coil_solids = [coil.solids for coil in self.magnet_coils]
 
         if self.has_casing:
-            self.volume_ids = np.array(
-                [idx for idx, _ in enumerate(self.all_coil_solids)]
-            ).reshape((len(self.coil_solids), 2))
+            self.volume_ids = np.arange(len(self.all_coil_solids)).reshape(
+                (len(self.coil_solids), 2)
+            )
         else:
-            self.volume_ids = np.array(
-                [[idx] for idx, _ in enumerate(self.coil_solids)]
+            self.volume_ids = np.arange(len(self.coil_solids)).reshape(
+                (len(self.coil_solids), 1)
             )
 
     def export_step(self, filename="magnet_set", export_dir=""):
@@ -581,7 +581,9 @@ class MagnetSetFromGeometry(MagnetSet):
             and the second to the inner volume. If just one is given, it will
             be applied to all magnet volumes.
         volume_ids (2-D iterable of int): list of ID pairs for (outer, inner)
-            volume pairs, as imported by CadQuery or Cubit, beginning from 0.
+            volume pairs, as imported by CadQuery or Cubit, beginning from 0
+            (defaults to None). If None, it will be assumed that no casing has
+            been modeled.
     """
 
     def __init__(
@@ -636,8 +638,8 @@ class MagnetSetFromGeometry(MagnetSet):
     @volume_ids.setter
     def volume_ids(self, value):
         if value is None:
-            self._volume_ids = np.array(
-                [[idx] for idx, _ in enumerate(self.coil_solids)]
+            self._volume_ids = np.arange(len(self.coil_solids)).reshape(
+                (len(self.coil_solids), 1)
             )
         elif isinstance(self.mat_tag, (list, tuple)):
             self.has_casing = True
