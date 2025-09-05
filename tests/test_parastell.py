@@ -345,13 +345,14 @@ def test_cubit_ps_geom(stellarator):
     chamber_volume_id_exp = 1
     component_volume_id_exp = 2
     component_name_exp = "component"
-    magnet_volume_ids_exp = [[3]]
+    magnet_volume_ids_exp = [[3], [4]]
     filename_exp = "dagmc"
 
-    # Each in-vessel component (2 present) gives 3 unique surfaces; each magnet
-    # (1 present) gives 4 surfaces
-    num_surfaces_exp = 10
-    num_volumes_exp = 3
+    # Each in-vessel component (2 present) gives 3 unique surfaces
+    # One magnet (2 present) gives 4 surfaces, the other (cut-off at beginning
+    # of build) gives 6
+    num_surfaces_exp = 16
+    num_volumes_exp = 4
 
     stellarator.build_cubit_model()
 
@@ -451,10 +452,11 @@ def test_cad_to_dagmc_ps_geom(stellarator):
 
     filename_exp = "dagmc"
 
-    # Each in-vessel component (2 present) gives 3 unique surfaces; each magnet
-    # (1 present) gives 4 surfaces
-    num_surfaces_exp = 10
-    num_volumes_exp = 3
+    # Each in-vessel component (2 present) gives 3 unique surfaces
+    # One magnet (2 present) gives 4 surfaces, the other (cut-off at beginning
+    # of build) gives 6
+    num_surfaces_exp = 16
+    num_volumes_exp = 4
 
     stellarator.build_cad_to_dagmc_model()
     stellarator.export_cad_to_dagmc(min_mesh_size=50, max_mesh_size=100)
@@ -517,12 +519,12 @@ def test_pydagmc_ps_geom_cubit(stellarator):
 
     assert Path("dagmc.h5m").exists()
 
-    # No plasma chamber. 4 surfaces from single magnet, 4 surfaces from single
-    # component.
-    num_surfaces_exp = 8
-
-    # One magnet and one component
-    num_volumes_exp = 2
+    # No plasma chamber. 4 surfaces from single component.
+    # One magnet (2 present) gives 4 surfaces, the other (cut-off at beginning
+    # of build) gives 6
+    num_surfaces_exp = 14
+    # Two magnets and one component
+    num_volumes_exp = 3
 
     check_surfaces_and_volumes("dagmc.h5m", num_surfaces_exp, num_volumes_exp)
 
@@ -548,12 +550,12 @@ def test_pydagmc_ps_geom_cad_to_dagmc(stellarator):
 
     assert Path("dagmc.h5m").exists()
 
-    # No plasma chamber. 4 surfaces from single magnet, 4 surfaces from single
-    # component.
-    num_surfaces_exp = 8
-
-    # One magnet and one component
-    num_volumes_exp = 2
+    # No plasma chamber. 4 surfaces from single component.
+    # One magnet (2 present) gives 4 surfaces, the other (cut-off at beginning
+    # of build) gives 6
+    num_surfaces_exp = 14
+    # Two magnets and one component
+    num_volumes_exp = 3
 
     check_surfaces_and_volumes("dagmc.h5m", num_surfaces_exp, num_volumes_exp)
 
@@ -585,12 +587,11 @@ def test_pydagmc_ps_geom_cubit_360(stellarator):
 
     assert Path("dagmc.h5m").exists()
 
-    # No plasma chamber. 8 surfaces from two magnets, 2 surfaces from single
+    # No plasma chamber. 12 surfaces from three magnets, 2 surfaces from single
     # component.
-    num_surfaces_exp = 10
-
+    num_surfaces_exp = 14
     # Two magnets and one component
-    num_volumes_exp = 3
+    num_volumes_exp = 4
 
     check_surfaces_and_volumes("dagmc.h5m", num_surfaces_exp, num_volumes_exp)
 
@@ -617,12 +618,11 @@ def test_pydagmc_ps_geom_cad_to_dagmc_360(stellarator):
 
     assert Path("dagmc.h5m").exists()
 
-    # No plasma chamber. 8 surfaces from two magnets, 2 surfaces from single
+    # No plasma chamber. 12 surfaces from three magnets, 2 surfaces from single
     # component.
-    num_surfaces_exp = 10
-
+    num_surfaces_exp = 14
     # Two magnets and one component
-    num_volumes_exp = 3
+    num_volumes_exp = 4
 
     check_surfaces_and_volumes("dagmc.h5m", num_surfaces_exp, num_volumes_exp)
 

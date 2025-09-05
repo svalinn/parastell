@@ -173,7 +173,7 @@ def test_single_coil(single_coil):
 
 
 @pytest.mark.parametrize(
-    "case_thickness, num_solids_exp", [(0.0, 1), (5.0, 2)]
+    "case_thickness, num_solids_exp", [(0.0, 2), (5.0, 4)]
 )
 def test_magnet_construction(
     coil_set_from_filaments, case_thickness, num_solids_exp
@@ -191,9 +191,9 @@ def test_magnet_construction(
     thickness_exp = 50.0
     toroidal_extent_exp = np.deg2rad(90.0)
     max_cs_len_exp = 50.0
-    average_radial_distance_exp = 1023.7170384211436
+    average_radial_distance_exp = 1043.430713553362
     max_radial_distance_exp = 1646.3258131460148
-    len_coils_exp = 1
+    len_coils_exp = 2
     len_coords_exp = 129
 
     case_thickness_exp = case_thickness
@@ -226,10 +226,14 @@ def test_magnet_construction(
 
 
 @pytest.mark.parametrize(
-    "case_thickness, cubit_volume_ids_exp", [(0.0, [[1]]), (5.0, [[1, 2]])]
+    "case_thickness, volume_ids_exp, cubit_volume_ids_exp",
+    [(0.0, [[0], [1]], [[1], [2]]), (5.0, [[0, 1], [2, 3]], [[1, 2], [3, 4]])],
 )
 def test_magnet_exports_from_filaments(
-    coil_set_from_filaments, case_thickness, cubit_volume_ids_exp
+    coil_set_from_filaments,
+    case_thickness,
+    volume_ids_exp,
+    cubit_volume_ids_exp,
 ):
     """Tests whether the MagnetSetFromFilaments' export functionality behaves
     as expected, by testing if:
@@ -246,7 +250,11 @@ def test_magnet_exports_from_filaments(
 
     coil_set_from_filaments.populate_magnet_coils()
     coil_set_from_filaments.build_magnet_coils()
+
+    assert np.allclose(coil_set_from_filaments.volume_ids, volume_ids_exp)
+
     coil_set_from_filaments.export_step()
+
     assert Path("magnet_set.step").exists()
 
     if check_cubit_installation():
