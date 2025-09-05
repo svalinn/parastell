@@ -1282,6 +1282,10 @@ class InVesselComponentMesh(ToroidalMesh):
         self.surfaces = surfaces
         self.gap_map = gap_map
 
+        self.volumes = []
+
+        self._add_tags_to_core()
+
     @property
     def surfaces(self):
         return self._surfaces
@@ -1310,14 +1314,49 @@ class InVesselComponentMesh(ToroidalMesh):
 
         self._gap_map = list
 
+    def _add_tags_to_core(self):
+        """Creates PyMOAB core instance with source strength tag.
+        (Internal function not intended to be called externally)
+        """
+        tag_type = types.MB_TYPE_DOUBLE
+        tag_size = 1
+        storage_type = types.MB_TAG_DENSE
+
+        vol_tag_name = "Volume"
+        self.volume_tag = self.mbc.tag_get_handle(
+            vol_tag_name,
+            tag_size,
+            tag_type,
+            storage_type,
+            create_if_missing=True,
+        )
+
     def create_vertices(self):
         """Creates mesh vertices and adds them to PyMOAB core."""
-        coords = []
+        self.coords = []
         for surface in self.surfaces:
             for rib in surface.Ribs:
-                coords.extend(rib.rib_loci)
-        coords = np.array(coords)
-        self.add_vertices(coords)
+                self.coords.extend(rib.rib_loci)
+        self.coords = np.array(self.coords)
+        self.add_vertices(self.coords)
+
+    def _compute_and_tag_tet_volume(self, vert_ids, tet):
+        """Computes tetrahedron volume, and sets the corresponding value of
+        the respective tag for that tetrahedron.
+        (Internal function not intended to be called externally)
+
+        Arguments:
+            vert_ids (list of int): tetrahedron vertex indices.
+            tet (object): pymoab.EntityHandle of tetrahedron.
+
+        Returns:
+            tet_vol (float): volume of tetrahedron.
+        """
+        tet_vol = self._compute_tet_volume(vert_ids)
+        # Tag tetrahedra with data
+        self.mbc.tag_set_data(self.volume_tag, tet, [tet_vol])
+
+        return tet_vol
 
     def create_mesh(self):
         """Creates volumetric mesh in real space."""
@@ -1326,8 +1365,14 @@ class InVesselComponentMesh(ToroidalMesh):
                 continue  # Skip iteration if a gap is indicated
             for toroidal_idx in range(self._num_ribs - 1):
                 for poloidal_idx in range(self._num_rib_pts - 1):
-                    self._create_tets_from_hex(
+                    tets, vertex_id_list = self._create_tets_from_hex(
                         surface_idx, poloidal_idx, toroidal_idx
+                    )
+                    self.volumes.extend(
+                        [
+                            self._compute_and_tag_tet_volume(vert_ids, tet)
+                            for vert_ids, tet in zip(vertex_id_list, tets)
+                        ]
                     )
 
     def _get_vertex_id(self, vertex_idx):
