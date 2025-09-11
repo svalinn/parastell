@@ -564,8 +564,13 @@ class MagnetSetFromFilaments(MagnetSet):
 
 
 class MagnetSetFromGeometry(MagnetSet):
-    """An object representing a set of modular stellarator magnet coils
-    with previously defined geometry files.
+    """An object representing a set of modular stellarator magnet coils with
+    previously defined geometry files. Note that if the geometry has nested
+    coil volumes (e.g., casing and winding pack), and the underlying CAD
+    surfaces are not merged such that shared surfaces are the same CAD entity,
+    the user is limited to the Cubit routine for the generation of valid DAGMC
+    models. Furthermore, for nested geometries, it is expected that only two
+    volumes are present per coil - any additional is not supported.
 
     Arguments:
         geometry_file (str): path to the existing coil geometry. If using Cubit
