@@ -580,10 +580,6 @@ class MagnetSetFromGeometry(MagnetSet):
             iterable is given, the first entry will be applied to coil casing
             and the second to the inner volume. If just one is given, it will
             be applied to all magnet volumes.
-        volume_ids (2-D iterable of int): list of ID pairs for (outer, inner)
-            volume pairs, as imported by CadQuery or Cubit, beginning from 0
-            (defaults to None). If None, it will be assumed that no casing has
-            been modeled.
     """
 
     def __init__(
@@ -596,16 +592,15 @@ class MagnetSetFromGeometry(MagnetSet):
         self.geometry_file = Path(geometry_file).resolve()
         self.working_dir = self.geometry_file.parent
 
-        self.volume_ids = None
-
         for name in kwargs.keys() & (
             "start_line",
             "sample_mod",
             "scale",
             "mat_tag",
-            "volume_ids",
         ):
             self.__setattr__(name, kwargs[name])
+
+        self._resolve_volume_ids()
 
     @property
     def geometry_file(self):
@@ -631,40 +626,58 @@ class MagnetSetFromGeometry(MagnetSet):
                 )
                 self._logger.error(e.args[0])
 
-    @property
-    def volume_ids(self):
-        return self._volume_ids
+    def _resolve_volume_ids(self):
+        """Processes the imported geometry to determine:
+        1. whether the geometry separates coils into inner and outer volumes
+        2. if so, the solids to be paired together
+        """
+        centers = [solid[0].CenterOfBoundBox() for solid in self.coil_solids]
+        centers = [[center.x, center.y, center.z] for center in centers]
+        bounding_boxes = [solid[0].BoundingBox() for solid in self.coil_solids]
 
-    @volume_ids.setter
-    def volume_ids(self, value):
-        if value is None:
-            self._volume_ids = np.arange(len(self.coil_solids)).reshape(
-                (len(self.coil_solids), 1)
+        self.volume_ids = []
+        pair_already_found = False
+        for i, center in enumerate(centers):
+            for pair in self.volume_ids:
+                if i in pair:
+                    pair_already_found = True
+                    break
+            if pair_already_found:
+                pair_already_found = False
+                continue
+
+            paired_volumes = [i]
+            for j, other_center in enumerate(centers):
+                if i == j:
+                    continue
+                # Use large tolerance since adjacent magnets will not be close
+                elif np.allclose(center, other_center, atol=5.0):
+                    paired_volumes.append(j)
+
+            if len(paired_volumes) > 2:
+                self._logger.error(
+                    f"{len(paired_volumes)} volumes found in same location. "
+                    "Only pairs are supported."
+                )
+            else:
+                self.volume_ids.append(paired_volumes)
+
+        self.volume_ids = np.array(self.volume_ids)
+
+        if self.volume_ids.shape[1] == 2:
+            self._logger.info(
+                "Nested magnet volumes detected. Formulating (outer, inner) "
+                "volume pairs."
             )
-        elif isinstance(self.mat_tag, (list, tuple)):
-            self.has_casing = True
-            value = np.array(value)
-
-            if set(value[:, 0]) & set(value[:, 1]):
-                e = ValueError(
-                    "At least one ID pair is not unique. Ensure all IDs are "
-                    "included only once."
-                )
-                self._logger.error(e.args[0])
-
-            if len(value.flatten()) != len(self.all_coil_solids):
-                e = ValueError(
-                    "Total number of IDs given does not match the number of "
-                    "imported solids."
-                )
-                self._logger.error(e.args[0])
-
-            self._volume_ids = value
-
-            self.coil_solids = [
-                [self.coil_solids[outer_id][0], self.coil_solids[inner_id][0]]
-                for outer_id, inner_id in value
-            ]
+            for k, (i, j) in enumerate(self.volume_ids):
+                if bounding_boxes[i].isInside(bounding_boxes[j]):
+                    self.volume_ids[k] = [i, j]
+                elif bounding_boxes[j].isInside(bounding_boxes[i]):
+                    self.volume_ids[k] = [j, i]
+                else:
+                    self._logger.error(
+                        f"Cannot resolve outer and inner volumes for pair {k}"
+                    )
 
 
 class Filament(object):
