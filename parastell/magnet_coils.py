@@ -684,6 +684,11 @@ class MagnetSetFromGeometry(MagnetSet):
                         f"Cannot resolve outer and inner volumes for pair {k}"
                     )
 
+            self.coil_solids = [
+                [self.coil_solids[outer_id][0], self.coil_solids[inner_id][0]]
+                for outer_id, inner_id in self.volume_ids
+            ]
+
 
 class Filament(object):
     """Object containing basic data defining a Filament, and necessary
