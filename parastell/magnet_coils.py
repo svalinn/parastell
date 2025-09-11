@@ -512,7 +512,10 @@ class MagnetSetFromFilaments(MagnetSet):
         """
         self._logger.info("Constructing magnet coils...")
 
-        toroidal_domain = self._create_magnet_boundary()
+        if self.toroidal_extent < 2 * np.pi:
+            toroidal_domain = self._create_magnet_boundary()
+        else:
+            toroidal_domain = None
 
         [
             magnet_coil.create_magnet(toroidal_domain)
@@ -884,7 +887,8 @@ class MagnetCoil(object):
                 self.width - 2 * self.case_thickness,
                 self.thickness - 2 * self.case_thickness,
             )
-            inner_solid = inner_solid.intersect(toroidal_domain)
+            if toroidal_domain:
+                inner_solid = inner_solid.intersect(toroidal_domain)
 
             outer_solid = magnet_solid.cut(inner_solid)
 
