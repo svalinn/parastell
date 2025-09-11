@@ -661,8 +661,8 @@ class MagnetSetFromGeometry(MagnetSet):
 
             if len(paired_volumes) > 2:
                 self._logger.error(
-                    f"{len(paired_volumes)} volumes found in same location. "
-                    "Only pairs are supported."
+                    f"{len(paired_volumes)} nested volumes detected near "
+                    f"location {center}. Only pairs are supported."
                 )
             else:
                 self.volume_ids.append(paired_volumes)
@@ -681,7 +681,8 @@ class MagnetSetFromGeometry(MagnetSet):
                     self.volume_ids[k] = [j, i]
                 else:
                     self._logger.error(
-                        f"Cannot resolve outer and inner volumes for pair {k}"
+                        "Cannot resolve nested arrangement for detected pair "
+                        f"with IDs ({i,j})"
                     )
 
             self.coil_solids = [
