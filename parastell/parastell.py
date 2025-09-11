@@ -350,9 +350,6 @@ class Stellarator(object):
                 an iterable is given, the first entry will be applied to coil
                 casing and the second to the inner volume. If just one is
                 given, it will be applied to all magnet volumes.
-            volume_ids (2-D iterable of int): list of ID pairs for
-                (outer, inner) volume pairs, as imported by CadQuery or Cubit,
-                beginning from 0.
         """
         self.magnet_set = mc.MagnetSetFromGeometry(
             geometry_file,
