@@ -349,11 +349,12 @@ class MagnetSetFromFilaments(MagnetSet):
 
     @toroidal_extent.setter
     def toroidal_extent(self, angle):
-        self._toroidal_extent = np.deg2rad(angle)
-        if self._toroidal_extent > 360.0:
+        if angle > 360.0:
             e = ValueError("Toroidal extent cannot exceed 360.0 degrees.")
             self._logger.error(e.args[0])
             raise e
+
+        self._toroidal_extent = np.deg2rad(angle)
 
     @property
     def case_thickness(self):
@@ -512,7 +513,10 @@ class MagnetSetFromFilaments(MagnetSet):
         """
         self._logger.info("Constructing magnet coils...")
 
-        toroidal_domain = self._create_magnet_boundary()
+        if self.toroidal_extent < 2 * np.pi:
+            toroidal_domain = self._create_magnet_boundary()
+        else:
+            toroidal_domain = None
 
         [
             magnet_coil.create_magnet(toroidal_domain)
@@ -884,7 +888,8 @@ class MagnetCoil(object):
                 self.width - 2 * self.case_thickness,
                 self.thickness - 2 * self.case_thickness,
             )
-            inner_solid = inner_solid.intersect(toroidal_domain)
+            if toroidal_domain:
+                inner_solid = inner_solid.intersect(toroidal_domain)
 
             outer_solid = magnet_solid.cut(inner_solid)
 
