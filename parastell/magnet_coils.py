@@ -687,6 +687,7 @@ class MagnetSetFromGeometry(MagnetSet):
             self._logger.info(
                 "Nested magnet volumes detected. All have been paired successfully."
             )
+            self.has_casing = True
 
         self.volume_ids = volume_ids
 
