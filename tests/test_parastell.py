@@ -427,6 +427,7 @@ def test_cubit_cad_magnets(
     component_name_exp = "component"
     filename_exp = "dagmc"
 
+    # Three unique surfaces per IVC
     num_surfaces_per_ivc = 3
     num_ivc_volumes = 2
     num_ivc_surfaces = num_surfaces_per_ivc * num_ivc_volumes
@@ -514,6 +515,7 @@ def test_cad_to_dagmc_cad_magnets(
 
     filename_exp = "dagmc"
 
+    # Three unique surfaces per IVC
     num_surfaces_per_ivc = 3
     num_ivc_volumes = 2
     num_ivc_surfaces = num_surfaces_per_ivc * num_ivc_volumes
@@ -711,6 +713,7 @@ def test_pydagmc_cad_magnets_cubit(
 
     assert Path("dagmc.h5m").exists()
 
+    # Four unique surfaces for one IVC
     num_surfaces_per_ivc = 4
     num_ivc_volumes = 1
     num_ivc_surfaces = num_surfaces_per_ivc * num_ivc_volumes
@@ -753,6 +756,7 @@ def test_pydagmc_cad_magnets_cad_to_dagmc(
 
     assert Path("dagmc.h5m").exists()
 
+    # Four unique surfaces for one IVC
     num_surfaces_per_ivc = 4
     num_ivc_volumes = 1
     num_ivc_surfaces = num_surfaces_per_ivc * num_ivc_volumes
