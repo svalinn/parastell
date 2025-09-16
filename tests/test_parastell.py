@@ -140,17 +140,20 @@ def create_ivb_cad_magnets_from_filaments(stellarator_obj):
     stellarator_obj.export_magnets_step(filename=filename_exp)
 
 
-def create_ivb_cad_magnets_from_cad(stellarator_obj):
+def create_ivb_cad_magnets_from_cad(stellarator_obj, geometry_file):
     """Constructs the in-vessel build (CadQuery workflow) and magnet set
     (imported CAD) of a Stellarator class object.
 
     Arguments:
         stellarator_obj (object): parastell.Stellarator class object.
+        geometry_file (str): path to STEP file.
     """
     construct_invessel_build(stellarator_obj)
     stellarator_obj.export_invessel_build_step()
 
-    geometry_file = Path("files_for_tests") / "magnet_geom.step"
+    geometry_file = Path("files_for_tests") / Path(geometry_file).with_suffix(
+        ".step"
+    )
 
     stellarator_obj.add_magnets_from_geometry(geometry_file)
 
@@ -204,16 +207,19 @@ def create_ivb_pydagmc_magnets_from_filaments_360(stellarator_obj):
     stellarator_obj.export_magnets_step(filename=filename_exp)
 
 
-def create_ivb_pydagmc_magnets_from_cad(stellarator_obj):
+def create_ivb_pydagmc_magnets_from_cad(stellarator_obj, geometry_file):
     """Constructs the in-vessel build (PyDAGMC workflow) and magnet set
     (imported CAD) of a Stellarator class object.
 
     Arguments:
         stellarator_obj (object): parastell.Stellarator class object.
+        geometry_file (str): path to STEP file.
     """
     construct_invessel_build(stellarator_obj, use_pydagmc=True)
 
-    geometry_file = Path("files_for_tests") / "magnet_geom.step"
+    geometry_file = Path("files_for_tests") / Path(geometry_file).with_suffix(
+        ".step"
+    )
 
     stellarator_obj.add_magnets_from_geometry(geometry_file)
 
@@ -383,7 +389,22 @@ def test_cubit_ps_geom(stellarator):
     remove_files()
 
 
-def test_cubit_cad_magnets(stellarator):
+# Cubit imports whole magnets with 8 surfaces per volume, and nested magnets
+# with 4 surfaces on the inner volume and 8 surfaces on the outer volume (avg. 6)
+@pytest.mark.parametrize(
+    "geometry_file, num_surfaces_per_magnet, num_magnet_volumes, cubit_volume_ids_exp",
+    [
+        ("magnet_geom", 8, 2, [[3], [4]]),
+        ("magnet_geom_with_casing", 6, 4, [[3, 4], [5, 6]]),
+    ],
+)
+def test_cubit_cad_magnets(
+    stellarator,
+    geometry_file,
+    num_surfaces_per_magnet,
+    num_magnet_volumes,
+    cubit_volume_ids_exp,
+):
     """Tests whether the Cubit-DAGMC workflow produces the expected model,
     using an imported CAD magnet set, by testing if:
         * volume IDs are correctly assigned and stored to in-vessel components
@@ -398,18 +419,21 @@ def test_cubit_cad_magnets(stellarator):
     remove_files()
     create_new_cubit_instance()
 
-    create_ivb_cad_magnets_from_cad(stellarator)
+    create_ivb_cad_magnets_from_cad(stellarator, geometry_file)
 
     chamber_volume_id_exp = 1
     component_volume_id_exp = 2
     component_name_exp = "component"
-    magnet_volume_ids_exp = [[3], [4]]
     filename_exp = "dagmc"
 
-    # Each in-vessel component (2 present) gives 3 unique surfaces; each magnet
-    # (2 present in magnet_geom.step) gives 8 surfaces
-    num_surfaces_exp = 22
-    num_volumes_exp = 4
+    num_surfaces_per_ivc = 3
+    num_ivc_volumes = 2
+    num_ivc_surfaces = num_surfaces_per_ivc * num_ivc_volumes
+
+    num_magnet_surfaces = num_surfaces_per_magnet * num_magnet_volumes
+
+    num_surfaces_exp = num_ivc_surfaces + num_magnet_surfaces
+    num_volumes_exp = num_ivc_volumes + num_magnet_volumes
 
     stellarator.build_cubit_model()
 
@@ -426,7 +450,7 @@ def test_cubit_cad_magnets(stellarator):
         == component_volume_id_exp
     )
     assert np.allclose(
-        stellarator.magnet_set.cubit_volume_ids, magnet_volume_ids_exp
+        stellarator.magnet_set.cubit_volume_ids, cubit_volume_ids_exp
     )
 
     stellarator.export_cubit_dagmc(filename=filename_exp)
@@ -468,7 +492,15 @@ def test_cad_to_dagmc_ps_geom(stellarator):
     remove_files()
 
 
-def test_cad_to_dagmc_cad_magnets(stellarator):
+# CAD-to-DAGMC imports whole magnets with 8 surfaces per volume, and nested
+# magnets with 4 surfaces on the inner and outer volumes
+@pytest.mark.parametrize(
+    "geometry_file, num_surfaces_per_magnet, num_magnet_volumes",
+    [("magnet_geom", 8, 2), ("magnet_geom_with_casing", 4, 4)],
+)
+def test_cad_to_dagmc_cad_magnets(
+    stellarator, geometry_file, num_surfaces_per_magnet, num_magnet_volumes
+):
     """Tests whether the CAD-to-DAGMC workflow produces the expected model,
     using an imported CAD magnet set, by testing if:
         * the expected H5M file is produced
@@ -476,14 +508,18 @@ def test_cad_to_dagmc_cad_magnets(stellarator):
     """
     remove_files()
 
-    create_ivb_cad_magnets_from_cad(stellarator)
+    create_ivb_cad_magnets_from_cad(stellarator, geometry_file)
 
     filename_exp = "dagmc"
 
-    # Each in-vessel component (2 present) gives 3 unique surfaces; each magnet
-    # (2 present) gives 8 surfaces
-    num_surfaces_exp = 22
-    num_volumes_exp = 4
+    num_surfaces_per_ivc = 3
+    num_ivc_volumes = 2
+    num_ivc_surfaces = num_surfaces_per_ivc * num_ivc_volumes
+
+    num_magnet_surfaces = num_surfaces_per_magnet * num_magnet_volumes
+
+    num_surfaces_exp = num_ivc_surfaces + num_magnet_surfaces
+    num_volumes_exp = num_ivc_volumes + num_magnet_volumes
 
     stellarator.build_cad_to_dagmc_model()
     stellarator.export_cad_to_dagmc(min_mesh_size=50, max_mesh_size=100)
@@ -629,7 +665,22 @@ def test_pydagmc_ps_geom_cad_to_dagmc_360(stellarator):
     remove_files()
 
 
-def test_pydagmc_cad_magnets_cubit(stellarator):
+# Cubit imports whole magnets with 8 surfaces per volume, and nested magnets
+# with 4 surfaces on the inner volume and 8 surfaces on the outer volume (avg. 6)
+@pytest.mark.parametrize(
+    "geometry_file, num_surfaces_per_magnet, num_magnet_volumes, cubit_volume_ids_exp",
+    [
+        ("magnet_geom", 8, 2, [[1], [2]]),
+        ("magnet_geom_with_casing", 6, 4, [[1, 2], [3, 4]]),
+    ],
+)
+def test_pydagmc_cad_magnets_cubit(
+    stellarator,
+    geometry_file,
+    num_surfaces_per_magnet,
+    num_magnet_volumes,
+    cubit_volume_ids_exp,
+):
     """Tests whether the PyDAGMC workflow produces the expected model, using
     imported magnets faceted via Cubit, by testing if:
         * the expected H5M file is produced
@@ -642,7 +693,7 @@ def test_pydagmc_cad_magnets_cubit(stellarator):
     remove_files()
     create_new_cubit_instance()
 
-    create_ivb_pydagmc_magnets_from_cad(stellarator)
+    create_ivb_pydagmc_magnets_from_cad(stellarator, geometry_file)
 
     # Intentionally pass a kwarg for 'cad_to_dagmc' export to verify that
     # kwargs are filtered appropriately
@@ -651,21 +702,35 @@ def test_pydagmc_cad_magnets_cubit(stellarator):
     )
     stellarator.export_pydagmc_model("dagmc.h5m")
 
+    assert np.allclose(
+        stellarator.magnet_set.cubit_volume_ids, cubit_volume_ids_exp
+    )
+
     assert Path("dagmc.h5m").exists()
 
-    # No plasma chamber. 16 surfaces from magnets, 4 surfaces from single
-    # component.
-    num_surfaces_exp = 20
+    num_surfaces_per_ivc = 4
+    num_ivc_volumes = 1
+    num_ivc_surfaces = num_surfaces_per_ivc * num_ivc_volumes
 
-    # Two magnets and one component
-    num_volumes_exp = 3
+    num_magnet_surfaces = num_surfaces_per_magnet * num_magnet_volumes
+
+    num_surfaces_exp = num_ivc_surfaces + num_magnet_surfaces
+    num_volumes_exp = num_ivc_volumes + num_magnet_volumes
 
     check_surfaces_and_volumes("dagmc.h5m", num_surfaces_exp, num_volumes_exp)
 
     remove_files()
 
 
-def test_pydagmc_cad_magnets_cad_to_dagmc(stellarator):
+# CAD-to-DAGMC imports whole magnets with 8 surfaces per volume, and nested
+# magnets with 4 surfaces on the inner and outer volumes
+@pytest.mark.parametrize(
+    "geometry_file, num_surfaces_per_magnet, num_magnet_volumes",
+    [("magnet_geom", 8, 2), ("magnet_geom_with_casing", 4, 4)],
+)
+def test_pydagmc_cad_magnets_cad_to_dagmc(
+    stellarator, geometry_file, num_surfaces_per_magnet, num_magnet_volumes
+):
     """Tests whether the PyDAGMC workflow produces the expected model, using
     imported magnets faceted via CAD-to-DAGMC, by testing if:
         * the expected H5M file is produced
@@ -673,7 +738,7 @@ def test_pydagmc_cad_magnets_cad_to_dagmc(stellarator):
     """
     remove_files()
 
-    create_ivb_pydagmc_magnets_from_cad(stellarator)
+    create_ivb_pydagmc_magnets_from_cad(stellarator, geometry_file)
 
     # Intentionally pass a kwarg for 'cubit' export to verify that
     # kwargs are filtered appropriately
@@ -684,12 +749,14 @@ def test_pydagmc_cad_magnets_cad_to_dagmc(stellarator):
 
     assert Path("dagmc.h5m").exists()
 
-    # No plasma chamber. 16 surfaces from magnets, 4 surfaces from single
-    # component.
-    num_surfaces_exp = 20
+    num_surfaces_per_ivc = 4
+    num_ivc_volumes = 1
+    num_ivc_surfaces = num_surfaces_per_ivc * num_ivc_volumes
 
-    # Two magnets and one component
-    num_volumes_exp = 3
+    num_magnet_surfaces = num_surfaces_per_magnet * num_magnet_volumes
+
+    num_surfaces_exp = num_ivc_surfaces + num_magnet_surfaces
+    num_volumes_exp = num_ivc_volumes + num_magnet_volumes
 
     check_surfaces_and_volumes("dagmc.h5m", num_surfaces_exp, num_volumes_exp)
 
