@@ -389,13 +389,14 @@ def test_cubit_ps_geom(stellarator):
     remove_files()
 
 
-# Cubit imports whole magnets with 8 surfaces per volume, and nested magnets
-# with 4 surfaces on the inner volume and 8 surfaces on the outer volume (avg. 6)
+# Cubit exports whole magnet geometry with 8 surfaces per volume (due to STEP
+# file), and nested magnets with 4 shared surfaces on the inner volume and 4
+# unique surfaces on the outer volume (due to STEP file)
 @pytest.mark.parametrize(
     "geometry_file, num_surfaces_per_magnet, num_magnet_volumes, cubit_volume_ids_exp",
     [
         ("magnet_geom", 8, 2, [[3], [4]]),
-        ("magnet_geom_with_casing", 6, 4, [[3, 4], [5, 6]]),
+        ("magnet_geom_with_casing", 4, 4, [[3, 4], [5, 6]]),
     ],
 )
 def test_cubit_cad_magnets(
@@ -492,8 +493,9 @@ def test_cad_to_dagmc_ps_geom(stellarator):
     remove_files()
 
 
-# CAD-to-DAGMC imports whole magnets with 8 surfaces per volume, and nested
-# magnets with 4 surfaces on the inner and outer volumes
+# CAD-to-DAGMC exports whole magnet geometry with 8 surfaces per volume (due to
+# STEP file), and nested magnets with 4 shared surfaces on the inner volume and
+# 4 unique surfaces on the outer volume (due to STEP file)
 @pytest.mark.parametrize(
     "geometry_file, num_surfaces_per_magnet, num_magnet_volumes",
     [("magnet_geom", 8, 2), ("magnet_geom_with_casing", 4, 4)],
@@ -665,13 +667,14 @@ def test_pydagmc_ps_geom_cad_to_dagmc_360(stellarator):
     remove_files()
 
 
-# Cubit imports whole magnets with 8 surfaces per volume, and nested magnets
-# with 4 surfaces on the inner volume and 8 surfaces on the outer volume (avg. 6)
+# Cubit exports whole magnet geometry with 8 surfaces per volume (due to STEP
+# file), and nested magnets with 4 shared surfaces on the inner volume and 4
+# unique surfaces on the outer volume (due to STEP file)
 @pytest.mark.parametrize(
     "geometry_file, num_surfaces_per_magnet, num_magnet_volumes, cubit_volume_ids_exp",
     [
         ("magnet_geom", 8, 2, [[1], [2]]),
-        ("magnet_geom_with_casing", 6, 4, [[1, 2], [3, 4]]),
+        ("magnet_geom_with_casing", 4, 4, [[1, 2], [3, 4]]),
     ],
 )
 def test_pydagmc_cad_magnets_cubit(
@@ -722,8 +725,9 @@ def test_pydagmc_cad_magnets_cubit(
     remove_files()
 
 
-# CAD-to-DAGMC imports whole magnets with 8 surfaces per volume, and nested
-# magnets with 4 surfaces on the inner and outer volumes
+# CAD-to-DAGMC exports whole magnet geometry with 8 surfaces per volume (due to
+# STEP file), and nested magnets with 4 shared surfaces on the inner volume and
+# 4 unique surfaces on the outer volume (due to STEP file)
 @pytest.mark.parametrize(
     "geometry_file, num_surfaces_per_magnet, num_magnet_volumes",
     [("magnet_geom", 8, 2), ("magnet_geom_with_casing", 4, 4)],
