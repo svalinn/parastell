@@ -640,50 +640,62 @@ class MagnetSetFromGeometry(MagnetSet):
         # Track order of imported solids
         solid_ids = [id for id, _ in enumerate(self.coil_solids)]
 
-        volume_ids = []
-        for center_angle, solid_id in zip(center_angles, solid_ids):
-            candidate_solid_angles = center_angles.copy()
-            candidate_solid_ids = solid_ids.copy()
-            # Remove current solid from list of candidates to prevent
-            # duplication
-            candidate_solid_angles.remove(center_angle)
-            candidate_solid_ids.remove(solid_id)
+        # Initialize list of unpaired solids
+        volume_ids = np.array([[id, -1] for id, _ in enumerate(center_angles)])
 
-            grouped_ids = [solid_id]
-            for candidate_solid_angle, candidate_solid_id in zip(
-                candidate_solid_angles, candidate_solid_ids
-            ):
-                # Use large tolerance since adjacent magnets will not be close
-                if np.isclose(
-                    center_angle, candidate_solid_angle, atol=2 * np.pi / 180.0
+        for solid_id, center_angle in zip(solid_ids, center_angles):
+            if solid_id in volume_ids[:, 1]:
+                continue  # Skip if solid is already paired
+
+            pair_id = np.where(volume_ids[:, 0] == solid_id)
+
+            for candidate_id, candidate_angle in zip(solid_ids, center_angles):
+                if solid_id != candidate_id and np.isclose(
+                    center_angle, candidate_angle, atol=2 * np.pi / 180.0
                 ):
-                    grouped_ids.append(candidate_solid_id)
-                    # Remove grouped solids from search list to prevent
-                    # duplication
-                    center_angles.remove(candidate_solid_angle)
-                    solid_ids.remove(candidate_solid_id)
+                    volume_ids[pair_id, 1] = candidate_id
 
-            if len(grouped_ids) > 2:
-                e = ValueError(
-                    f"{len(grouped_ids)} nested volumes detected near toroidal"
-                    f" angle {np.rad2deg(center_angle)} degrees. Only pairs "
-                    "are supported."
-                )
-                self._logger.error(e.args[0])
-            else:
-                volume_ids.append(grouped_ids)
+                    # Remove unpaired entry corresponding to newly paired solid
+                    entry_to_remove = np.where(
+                        volume_ids[:, 0] == candidate_id
+                    )
+                    if volume_ids[entry_to_remove, 1] < 0:
+                        volume_ids = np.delete(
+                            volume_ids, entry_to_remove, axis=0
+                        )
+                    else:
+                        e = ValueError(
+                            "More than 2 nested volumes detected near toroidal"
+                            f" angle {np.rad2deg(center_angle)} degrees. Only "
+                            "pairs are supported."
+                        )
+                        self._logger.error(e.args[0])
 
-        self.volume_ids = np.array(volume_ids)
+                    break
+
+        if np.all(volume_ids[:, 1] < 0):
+            self._logger.info("No nested magnet volumes detected.")
+            volume_ids = np.delete(volume_ids, 1, axis=1)
+        elif len(volume_ids[volume_ids[:, 1] < 0]) > 0:
+            e = ValueError(
+                "Nested magnet volumes detected but unable to pair those with "
+                "the following IDs (by order of STEP import): "
+                f"{volume_ids[volume_ids[:,1] < 0][:,0]}."
+            )
+            self._logger.error(e.args[0])
+        else:
+            self._logger.info(
+                "Nested magnet volumes detected. All have been paired successfully."
+            )
+
+        self.volume_ids = volume_ids
 
     def _order_nested_geometry(self):
         """Orders nested solid geometry from outer to inner, including volume
         IDs and the stored list of solid objects themselves.
         (Internal function not intended to be called externally)
         """
-        self._logger.info(
-            "Nested magnet volumes detected. Formulating (outer, inner) "
-            "volume pairs."
-        )
+        self._logger.info("Resolving nested arrangement...")
 
         bounding_boxes = [solid[0].BoundingBox() for solid in self.coil_solids]
 
@@ -695,7 +707,8 @@ class MagnetSetFromGeometry(MagnetSet):
             else:
                 e = ValueError(
                     "Cannot resolve nested arrangement for detected pair "
-                    f"with IDs ({i,j})."
+                    "with the following IDs (by order of STEP import): "
+                    f"{[i,j]}."
                 )
                 self._logger.error(e.args[0])
 
@@ -704,16 +717,30 @@ class MagnetSetFromGeometry(MagnetSet):
             for outer_id, inner_id in self.volume_ids
         ]
 
+    def _imprint_nested_geometry(self):
+        """Imprints nested geometry pairs.
+        (Internal function not intended to be called externally)
+        """
+        self._logger.info("Imprinting nested magnet geometry.")
+
+        for id, pair in enumerate(self.coil_solids):
+            assembly = cq.Assembly()
+            [assembly.add(solid) for solid in pair]
+            imprinted_assembly, _ = cq.occ_impl.assembly.imprint(assembly)
+            self.coil_solids[id] = imprinted_assembly.Solids()
+
     def _resolve_volume_ids(self):
         """Processes the imported geometry to determine whether the geometry
         has nested volumes and if so,
         a. groups nested solids together
         b. orders solids from outer to inner
+        c. imprints nested volumes
         (Internal function not intended to be called externally)
         """
         self._group_solids()
         if self.volume_ids.shape[1] == 2:
             self._order_nested_geometry()
+            self._imprint_nested_geometry()
 
 
 class Filament(object):
