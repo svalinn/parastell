@@ -636,10 +636,10 @@ class MagnetSetFromGeometry(MagnetSet):
         center_angles = [np.arctan2(center.y, center.x) for center in centers]
 
         sorted_angles = np.array(sorted(center_angles))
-        sorted_coils = np.array(
+        sorted_solids = np.array(
             [
-                id
-                for _, id in sorted(
+                solid
+                for _, solid in sorted(
                     zip(center_angles, self.coil_solids),
                     key=lambda pair: pair[0],
                 )
@@ -651,16 +651,17 @@ class MagnetSetFromGeometry(MagnetSet):
             [sorted_angles - angle for angle in sorted_angles]
         )
 
-        nested_groups = np.isclose(diff_matrix, 0.0, atol=2.0 * np.pi / 180.0)
+        # Compute NxN map to indicate whether solids are close to each other
+        closeness_map = np.isclose(diff_matrix, 0.0, atol=2.0 * np.pi / 180.0)
         # np.unique does not preserve order; reference unique groups by index
         _, unique_group_idxs = np.unique(
-            nested_groups, return_index=True, axis=0
+            closeness_map, return_index=True, axis=0
         )
-        group_idx_map = nested_groups[np.sort(unique_group_idxs)]
+        group_idx_map = closeness_map[np.sort(unique_group_idxs)]
 
         try:
             self.coil_solids = np.array(
-                [sorted_coils[idx_map] for idx_map in group_idx_map]
+                [sorted_solids[idx_map] for idx_map in group_idx_map]
             )
         except ValueError as e:
             self._logger.info(
