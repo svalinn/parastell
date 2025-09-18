@@ -646,7 +646,7 @@ class MagnetSetFromGeometry(MagnetSet):
             ]
         )
 
-        # Compute matrix of differences between each angle and all angles
+        # Compute NxN matrix of differences between each angle and all angles
         diff_matrix = np.array(
             [sorted_angles - angle for angle in sorted_angles]
         )
@@ -680,7 +680,7 @@ class MagnetSetFromGeometry(MagnetSet):
             )
         else:
             self._logger.info(
-                "Nested magnet volumes detected. All have been grouped "
+                "Pairs of nested magnet volumes detected. All have been grouped "
                 "successfully."
             )
             self.has_casing = True
