@@ -439,6 +439,7 @@ def test_cubit_cad_magnets(
 
     stellarator.build_cubit_model()
 
+    assert Path("magnet_set.step").exists()  # Assert new STEP file created
     assert (
         stellarator.invessel_build.radial_build.radial_build["chamber"][
             "vol_id"
@@ -705,11 +706,13 @@ def test_pydagmc_cad_magnets_cubit(
     stellarator.build_pydagmc_model(
         magnet_exporter="cubit", deviation_angle=6, max_mesh_size=40
     )
-    stellarator.export_pydagmc_model("dagmc.h5m")
 
+    assert Path("magnet_set.step").exists()  # Assert new STEP file created
     assert np.allclose(
         stellarator.magnet_set.cubit_volume_ids, cubit_volume_ids_exp
     )
+
+    stellarator.export_pydagmc_model("dagmc.h5m")
 
     assert Path("dagmc.h5m").exists()
 
