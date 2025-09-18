@@ -88,6 +88,26 @@ class MagnetSet(ABC):
         if self.has_casing:
             [merge_volumes(id_pair) for id_pair in self.cubit_volume_ids]
 
+    def export_step(self, filename="magnet_set", export_dir=""):
+        """Export CAD solids as a STEP file via CadQuery.
+
+        Arguments:
+            filename (str): name of STEP output file (optional, defaults to
+                'magnet_set').
+            export_dir (str): directory to which to export the STEP output file
+                (optional, defaults to empty string).
+        """
+        self._logger.info("Exporting STEP file for magnet coils...")
+
+        self.working_dir = export_dir
+        self.geometry_file = Path(filename).with_suffix(".step")
+
+        export_path = Path(self.working_dir) / self.geometry_file
+
+        coil_set = cq.Compound.makeCompound(self.all_coil_solids)
+
+        cq.exporters.export(coil_set, str(export_path))
+
     def mesh_magnets_cubit(
         self,
         mesh_size=5,
@@ -537,31 +557,6 @@ class MagnetSetFromFilaments(MagnetSet):
                 (len(self.coil_solids), 1)
             )
 
-    def export_step(self, filename="magnet_set", export_dir=""):
-        """Export CAD solids as a STEP file via CadQuery.
-
-        Arguments:
-            filename (str): name of STEP output file (optional, defaults to
-                'magnet_set').
-            export_dir (str): directory to which to export the STEP output file
-                (optional, defaults to empty string).
-        """
-        self._logger.info("Exporting STEP file for magnet coils...")
-
-        self.working_dir = export_dir
-        self.geometry_file = Path(filename).with_suffix(".step")
-
-        export_path = Path(self.working_dir) / self.geometry_file
-
-        # Flatten list of solids (inner, outer solid pairs)
-        solids_list = [
-            solid for solids in self.coil_solids for solid in solids
-        ]
-
-        coil_set = cq.Compound.makeCompound(solids_list)
-
-        cq.exporters.export(coil_set, str(export_path))
-
 
 class MagnetSetFromGeometry(MagnetSet):
     """An object representing a set of modular stellarator magnet coils with
@@ -653,7 +648,13 @@ class MagnetSetFromGeometry(MagnetSet):
 
         # Compute NxN map to indicate whether solids are close to each other
         closeness_map = np.isclose(diff_matrix, 0.0, atol=2.0 * np.pi / 180.0)
-        # np.unique does not preserve order; reference unique groups by index
+        # Extract unique groups since they will be repeated if nested volumes
+        # are present
+        # While the order of the booleans within groups is preserved, np.unique
+        # does not preserve order of groups themselves; reference unique groups
+        # by index
+        # Shape of index array returned is Mx1, where M is the number of unique
+        # groups
         _, unique_group_idxs = np.unique(
             closeness_map, return_index=True, axis=0
         )

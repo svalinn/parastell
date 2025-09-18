@@ -540,6 +540,11 @@ class Stellarator(object):
             self.invessel_build.merge_surfaces()
 
         if self.magnet_set:
+            # If imported geometry, export new magnet STEP file with properly
+            # ordered volumes
+            if isinstance(self.magnet_set, mc.MagnetSetFromGeometry):
+                self.magnet_set.export_step()
+
             self.magnet_set.import_geom_cubit()
             self.magnet_set.merge_surfaces()
 
