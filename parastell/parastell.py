@@ -350,9 +350,6 @@ class Stellarator(object):
                 an iterable is given, the first entry will be applied to coil
                 casing and the second to the inner volume. If just one is
                 given, it will be applied to all magnet volumes.
-            volume_ids (2-D iterable of int): list of ID pairs for
-                (outer, inner) volume pairs, as imported by CadQuery or Cubit,
-                beginning from 0.
         """
         self.magnet_set = mc.MagnetSetFromGeometry(
             geometry_file,
@@ -543,6 +540,11 @@ class Stellarator(object):
             self.invessel_build.merge_surfaces()
 
         if self.magnet_set:
+            # If imported geometry, export new magnet STEP file with properly
+            # ordered volumes
+            if isinstance(self.magnet_set, mc.MagnetSetFromGeometry):
+                self.magnet_set.export_step()
+
             self.magnet_set.import_geom_cubit()
             self.magnet_set.merge_surfaces()
 

@@ -88,6 +88,26 @@ class MagnetSet(ABC):
         if self.has_casing:
             [merge_volumes(id_pair) for id_pair in self.cubit_volume_ids]
 
+    def export_step(self, filename="magnet_set", export_dir=""):
+        """Export CAD solids as a STEP file via CadQuery.
+
+        Arguments:
+            filename (str): name of STEP output file (optional, defaults to
+                'magnet_set').
+            export_dir (str): directory to which to export the STEP output file
+                (optional, defaults to empty string).
+        """
+        self._logger.info("Exporting STEP file for magnet coils...")
+
+        self.working_dir = export_dir
+        self.geometry_file = Path(filename).with_suffix(".step")
+
+        export_path = Path(self.working_dir) / self.geometry_file
+
+        coil_set = cq.Compound.makeCompound(self.all_coil_solids)
+
+        cq.exporters.export(coil_set, str(export_path))
+
     def mesh_magnets_cubit(
         self,
         mesh_size=5,
@@ -541,35 +561,12 @@ class MagnetSetFromFilaments(MagnetSet):
                 (len(self.coil_solids), 1)
             )
 
-    def export_step(self, filename="magnet_set", export_dir=""):
-        """Export CAD solids as a STEP file via CadQuery.
-
-        Arguments:
-            filename (str): name of STEP output file (optional, defaults to
-                'magnet_set').
-            export_dir (str): directory to which to export the STEP output file
-                (optional, defaults to empty string).
-        """
-        self._logger.info("Exporting STEP file for magnet coils...")
-
-        self.working_dir = export_dir
-        self.geometry_file = Path(filename).with_suffix(".step")
-
-        export_path = Path(self.working_dir) / self.geometry_file
-
-        # Flatten list of solids (inner, outer solid pairs)
-        solids_list = [
-            solid for solids in self.coil_solids for solid in solids
-        ]
-
-        coil_set = cq.Compound.makeCompound(solids_list)
-
-        cq.exporters.export(coil_set, str(export_path))
-
 
 class MagnetSetFromGeometry(MagnetSet):
-    """An object representing a set of modular stellarator magnet coils
-    with previously defined geometry files.
+    """An object representing a set of modular stellarator magnet coils with
+    previously defined geometry files. For nested geometries, it is expected
+    that only two volumes are present per coil - any additional is not
+    supported.
 
     Arguments:
         geometry_file (str): path to the existing coil geometry. If using Cubit
@@ -584,10 +581,6 @@ class MagnetSetFromGeometry(MagnetSet):
             iterable is given, the first entry will be applied to coil casing
             and the second to the inner volume. If just one is given, it will
             be applied to all magnet volumes.
-        volume_ids (2-D iterable of int): list of ID pairs for (outer, inner)
-            volume pairs, as imported by CadQuery or Cubit, beginning from 0
-            (defaults to None). If None, it will be assumed that no casing has
-            been modeled.
     """
 
     def __init__(
@@ -600,16 +593,15 @@ class MagnetSetFromGeometry(MagnetSet):
         self.geometry_file = Path(geometry_file).resolve()
         self.working_dir = self.geometry_file.parent
 
-        self.volume_ids = None
-
         for name in kwargs.keys() & (
             "start_line",
             "sample_mod",
             "scale",
             "mat_tag",
-            "volume_ids",
         ):
             self.__setattr__(name, kwargs[name])
+
+        self._resolve_imported_geometry()
 
     @property
     def geometry_file(self):
@@ -626,49 +618,132 @@ class MagnetSetFromGeometry(MagnetSet):
         self.coil_solids = []
         for item in imported_geometry:
             if isinstance(item, cq.occ_impl.shapes.Compound):
-                self.coil_solids.extend([[solid] for solid in item.Solids()])
+                self.coil_solids.extend([solid for solid in item.Solids()])
             elif isinstance(item, cq.occ_impl.shapes.Solid):
-                self.coil_solids.append([item])
+                self.coil_solids.append(item)
             else:
                 e = ValueError(
                     f"Imported object of type {type(item)} not recognized."
                 )
                 self._logger.error(e.args[0])
 
-    @property
-    def volume_ids(self):
-        return self._volume_ids
+    def _group_solids(self):
+        """Detects nested solids and groups them together by imported solid ID.
+        (Internal function not intended to be called externally)
+        """
+        centers = [solid.CenterOfBoundBox() for solid in self.coil_solids]
+        center_angles = [np.arctan2(center.y, center.x) for center in centers]
 
-    @volume_ids.setter
-    def volume_ids(self, value):
-        if value is None:
-            self._volume_ids = np.arange(len(self.coil_solids)).reshape(
-                (len(self.coil_solids), 1)
-            )
-        elif isinstance(self.mat_tag, (list, tuple)):
-            self.has_casing = True
-            value = np.array(value)
-
-            if set(value[:, 0]) & set(value[:, 1]):
-                e = ValueError(
-                    "At least one ID pair is not unique. Ensure all IDs are "
-                    "included only once."
+        sorted_angles = np.array(sorted(center_angles))
+        sorted_solids = np.array(
+            [
+                solid
+                for _, solid in sorted(
+                    zip(center_angles, self.coil_solids),
+                    key=lambda pair: pair[0],
                 )
-                self._logger.error(e.args[0])
-
-            if len(value.flatten()) != len(self.all_coil_solids):
-                e = ValueError(
-                    "Total number of IDs given does not match the number of "
-                    "imported solids."
-                )
-                self._logger.error(e.args[0])
-
-            self._volume_ids = value
-
-            self.coil_solids = [
-                [self.coil_solids[outer_id][0], self.coil_solids[inner_id][0]]
-                for outer_id, inner_id in value
             ]
+        )
+
+        # Compute NxN matrix of differences between each angle and all angles
+        diff_matrix = np.array(
+            [sorted_angles - angle for angle in sorted_angles]
+        )
+
+        # Compute NxN map to indicate whether solids are close to each other
+        closeness_map = np.isclose(diff_matrix, 0.0, atol=2.0 * np.pi / 180.0)
+        # Extract unique groups since they will be repeated if nested volumes
+        # are present
+        # While the order of the booleans within groups is preserved, np.unique
+        # does not preserve order of groups themselves; reference unique groups
+        # by index
+        # Shape of index array returned is Mx1, where M is the number of unique
+        # groups
+        _, unique_group_idxs = np.unique(
+            closeness_map, return_index=True, axis=0
+        )
+        group_idx_map = closeness_map[np.sort(unique_group_idxs)]
+
+        try:
+            self.coil_solids = np.array(
+                [sorted_solids[idx_map] for idx_map in group_idx_map]
+            )
+        except ValueError as e:
+            self._logger.info(
+                "An inhomogeneous nested volume structure may have been "
+                "detected. If so, ensure the number of nested volumes is "
+                "consistent across all coils."
+            )
+            raise e
+
+        if self.coil_solids.shape[1] == 1:
+            self._logger.info("No nested magnet volumes detected.")
+        elif self.coil_solids.shape[1] > 2:
+            self._logger.info(
+                "Nested groups with more than 2 magnet volumes detected. Only "
+                "pairs are currently supported."
+            )
+        else:
+            self._logger.info(
+                "Pairs of nested magnet volumes detected. All have been grouped "
+                "successfully."
+            )
+            self.has_casing = True
+
+        self.volume_ids = np.arange(len(self.all_coil_solids)).reshape(
+            self.coil_solids.shape
+        )
+
+    def _order_nested_geometry(self):
+        """Orders nested solid geometry from outer to inner, including volume
+        IDs and the stored list of solid objects themselves.
+        (Internal function not intended to be called externally)
+        """
+        self._logger.info("Resolving nested arrangement...")
+
+        bounding_boxes = [
+            [solid.BoundingBox() for solid in group]
+            for group in self.coil_solids
+        ]
+
+        for k, (i, j) in enumerate(self.volume_ids):
+            if bounding_boxes[k][0].isInside(bounding_boxes[k][1]):
+                continue  # No modification needed
+            elif bounding_boxes[k][1].isInside(bounding_boxes[k][0]):
+                # Flip order of solids
+                self.coil_solids[k] = np.flip(self.coil_solids[k])
+            else:
+                e = ValueError(
+                    "Cannot resolve nested arrangement for detected pair "
+                    "with the following IDs (by order of toroidal center of "
+                    f"mass): {[i,j]}."
+                )
+                self._logger.error(e.args[0])
+
+    def _imprint_nested_geometry(self):
+        """Imprints nested geometry pairs.
+        (Internal function not intended to be called externally)
+        """
+        self._logger.info("Imprinting nested magnet geometry.")
+
+        for id, pair in enumerate(self.coil_solids):
+            assembly = cq.Assembly()
+            [assembly.add(solid) for solid in pair]
+            imprinted_assembly, _ = cq.occ_impl.assembly.imprint(assembly)
+            self.coil_solids[id] = imprinted_assembly.Solids()
+
+    def _resolve_imported_geometry(self):
+        """Processes the imported geometry to determine whether the geometry
+        has nested volumes and if so,
+        a. groups nested solids together
+        b. orders solids from outer to inner
+        c. imprints nested volumes
+        (Internal function not intended to be called externally)
+        """
+        self._group_solids()
+        if self.coil_solids.shape[1] == 2:
+            self._order_nested_geometry()
+            self._imprint_nested_geometry()
 
 
 class Filament(object):
