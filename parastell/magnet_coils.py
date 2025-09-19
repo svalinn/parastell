@@ -633,8 +633,21 @@ class MagnetSetFromGeometry(MagnetSet):
         """
         centers = [solid.CenterOfBoundBox() for solid in self.coil_solids]
         center_angles = [np.arctan2(center.y, center.x) for center in centers]
+        center_radii = [
+            np.sqrt(center.x * center.x + center.y * center.y)
+            for center in centers
+        ]
 
         sorted_angles = np.array(sorted(center_angles))
+        sorted_radii = np.array(
+            [
+                radius
+                for _, radius in sorted(
+                    zip(center_angles, center_radii),
+                    key=lambda pair: pair[0],
+                )
+            ]
+        )
         sorted_solids = np.array(
             [
                 solid
@@ -645,13 +658,22 @@ class MagnetSetFromGeometry(MagnetSet):
             ]
         )
 
-        # Compute NxN matrix of differences between each angle and all angles
-        diff_matrix = np.array(
+        # Compute NxN matrix of differences between each entry and all others
+        toroidal_diff_matrix = np.array(
             [sorted_angles - angle for angle in sorted_angles]
+        )
+        radial_diff_matrix = np.array(
+            [sorted_radii - radius for radius in sorted_radii]
         )
 
         # Compute NxN map to indicate whether solids are close to each other
-        closeness_map = np.isclose(diff_matrix, 0.0, atol=2.0 * np.pi / 180.0)
+        # toroidally and radially
+        toroidal_closeness_map = np.isclose(
+            toroidal_diff_matrix, 0.0, atol=2 * np.pi / 180.0
+        )
+        radial_closeness_map = np.isclose(radial_diff_matrix, 0.0, atol=5.0)
+        closeness_map = radial_closeness_map * toroidal_closeness_map
+
         # Extract unique groups since they will be repeated if nested volumes
         # are present
         # While the order of the booleans within groups is preserved, np.unique
