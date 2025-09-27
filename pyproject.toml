@@ -59,7 +59,9 @@ format = ["black==25.*"]
 
 build = ["build"]
 
-develop = ["parastell[test,format,build]"]
+docs = ["sphinx", "sphinxcontrib.apidoc", "sphinx_rtd_theme", "sphinx-favicon"]
+
+develop = ["parastell[test,format,build,docs]"]
 
 [project.urls]
 Repository = "https://github.com/svalinn/parastell.git"
@@ -71,6 +73,9 @@ Repository = "https://github.com/svalinn/parastell.git"
 [build-system]
 requires = ["setuptools>=64.0.0"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where=["parastell/"]
 
 [tool.black]
 line-length = 79
