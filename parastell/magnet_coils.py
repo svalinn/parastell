@@ -663,7 +663,10 @@ class MagnetSetFromGeometry(MagnetSet):
             [sorted_angles - angle for angle in sorted_angles]
         )
         radial_diff_matrix = np.array(
-            [sorted_radii - radius for radius in sorted_radii]
+            [
+                radii_sorted_by_angle - radius
+                for radius in radii_sorted_by_angle
+            ]
         )
 
         # Compute NxN map to indicate whether solids are close to each other
@@ -672,7 +675,7 @@ class MagnetSetFromGeometry(MagnetSet):
             toroidal_diff_matrix, 0.0, atol=2 * np.pi / 180.0
         )
         radial_closeness_map = np.isclose(radial_diff_matrix, 0.0, atol=5.0)
-        closeness_map = radial_closeness_map * toroidal_closeness_map
+        closeness_map = radial_closeness_map & toroidal_closeness_map
 
         # Extract unique groups since they will be repeated if nested volumes
         # are present
@@ -688,7 +691,7 @@ class MagnetSetFromGeometry(MagnetSet):
 
         try:
             self.coil_solids = np.array(
-                [sorted_solids[idx_map] for idx_map in group_idx_map]
+                [solids_sorted_by_angle[idx_map] for idx_map in group_idx_map]
             )
         except ValueError as e:
             self._logger.info(
