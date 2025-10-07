@@ -639,7 +639,7 @@ class MagnetSetFromGeometry(MagnetSet):
         ]
 
         sorted_angles = np.array(sorted(center_angles))
-        sorted_radii = np.array(
+        radii_sorted_by_angle = np.array(
             [
                 radius
                 for _, radius in sorted(
@@ -648,7 +648,7 @@ class MagnetSetFromGeometry(MagnetSet):
                 )
             ]
         )
-        sorted_solids = np.array(
+        solids_sorted_by_angle = np.array(
             [
                 solid
                 for _, solid in sorted(
