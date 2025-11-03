@@ -288,7 +288,8 @@ def compute_nwl(
             hyperrectangle containing the lowest function value (root-finding
             residual) falls below this tolerance, root-finding will terminate.
         num_batches (int): number of batches across which crossing coordinates
-            will be solved (defaults to 1). Helps alleviate memory burden.
+            will be divided (defaults to 1). Converts NWL to statistical
+            calculation.
         num_crossings (int): number of crossings to use from the surface source
             (defaults to None). If None, all crossings will be used.
         num_threads (int): number of threads to use for parallelizing
@@ -317,26 +318,6 @@ def compute_nwl(
 
     num_particles = len(coords)
 
-    toroidal_angles = []
-    poloidal_angles = []
-
-    batch_size = math.ceil(num_particles / num_batches)
-
-    for batch_num, batch_start in enumerate(
-        range(0, num_particles, batch_size), 1
-    ):
-        logger.info(f"Processing batch {batch_num}")
-
-        toroidal_angle_batch, poloidal_angle_batch = compute_flux_coordinates(
-            ref_surf,
-            wall_s,
-            coords[batch_start : batch_start + batch_size],
-            num_threads,
-            conv_tol,
-        )
-        toroidal_angles += toroidal_angle_batch
-        poloidal_angles += poloidal_angle_batch
-
     # Define minimum and maximum bin edges for each dimension
     toroidal_bin_min = 0.0 - toroidal_extent / num_toroidal_bins / 2
     toroidal_bin_max = (
@@ -348,16 +329,44 @@ def compute_nwl(
         poloidal_extent + poloidal_extent / num_poloidal_bins / 2
     )
 
-    # Bin particle crossings
-    count_mat, toroidal_bin_edges, poloidal_bin_edges = np.histogram2d(
-        toroidal_angles,
-        poloidal_angles,
-        bins=[num_toroidal_bins, num_poloidal_bins],
-        range=[
-            [toroidal_bin_min, toroidal_bin_max],
-            [poloidal_bin_min, poloidal_bin_max],
-        ],
-    )
+    toroidal_angles = []
+    poloidal_angles = []
+    count_mat = []
+
+    batch_size = math.ceil(num_particles / num_batches)
+
+    for batch_idx, batch_start in enumerate(
+        range(0, num_particles, batch_size), 1
+    ):
+        logger.info(f"Processing batch {batch_idx}")
+
+        toroidal_angle_batch, poloidal_angle_batch = compute_flux_coordinates(
+            ref_surf,
+            wall_s,
+            coords[batch_start : batch_start + batch_size],
+            num_threads,
+            conv_tol,
+        )
+        toroidal_angles += toroidal_angle_batch
+        poloidal_angles += poloidal_angle_batch
+
+        # Bin particle crossings
+        counts, toroidal_bin_edges, poloidal_bin_edges = np.histogram2d(
+            toroidal_angles,
+            poloidal_angles,
+            bins=[num_toroidal_bins, num_poloidal_bins],
+            range=[
+                [toroidal_bin_min, toroidal_bin_max],
+                [poloidal_bin_min, poloidal_bin_max],
+            ],
+        )
+
+        count_mat[batch_idx] = counts
+
+    # Average counts across batches
+    count_avg = np.average(count_mat, axis=0)
+    # Convert count matrix to neutron wall loading
+    nwl_mat = count_avg * neutron_power / num_particles
 
     # Adjust endpoints to reflect geometry
     toroidal_bin_edges[0] = 0.0
@@ -372,8 +381,6 @@ def compute_nwl(
     poloidal_centroids = np.linspace(
         0.0, poloidal_extent, num=num_poloidal_bins
     )
-
-    nwl_mat = count_mat * neutron_power / num_particles
 
     if isinstance(ref_surf, (str, PosixPath)):
         vmec_obj = read_vmec.VMECData(ref_surf)
