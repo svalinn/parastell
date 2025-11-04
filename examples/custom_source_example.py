@@ -25,13 +25,15 @@ vmec_file = "wout_vmec.nc"
 
 vmec_obj = read_vmec.VMECData(vmec_file)
 
-mesh_size = (11, 81, 61)
-toroidal_extent = 90.0
+cfs_values = np.linspace(0.0, 1.0, num=11)
+poloidal_angles = np.linspace(0.0, 360.0, num=61)
+toroidal_angles = np.linspace(0.0, 90.0, num=61)
 
 source_mesh_obj = sm.SourceMesh(
     vmec_obj,
-    mesh_size,
-    toroidal_extent,
+    cfs_values,
+    poloidal_angles,
+    toroidal_angles,
     plasma_conditions=my_custom_plasma_conditions,
     reaction_rate=my_custom_reaction_rate,
 )
