@@ -299,7 +299,8 @@ def compute_nwl(
             to 1.0).
 
     Returns:
-        nwl_mat (numpy array): array used to create the NWL plot
+        nwl_avg (np.array): NWL average for each bin
+        nwl_std_dev (np.array): NWL standard deviation for each bin
         toroidal_centroids (numpy array): phi axis of NWL plot
         poloidal_centroids (numpy array): theta axis of NWL plot
         area_mat (numpy array): area array used to normalize nwl_mat
@@ -331,7 +332,7 @@ def compute_nwl(
 
     toroidal_angles = []
     poloidal_angles = []
-    count_mat = []
+    all_nwl = []
 
     batch_size = math.ceil(num_particles / num_batches)
 
@@ -340,10 +341,12 @@ def compute_nwl(
     ):
         logger.info(f"Processing batch {batch_idx}")
 
+        crossings = coords[batch_start : batch_start + batch_size]
+
         toroidal_angle_batch, poloidal_angle_batch = compute_flux_coordinates(
             ref_surf,
             wall_s,
-            coords[batch_start : batch_start + batch_size],
+            crossings,
             num_threads,
             conv_tol,
         )
@@ -361,12 +364,18 @@ def compute_nwl(
             ],
         )
 
-        count_mat.append(counts)
+        # Number of particles in batch not guaranteed to be the same for the
+        # final batch
+        particles_in_batch = len(crossings)
+
+        # Convert counts to neutron wall loading (not normalized to area yet)
+        nwl_batch = counts * neutron_power / particles_in_batch
+
+        all_nwl.append(nwl_batch)
 
     # Average counts across batches
-    count_avg = np.average(count_mat, axis=0)
-    # Convert count matrix to neutron wall loading
-    nwl_mat = count_avg * neutron_power / num_particles
+    nwl_avg = np.average(all_nwl, axis=0)
+    nwl_std_dev = np.std(all_nwl, axis=0)
 
     # Adjust endpoints to reflect geometry
     toroidal_bin_edges[0] = 0.0
@@ -407,9 +416,17 @@ def compute_nwl(
                 corners
             )
 
-    nwl_mat = nwl_mat / area_mat
+    # Normalize NWL statistics to area
+    nwl_avg /= area_mat
+    nwl_std_dev /= area_mat
 
-    return nwl_mat, toroidal_centroids, poloidal_centroids, area_mat
+    return (
+        nwl_avg,
+        nwl_std_dev,
+        toroidal_centroids,
+        poloidal_centroids,
+        area_mat,
+    )
 
 
 def plot_nwl(
@@ -422,7 +439,8 @@ def plot_nwl(
     """Generates contour plot of NWL.
 
     Arguments:
-        nwl_mat (np.array): matrix of NWL solutions for each bin [MW/m^2].
+        nwl_mat (np.array): matrix of NWL solution (average, std. dev., etc.)
+            for each bin [MW/m^2].
         toroidal_centroids (list): centroids of toroidal angle bins [rad].
         poloidal_centroids (list): centroids of poloidal angle bins [rad].
         filename (str): name of plot output file (defaults to 'nwl').
