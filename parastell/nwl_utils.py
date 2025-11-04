@@ -332,7 +332,7 @@ def compute_nwl(
 
     toroidal_angles = []
     poloidal_angles = []
-    all_nwl = []
+    nwl_all_batches = []
 
     batch_size = math.ceil(num_particles / num_batches)
 
@@ -371,11 +371,11 @@ def compute_nwl(
         # Convert counts to neutron wall loading (not normalized to area yet)
         nwl_batch = counts * neutron_power / particles_in_batch
 
-        all_nwl.append(nwl_batch)
+        nwl_all_batches.append(nwl_batch)
 
     # Average counts across batches
-    nwl_avg = np.average(all_nwl, axis=0)
-    nwl_std_dev = np.std(all_nwl, axis=0)
+    nwl_avg = np.average(nwl_all_batches, axis=0)
+    nwl_std_dev = np.std(nwl_all_batches, axis=0)
 
     # Adjust endpoints to reflect geometry
     toroidal_bin_edges[0] = 0.0
