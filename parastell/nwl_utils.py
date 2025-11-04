@@ -288,8 +288,8 @@ def compute_nwl(
             hyperrectangle containing the lowest function value (root-finding
             residual) falls below this tolerance, root-finding will terminate.
         num_batches (int): number of batches across which crossing coordinates
-            will be divided (defaults to 1). Converts NWL to statistical
-            calculation.
+            will be divided (defaults to 1). Enables statistical batching of
+            NWL calculation.
         num_crossings (int): number of crossings to use from the surface source
             (defaults to None). If None, all crossings will be used.
         num_threads (int): number of threads to use for parallelizing
@@ -361,7 +361,7 @@ def compute_nwl(
             ],
         )
 
-        count_mat[batch_idx] = counts
+        count_mat.append(counts)
 
     # Average counts across batches
     count_avg = np.average(count_mat, axis=0)
