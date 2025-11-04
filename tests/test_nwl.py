@@ -14,7 +14,8 @@ files_to_remove = [
     "summary.h5",
     "model.xml",
     "surface_source.h5",
-    "nwl.png",
+    "nwl_avg.png",
+    "nwl_std_dev.png",
 ]
 
 vmec_file = Path("files_for_tests") / "wout_vmec.nc"
@@ -78,7 +79,8 @@ def test_nwl_io(parastell_model):
     """
     source_file_exp = "surface_source.h5"
     num_bins_exp = 61
-    plot_filename_exp = "nwl.png"
+    avg_plot_filename_exp = "nwl_avg.png"
+    std_dev_plot_filename_exp = "nwl_std_dev.png"
 
     remove_files()
 
@@ -108,27 +110,37 @@ def test_nwl_io(parastell_model):
 
     assert Path(source_file_exp).exists()
 
-    nwl_mat, toroidal_bins, poloidal_bins, area_mat = nwl_utils.compute_nwl(
-        source_file,
-        ref_surf,
-        wall_s,
-        toroidal_extent,
-        neutron_power,
-        num_toroidal_bins=num_bins_exp,
-        num_poloidal_bins=num_bins_exp,
-        num_batches=5,
+    nwl_avg, nwl_std_dev, toroidal_bins, poloidal_bins, area_mat = (
+        nwl_utils.compute_nwl(
+            source_file,
+            ref_surf,
+            wall_s,
+            toroidal_extent,
+            neutron_power,
+            num_toroidal_bins=num_bins_exp,
+            num_poloidal_bins=num_bins_exp,
+            num_batches=5,
+        )
     )
 
-    assert nwl_mat.shape == (num_bins_exp, num_bins_exp)
+    assert nwl_avg.shape == (num_bins_exp, num_bins_exp)
+    assert nwl_std_dev.shape == (num_bins_exp, num_bins_exp)
     assert len(toroidal_bins) == num_bins_exp
     assert len(poloidal_bins) == num_bins_exp
     assert area_mat.shape == (num_bins_exp, num_bins_exp)
 
     nwl_utils.plot_nwl(
-        nwl_mat, toroidal_bins, poloidal_bins, filename=plot_filename_exp
+        nwl_avg, toroidal_bins, poloidal_bins, filename=avg_plot_filename_exp
     )
+    assert Path(avg_plot_filename_exp).exists()
 
-    assert Path(plot_filename_exp).exists()
+    nwl_utils.plot_nwl(
+        nwl_std_dev,
+        toroidal_bins,
+        poloidal_bins,
+        filename=std_dev_plot_filename_exp,
+    )
+    assert Path(std_dev_plot_filename_exp).exists()
 
     remove_files()
 
