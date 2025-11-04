@@ -116,6 +116,7 @@ def test_nwl_io(parastell_model):
         neutron_power,
         num_toroidal_bins=num_bins_exp,
         num_poloidal_bins=num_bins_exp,
+        num_batches=5,
     )
 
     assert nwl_mat.shape == (num_bins_exp, num_bins_exp)
