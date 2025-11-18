@@ -53,19 +53,18 @@ def create_new_cubit_instance():
         init_cubit()
 
 
-def import_step_cubit(filename, import_dir):
+def import_step_cubit(filename):
     """Imports STEP file into Coreform Cubit.
 
     Arguments:
-        filename (str): name of STEP input file, excluding '.step' extension.
-        import_dir (str): directory from which to import STEP file.
+        filename (str): path to STEP input file, excluding '.step' extension.
 
     Returns:
         vol_id (int): Cubit volume ID of imported CAD solid.
     """
     init_cubit()
 
-    import_path = Path(import_dir) / Path(filename).with_suffix(".step")
+    import_path = Path(filename).with_suffix(".step")
     cubit.cmd(f'import step "{import_path}" heal')
     vol_id = cubit.get_last_id("volume")
 
@@ -84,16 +83,15 @@ def export_step_cubit(filename, export_dir=""):
     cubit.cmd(f'export step "{export_path}" overwrite')
 
 
-def import_cub5_cubit(filename, import_dir):
+def import_cub5_cubit(filename):
     """Imports cub5 file with Coreform Cubit with default import settings.
     Arguments:
-        filename (str): name of cub5 input file.
-        import_dir (str): directory from which to import cub5 file.
+        filename (str): path to cub5 input file.
     Returns:
         vol_id (int): Cubit volume ID of imported CAD solid.
     """
     init_cubit()
-    import_path = Path(import_dir) / Path(filename).with_suffix(".cub5")
+    import_path = Path(filename).with_suffix(".cub5")
     cubit.cmd(
         f'import cubit "{import_path}" nofreesurfaces attributes_on separate_bodies'
     )
@@ -154,12 +152,11 @@ def tag_surface(surface_id, tag):
     cubit.cmd(f"sideset {surface_id} add surface {surface_id}")
 
 
-def import_geom_to_cubit(filename, import_dir=""):
+def import_geom_to_cubit(filename):
     """Attempts to open a geometry file with the appropriate cubit_io function,
         based on file extension
     Arguments:
-        filename (path): name of the file to import, including the suffix
-        import_dir (str): directory from which to import the file.
+        filename (path): path to the file to import, including the suffix
     Returns:
         vol_id (int): Cubit volume ID of imported CAD solid.
     """
@@ -168,7 +165,7 @@ def import_geom_to_cubit(filename, import_dir=""):
         ".cub5": import_cub5_cubit,
     }
     filename = Path(filename)
-    vol_id = importers[filename.suffix](filename, import_dir)
+    vol_id = importers[filename.suffix](filename)
     return vol_id
 
 

@@ -76,7 +76,7 @@ class MagnetSet(ABC):
         if cubit_utils.initialized:
             first_vol_id += get_last_id("volume")
 
-        import_geom_to_cubit(self.geometry_file, self.working_dir)
+        import_geom_to_cubit(self.step_path)
         self.cubit_volume_ids = self.volume_ids + first_vol_id
 
     def merge_surfaces(self):
@@ -100,13 +100,13 @@ class MagnetSet(ABC):
         self._logger.info("Exporting STEP file for magnet coils...")
 
         self.working_dir = export_dir
-        self.geometry_file = Path(filename).with_suffix(".step")
+        step_filename = Path(filename).with_suffix(".step")
 
-        export_path = Path(self.working_dir) / self.geometry_file
+        self.step_path = Path(self.working_dir) / step_filename
 
         coil_set = cq.Compound.makeCompound(self.all_coil_solids)
 
-        cq.exporters.export(coil_set, str(export_path))
+        cq.exporters.export(coil_set, str(self.step_path))
 
     def mesh_magnets_cubit(
         self,
