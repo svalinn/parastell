@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from parastell import parastell
+import parastell.parastell as ps
 from parastell.cubit_utils import tag_surface
 from parastell import nwl_utils
 import numpy as np
@@ -10,7 +10,7 @@ import numpy as np
 vmec_file = "wout_vmec.nc"
 
 # Instantiate ParaStell build
-stellarator = parastell.Stellarator(vmec_file)
+stellarator = ps.Stellarator(vmec_file)
 
 # Define parameters for geometry
 toroidal_extent = 90.0
@@ -29,12 +29,16 @@ stellarator.construct_invessel_build(
     empty_radial_build_dict,
     split_chamber=False,
 )
-stellarator.export_invessel_build()
+stellarator.export_invessel_build_step()
 
 # Construct and export source mesh
-mesh_size = (11, 81, 61)
+cfs_values = np.linspace(0.0, 1.0, num=11)
+poloidal_angles = np.linspace(0.0, 360.0, num=61)
+toroidal_angles = np.linspace(0.0, 90.0, num=61)
+
+stellarator.construct_source_mesh(cfs_values, poloidal_angles, toroidal_angles)
 source_mesh_filename = Path("source_mesh").with_suffix(".h5m")
-stellarator.construct_source_mesh(mesh_size, toroidal_extent)
+stellarator.construct_source_mesh(cfs_values, poloidal_angles, toroidal_angles)
 stellarator.export_source_mesh(filename=source_mesh_filename)
 strengths = stellarator.source_mesh.strengths
 
@@ -52,13 +56,16 @@ neutron_power = neutron_energy * np.sum(strengths)
 source_file = nwl_utils.fire_rays(
     dagmc_filename, source_mesh_filename, toroidal_extent, strengths, num_parts
 )
-nwl_mat, toroidal_bins, poloidal_bins, area_mat = nwl_utils.compute_nwl(
-    source_file,
-    vmec_file,
-    wall_s,
-    toroidal_extent,
-    neutron_power,
-    num_batches=4,
-    num_threads=6,
+nwl_mean, nwl_std_dev, toroidal_bins, poloidal_bins, area_mat = (
+    nwl_utils.compute_nwl(
+        source_file,
+        vmec_file,
+        wall_s,
+        toroidal_extent,
+        neutron_power,
+        num_batches=30,
+        num_threads=6,
+    )
 )
-nwl_utils.plot_nwl(nwl_mat, toroidal_bins, poloidal_bins)
+nwl_utils.plot_nwl(nwl_mean, toroidal_bins, poloidal_bins)
+nwl_utils.plot_nwl(nwl_std_dev, toroidal_bins, poloidal_bins)
