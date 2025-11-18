@@ -50,7 +50,9 @@ strengths = stellarator.source_mesh.strengths
 
 # Construct and export DAGMC neutronics model
 dagmc_filename = Path("nwl_geom").with_suffix(".h5m")
-stellarator.build_pydagmc_model()
+stellarator.build_pydagmc_model(
+    magnet_exporter="cad_to_dagmc", max_mesh_size=60
+)
 
 # Add Vacuum boundary condition to first wall surface to terminate particles
 wall_surface = stellarator.invessel_build.dag_model.surfaces_by_id[1]
