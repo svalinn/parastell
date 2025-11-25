@@ -601,7 +601,8 @@ class MagnetSetFromGeometry(MagnetSet):
         ):
             self.__setattr__(name, kwargs[name])
 
-        self._resolve_imported_geometry()
+        if self.geometry_file.suffix == ".step":
+            self._resolve_imported_geometry()
 
     @property
     def geometry_file(self):
@@ -611,21 +612,22 @@ class MagnetSetFromGeometry(MagnetSet):
     def geometry_file(self, file_path):
         self._geometry_file = file_path
 
-        imported_geometry = cq.importers.importStep(
-            str(self.geometry_file)
-        ).vals()
+        if file_path.suffix == ".step":
+            imported_geometry = cq.importers.importStep(
+                str(self.geometry_file)
+            ).vals()
 
-        self.coil_solids = []
-        for item in imported_geometry:
-            if isinstance(item, cq.occ_impl.shapes.Compound):
-                self.coil_solids.extend([solid for solid in item.Solids()])
-            elif isinstance(item, cq.occ_impl.shapes.Solid):
-                self.coil_solids.append(item)
-            else:
-                e = ValueError(
-                    f"Imported object of type {type(item)} not recognized."
-                )
-                self._logger.error(e.args[0])
+            self.coil_solids = []
+            for item in imported_geometry:
+                if isinstance(item, cq.occ_impl.shapes.Compound):
+                    self.coil_solids.extend([solid for solid in item.Solids()])
+                elif isinstance(item, cq.occ_impl.shapes.Solid):
+                    self.coil_solids.append(item)
+                else:
+                    e = ValueError(
+                        f"Imported object of type {type(item)} not recognized."
+                    )
+                    self._logger.error(e.args[0])
 
     def _group_solids(self):
         """Detects nested solids and groups them together by imported solid ID.
