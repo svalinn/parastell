@@ -25,7 +25,7 @@ jobs:
           . /opt/etc/bashrc
           pip install --no-deps .
           /opt/Coreform-Cubit-2025.8/bin/rlm_activate --login ${EMAIL_SECRET} ${PASSWORD_SECRET}
-          cd /opt/parastell/tests
+          cd tests
           pytest -v .
           /opt/Coreform-Cubit-2025.8/bin/rlm_activate --logout
         env:
