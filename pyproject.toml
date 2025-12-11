@@ -1,7 +1,7 @@
 [project]
 name = "parastell"
 description = "Parametric 3-D CAD modeling toolset for stellarator fusion devices"
-version = "0.0.3"
+version = "0.1.0"
 
 readme = "README.md"
 requires-python = ">=3.11.0"
