@@ -76,7 +76,7 @@ class MagnetSet(ABC):
         if cubit_utils.initialized:
             first_vol_id += get_last_id("volume")
 
-        if self.step_path:
+        if hasattr(self, "step_path"):
             import_geom_to_cubit(self.step_path)
         else:
             import_geom_to_cubit(self.geometry_file)
