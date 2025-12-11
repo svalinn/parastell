@@ -23,10 +23,14 @@ jobs:
       - name: Populate environment and run tests
         run: |
           . /opt/etc/bashrc
+          pip install --no-deps .
           /opt/Coreform-Cubit-2025.8/bin/rlm_activate --login ${EMAIL_SECRET} ${PASSWORD_SECRET}
-          cd /opt/parastell/tests
+          cd tests
           pytest -v .
-          /opt/Coreform-Cubit-2025.8/bin/rlm_activate --logout
         env:
           EMAIL_SECRET: ${{ secrets.LICENSE_EMAIL }}
           PASSWORD_SECRET: ${{ secrets.LICENSE_PASSWORD }}
+      - name: Free Cubit license seat
+        # By default, steps only run if previous steps succeed - ensure we free up Cubit license seat
+        if: always()
+        run: /opt/Coreform-Cubit-2025.8/bin/rlm_activate --logout

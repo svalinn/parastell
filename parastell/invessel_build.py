@@ -769,7 +769,8 @@ class InVesselBuild(object):
     def import_step_cubit(self):
         """Imports STEP files from in-vessel build into Coreform Cubit."""
         for name, data in self.radial_build.radial_build.items():
-            vol_id = import_step_cubit(name, self.export_dir)
+            import_path = Path(self.export_dir) / Path(name)
+            vol_id = import_step_cubit(import_path)
             data["vol_id"] = vol_id
 
     def export_step(self, export_dir=""):
@@ -1061,7 +1062,8 @@ class InVesselBuild(object):
         volume_ids = []
 
         for component in components:
-            volume_id = import_step_cubit(component, import_dir)
+            import_path = Path(import_dir) / Path(component)
+            volume_id = import_step_cubit(import_path)
             volume_ids.append(volume_id)
 
         mesh_surface_coarse_trimesh(

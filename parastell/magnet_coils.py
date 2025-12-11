@@ -76,7 +76,11 @@ class MagnetSet(ABC):
         if cubit_utils.initialized:
             first_vol_id += get_last_id("volume")
 
-        import_geom_to_cubit(self.geometry_file, self.working_dir)
+        if hasattr(self, "step_path"):
+            import_geom_to_cubit(self.step_path)
+        else:
+            import_geom_to_cubit(self.geometry_file)
+
         self.cubit_volume_ids = self.volume_ids + first_vol_id
 
     def merge_surfaces(self):
@@ -100,13 +104,13 @@ class MagnetSet(ABC):
         self._logger.info("Exporting STEP file for magnet coils...")
 
         self.working_dir = export_dir
-        self.geometry_file = Path(filename).with_suffix(".step")
+        step_filename = Path(filename).with_suffix(".step")
 
-        export_path = Path(self.working_dir) / self.geometry_file
+        self.step_path = Path(self.working_dir) / step_filename
 
         coil_set = cq.Compound.makeCompound(self.all_coil_solids)
 
-        cq.exporters.export(coil_set, str(export_path))
+        cq.exporters.export(coil_set, str(self.step_path))
 
     def mesh_magnets_cubit(
         self,
@@ -601,7 +605,8 @@ class MagnetSetFromGeometry(MagnetSet):
         ):
             self.__setattr__(name, kwargs[name])
 
-        self._resolve_imported_geometry()
+        if self.geometry_file.suffix == ".step":
+            self._resolve_imported_geometry()
 
     @property
     def geometry_file(self):
@@ -611,21 +616,22 @@ class MagnetSetFromGeometry(MagnetSet):
     def geometry_file(self, file_path):
         self._geometry_file = file_path
 
-        imported_geometry = cq.importers.importStep(
-            str(self.geometry_file)
-        ).vals()
+        if file_path.suffix == ".step":
+            imported_geometry = cq.importers.importStep(
+                str(self.geometry_file)
+            ).vals()
 
-        self.coil_solids = []
-        for item in imported_geometry:
-            if isinstance(item, cq.occ_impl.shapes.Compound):
-                self.coil_solids.extend([solid for solid in item.Solids()])
-            elif isinstance(item, cq.occ_impl.shapes.Solid):
-                self.coil_solids.append(item)
-            else:
-                e = ValueError(
-                    f"Imported object of type {type(item)} not recognized."
-                )
-                self._logger.error(e.args[0])
+            self.coil_solids = []
+            for item in imported_geometry:
+                if isinstance(item, cq.occ_impl.shapes.Compound):
+                    self.coil_solids.extend([solid for solid in item.Solids()])
+                elif isinstance(item, cq.occ_impl.shapes.Solid):
+                    self.coil_solids.append(item)
+                else:
+                    e = ValueError(
+                        f"Imported object of type {type(item)} not recognized."
+                    )
+                    self._logger.error(e.args[0])
 
     def _group_solids(self):
         """Detects nested solids and groups them together by imported solid ID.
