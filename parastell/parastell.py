@@ -18,7 +18,6 @@ from .cubit_utils import (
 from .utils import read_yaml_config, filter_kwargs, m2cm, combine_dagmc_models
 from .pystell import read_vmec
 
-build_cubit_model_allowed_kwargs = ["skip_imprint"]
 export_cubit_dagmc_allowed_kwargs = [
     "filename",
     "export_dir",
@@ -713,9 +712,6 @@ class Stellarator(object):
             being used.
 
             For magnet_exporter = 'cubit'
-            skip_imprint (bool): choose whether to imprint and merge all in
-                Coreform Cubit or to merge surfaces based on import order and
-                geometry information (Defaults to False).
             filename (str): name of DAGMC output file, excluding '.h5m'
                 extension (optional, defaults to 'dagmc').
             export_dir (str): directory to which to export DAGMC output file
@@ -739,9 +735,7 @@ class Stellarator(object):
 
         if self.magnet_set:
             if magnet_exporter == "cubit":
-                self.build_cubit_model(
-                    **(filter_kwargs(kwargs, build_cubit_model_allowed_kwargs))
-                )
+                self.build_cubit_model()
                 self.export_cubit_dagmc(
                     **(
                         filter_kwargs(
@@ -963,9 +957,7 @@ def parastell():
 
     if args.ivb or args.magnets:
         dagmc_export = all_data["dagmc_export"]
-        stellarator.build_cubit_model(
-            **(filter_kwargs(dagmc_export, build_cubit_model_allowed_kwargs))
-        )
+        stellarator.build_cubit_model()
         stellarator.export_cubit_dagmc(
             export_dir=args.export_dir,
             **(filter_kwargs(dagmc_export, export_cubit_dagmc_allowed_kwargs)),
@@ -997,7 +989,7 @@ def parastell():
         nwl_geom.construct_invessel_build(**nwl_build)
         nwl_geom.export_invessel_build(export_dir=args.export_dir)
 
-        nwl_geom.build_cubit_model(skip_imprint=True)
+        nwl_geom.build_cubit_model()
         nwl_geom.export_cubit_dagmc(
             filename="nwl_geom", export_dir=args.export_dir
         )
