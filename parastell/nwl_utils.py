@@ -330,8 +330,6 @@ def compute_nwl(
         poloidal_extent + poloidal_extent / num_poloidal_bins / 2
     )
 
-    toroidal_angles = []
-    poloidal_angles = []
     nwl_all_batches = []
 
     batch_size = math.ceil(num_particles / num_batches)
@@ -343,20 +341,20 @@ def compute_nwl(
 
         crossings = coords[batch_start : batch_start + batch_size]
 
-        toroidal_angle_batch, poloidal_angle_batch = compute_flux_coordinates(
-            ref_surf,
-            wall_s,
-            crossings,
-            num_threads,
-            conv_tol,
+        toroidal_angles_batch, poloidal_angles_batch = (
+            compute_flux_coordinates(
+                ref_surf,
+                wall_s,
+                crossings,
+                num_threads,
+                conv_tol,
+            )
         )
-        toroidal_angles += toroidal_angle_batch
-        poloidal_angles += poloidal_angle_batch
 
         # Bin particle crossings
         counts, toroidal_bin_edges, poloidal_bin_edges = np.histogram2d(
-            toroidal_angles,
-            poloidal_angles,
+            toroidal_angles_batch,
+            poloidal_angles_batch,
             bins=[num_toroidal_bins, num_poloidal_bins],
             range=[
                 [toroidal_bin_min, toroidal_bin_max],
