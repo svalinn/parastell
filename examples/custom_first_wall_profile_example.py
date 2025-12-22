@@ -42,7 +42,7 @@ stellarator = ps.Stellarator(vmec_file, ref_surf=ks)
 # Define desired toroidal and poloidal angles for building the stellarator
 toroidal_angles = [0.0, 11.25, 22.5, 33.75, 45.0, 56.25, 67.5, 78.75, 90.0]
 poloidal_angles = [0.0, 45.0, 90.0, 135.0, 180.0, 225.0, 270.0, 315.0, 360.0]
-wall_s = 1.08
+wall_s = 1.0
 
 # Define a matrix of uniform unit thickness
 uniform_unit_thickness = np.ones((len(toroidal_angles), len(poloidal_angles)))
@@ -73,7 +73,7 @@ radial_build_dict = {
 }
 # Construct in-vessel components
 stellarator.construct_invessel_build(
-    toroidal_angles, poloidal_angles, wall_s, radial_build_dict, scale=1
+    toroidal_angles, poloidal_angles, wall_s, radial_build_dict
 )
 # Export in-vessel component files
 stellarator.export_invessel_build_step(export_dir=export_dir)
@@ -89,9 +89,6 @@ stellarator.construct_magnets_from_filaments(
 )
 # Export magnet files
 stellarator.export_magnets_step(filename="magnets", export_dir=export_dir)
-stellarator.export_magnet_mesh_cubit(
-    filename="magnet_mesh", export_dir=export_dir
-)
 
 # Define source mesh parameters
 cfs_values = np.linspace(0.0, 1.0, num=11)
@@ -102,8 +99,7 @@ stellarator.construct_source_mesh(cfs_values, poloidal_angles, toroidal_angles)
 # Export source file
 stellarator.export_source_mesh(filename="source_mesh", export_dir=export_dir)
 
-# Build Cubit model of Parastell Components
-stellarator.build_cubit_model(skip_imprint=True)
-
-# Export DAGMC neutronics H5M file
-stellarator.export_cubit_dagmc(filename="dagmc", export_dir=export_dir)
+# Build DAGMC neutronics model
+stellarator.build_cad_to_dagmc_model()
+# Export DAGMC H5M file
+stellarator.export_cad_to_dagmc(filename="dagmc", export_dir=export_dir)

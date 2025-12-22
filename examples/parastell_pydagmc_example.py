@@ -58,10 +58,6 @@ stellarator.construct_invessel_build(
     num_ribs=num_ribs,
     num_rib_pts=num_rib_pts,
 )
-# Export in-vessel component files
-stellarator.export_invessel_build_mesh_moab(
-    "vacuum_vessel", "vacuum_vessel_tally_mesh"
-)
 
 # Define build parameters for magnet coils
 coils_file = "coils.example"
@@ -73,7 +69,25 @@ stellarator.construct_magnets_from_filaments(
     coils_file, width, thickness, toroidal_extent, sample_mod=6
 )
 
+# PyDAGMC model must be built before any meshing in Gmsh
 stellarator.build_pydagmc_model(
     magnet_exporter="cad_to_dagmc", max_mesh_size=60
 )
 stellarator.export_pydagmc_model(filename="dagmc")
+
+# Export weight window mesh
+# Note that PyDAGMC workflow does not model the vacuum chamber - cannot be meshed
+stellarator.export_invessel_build_mesh_gmsh(
+    [
+        "first_wall",
+        "breeder",
+        "back_wall",
+        "shield",
+        "vacuum_vessel",
+    ],
+    "weight_window_mesh",
+)
+# Export in-vessel component files
+stellarator.export_invessel_build_mesh_moab(
+    ["vacuum_vessel"], "vacuum_vessel_tally_mesh"
+)

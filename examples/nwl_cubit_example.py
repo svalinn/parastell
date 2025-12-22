@@ -44,7 +44,7 @@ strengths = stellarator.source_mesh.strengths
 
 # Construct and export DAGMC neutronics model
 dagmc_filename = Path("nwl_geom").with_suffix(".h5m")
-stellarator.build_cubit_model(skip_imprint=True)
+stellarator.build_cubit_model()
 tag_surface(1, "vacuum")
 stellarator.export_cubit_dagmc(filename=dagmc_filename)
 
@@ -67,5 +67,7 @@ nwl_mean, nwl_std_dev, toroidal_bins, poloidal_bins, area_mat = (
         num_threads=6,
     )
 )
-nwl_utils.plot_nwl(nwl_mean, toroidal_bins, poloidal_bins)
-nwl_utils.plot_nwl(nwl_std_dev, toroidal_bins, poloidal_bins)
+nwl_utils.plot_nwl(nwl_mean, toroidal_bins, poloidal_bins, filename="nwl_mean")
+nwl_utils.plot_nwl(
+    nwl_std_dev, toroidal_bins, poloidal_bins, filename="nwl_std_dev"
+)

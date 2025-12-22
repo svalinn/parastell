@@ -48,7 +48,7 @@ available_space = smooth_matrix(available_space, steps, sigma)
 # symmetric
 available_space = enforce_helical_symmetry(available_space)
 # Modify available space to account for thickness of magnets
-available_space = available_space - max(width, thickness)
+available_space = available_space - max(width, thickness) - 20
 
 # Define a matrix of uniform unit thickness
 uniform_unit_thickness = np.ones((len(toroidal_angles), len(poloidal_angles)))
@@ -111,8 +111,7 @@ stellarator.construct_source_mesh(cfs_values, poloidal_angles, toroidal_angles)
 # Export source file
 stellarator.export_source_mesh(filename="source_mesh", export_dir=export_dir)
 
-# Build Cubit model of Parastell Components
-stellarator.build_cubit_model(skip_imprint=False)
-
-# Export DAGMC neutronics H5M file
-stellarator.export_cubit_dagmc(filename="dagmc", export_dir=export_dir)
+# Build DAGMC neutronics model
+stellarator.build_cad_to_dagmc_model()
+# Export DAGMC H5M file
+stellarator.export_cad_to_dagmc(filename="dagmc", export_dir=export_dir)
