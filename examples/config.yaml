@@ -82,7 +82,6 @@ source_mesh:
   filename: source_mesh
 
 dagmc_export:
-  skip_imprint: False
   filename: dagmc
 
 cub5_export: False

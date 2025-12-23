@@ -1,6 +1,5 @@
 import parastell.source_mesh as sm
 from parastell.pystell import read_vmec
-import subprocess
 import numpy as np
 
 
@@ -40,6 +39,4 @@ source_mesh_obj = sm.SourceMesh(
 source_mesh_obj.create_vertices()
 source_mesh_obj.create_mesh()
 
-# export and convert to vtk for visualization
 source_mesh_obj.export_mesh("source_mesh.h5m")
-subprocess.run("mbconvert source_mesh.h5m source_mesh.vtk", shell=True)

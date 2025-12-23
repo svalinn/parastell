@@ -49,6 +49,7 @@ stellarator.construct_invessel_build(
 )
 # Export in-vessel component files
 stellarator.export_invessel_build_step(export_dir=export_dir)
+# Export weight window mesh
 stellarator.export_invessel_build_mesh_cubit(
     [
         "chamber",
@@ -85,8 +86,7 @@ stellarator.construct_source_mesh(cfs_values, poloidal_angles, toroidal_angles)
 # Export source file
 stellarator.export_source_mesh(filename="source_mesh", export_dir=export_dir)
 
-# Build Cubit model of Parastell Components
-stellarator.build_cubit_model(skip_imprint=False)
-
-# Export DAGMC neutronics H5M file
+# Build DAGMC neutronics model
+stellarator.build_cubit_model()
+# Export DAGMC H5M file
 stellarator.export_cubit_dagmc(filename="dagmc", export_dir=export_dir)

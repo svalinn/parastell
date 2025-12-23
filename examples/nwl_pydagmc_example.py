@@ -1,7 +1,6 @@
 from pathlib import Path
 
 import parastell.parastell as ps
-from parastell.cubit_utils import tag_surface
 from parastell import nwl_utils
 import numpy as np
 
@@ -81,5 +80,7 @@ nwl_mean, nwl_std_dev, toroidal_bins, poloidal_bins, area_mat = (
         num_threads=6,
     )
 )
-nwl_utils.plot_nwl(nwl_mean, toroidal_bins, poloidal_bins)
-nwl_utils.plot_nwl(nwl_std_dev, toroidal_bins, poloidal_bins)
+nwl_utils.plot_nwl(nwl_mean, toroidal_bins, poloidal_bins, filename="nwl_mean")
+nwl_utils.plot_nwl(
+    nwl_std_dev, toroidal_bins, poloidal_bins, filename="nwl_std_dev"
+)
