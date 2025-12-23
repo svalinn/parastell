@@ -48,7 +48,10 @@ available_space = smooth_matrix(available_space, steps, sigma)
 # symmetric
 available_space = enforce_helical_symmetry(available_space)
 # Modify available space to account for thickness of magnets
-available_space = available_space - max(width, thickness) - 20
+tolerance = 5
+available_space = available_space - (
+    np.sqrt(width * width + thickness * thickness) + tolerance
+)
 
 # Define a matrix of uniform unit thickness
 uniform_unit_thickness = np.ones((len(toroidal_angles), len(poloidal_angles)))
