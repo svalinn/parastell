@@ -92,8 +92,7 @@ class SourceMesh(ToroidalMesh):
             a (x,y,z) coordinate for any closed flux surface value, cfs,
             poloidal angle, poloidal_ang, and toroidal angle, toroidal_ang.
         cfs_values (iterable of float): grid points along the closed flux
-            surface axis of flux-coordinate space. Must begin at 0.0 and end at
-            1.0.
+            surface axis of flux-coordinate space.
         poloidal_angles (iterable of float): grid points along the poloidal
             angle axis of flux-coordinate space. Must span 360 degrees.
         toroidal_angles (iterable of float): grid points along the toroidal
@@ -160,21 +159,11 @@ class SourceMesh(ToroidalMesh):
 
     @cfs_values.setter
     def cfs_values(self, iterable):
-        if iterable[0] != 0.0 or iterable[-1] != 1.0:
-            e = ValueError(
-                "Closed flux surface grid points must begin at 0.0 and end at "
-                "1.0"
-            )
-            self._logger.error(e.args[0])
-            raise e
-
         if not check_ascending(iterable):
             e = ValueError("CFS values must be in ascending order.")
             self._logger.error(e.args[0])
             raise e
-
-        # Exlude entry at magnetic axis (receives special handling)
-        self._cfs_values = iterable[1:]
+        self._cfs_values = iterable
 
     @property
     def poloidal_angles(self):
@@ -260,8 +249,15 @@ class SourceMesh(ToroidalMesh):
         self._logger.info("Computing source mesh point cloud...")
 
         self.verts_per_ring = len(self._poloidal_angles)
-        # add one vertex per plane for magenetic axis
-        self.verts_per_plane = len(self._cfs_values) * self.verts_per_ring + 1
+
+        # Only add one vertex per plane at magenetic axis
+        if self._cfs_values[0] == 0.0:
+            self.verts_per_plane = (
+                len(self._cfs_values) - 1
+            ) * self.verts_per_ring + 1
+        else:
+            self.verts_per_plane = len(self._cfs_values) * self.verts_per_ring
+
         num_verts = len(self._toroidal_angles) * self.verts_per_plane
 
         self.coords = np.zeros((num_verts, 3))
@@ -271,17 +267,19 @@ class SourceMesh(ToroidalMesh):
         vert_idx = 0
 
         for toroidal_ang in self._toroidal_angles:
-            # vertex coordinates on magnetic axis
-            self.coords[vert_idx, :] = (
-                np.array(self.vmec_obj.vmec2xyz(0, 0, toroidal_ang))
-                * self.scale
-            )
-            self.coords_cfs[vert_idx] = 0
-
-            vert_idx += 1
-
-            # vertex coordinate away from magnetic axis
             for cfs in self._cfs_values:
+                # For magnetic axis, only add one point
+                if cfs == 0.0:
+                    self.coords[vert_idx, :] = (
+                        np.array(self.vmec_obj.vmec2xyz(cfs, 0, toroidal_ang))
+                        * self.scale
+                    )
+                    self.coords_cfs[vert_idx] = cfs
+
+                    vert_idx += 1
+
+                    continue
+
                 for poloidal_ang in self._poloidal_angles:
                     self.coords[vert_idx, :] = (
                         np.array(
@@ -363,12 +361,15 @@ class SourceMesh(ToroidalMesh):
         ) and toroidal_idx == len(self._toroidal_angles):
             ma_offset = 0
 
-        # Compute index offset from closed flux surface, taking single vertex
-        # at magnetic axis into account
-        if surface_idx == 0:
-            surface_offset = surface_idx
+        # Compute index offset from closed flux surface, conditionally taking
+        # single vertex at magnetic axis into account
+        if self._cfs_values[0] == 0.0:
+            if surface_idx == 0:
+                surface_offset = surface_idx
+            else:
+                surface_offset = (surface_idx - 1) * self.verts_per_ring + 1
         else:
-            surface_offset = (surface_idx - 1) * self.verts_per_ring + 1
+            surface_offset = surface_idx * self.verts_per_ring
 
         poloidal_offset = poloidal_idx
         # Wrap around if poloidal angle is 2*pi
@@ -389,27 +390,27 @@ class SourceMesh(ToroidalMesh):
             num_toroidal_angles = len(self._toroidal_angles)
 
         for toroidal_idx in range(num_toroidal_angles):
-            # Create tetrahedra for wedges at center of plasma
-            for poloidal_idx, _ in enumerate(self._poloidal_angles):
-                tets, vertex_id_list = self._create_tets_from_wedge(
-                    poloidal_idx, toroidal_idx
-                )
-                [
-                    self._compute_and_tag_tet_data(vert_ids, tet)
-                    for vert_ids, tet in zip(vertex_id_list, tets)
-                ]
-
-            # Create tetrahedra for hexahedra beyond center of plasma
             # Exclude final CFS since no elements created beyond it
-            for cfs_idx, _ in enumerate(self._cfs_values[:-1], start=1):
+            for cfs_idx, cfs in enumerate(self._cfs_values[:-1]):
                 for poloidal_idx, _ in enumerate(self._poloidal_angles):
-                    tets, vertex_id_list = self._create_tets_from_hex(
-                        cfs_idx, poloidal_idx, toroidal_idx
-                    )
-                    [
-                        self._compute_and_tag_tet_data(vert_ids, tet)
-                        for vert_ids, tet in zip(vertex_id_list, tets)
-                    ]
+                    # Create tetrahedra for wedges at center of plasma
+                    if cfs == 0.0:
+                        tets, vertex_id_list = self._create_tets_from_wedge(
+                            poloidal_idx, toroidal_idx
+                        )
+                        [
+                            self._compute_and_tag_tet_data(vert_ids, tet)
+                            for vert_ids, tet in zip(vertex_id_list, tets)
+                        ]
+                    # Create tetrahedra for hexahedra beyond center of plasma
+                    else:
+                        tets, vertex_id_list = self._create_tets_from_hex(
+                            cfs_idx, poloidal_idx, toroidal_idx
+                        )
+                        [
+                            self._compute_and_tag_tet_data(vert_ids, tet)
+                            for vert_ids, tet in zip(vertex_id_list, tets)
+                        ]
 
 
 def parse_args():
