@@ -719,14 +719,11 @@ class InVesselBuild(object):
             "Generating DAGMC model of in-vessel components with PyDAGMC..."
         )
 
-        if np.isclose(
+        continuous_360 = bool(np.isclose(
             self.radial_build.toroidal_angles[-1]
             - self.radial_build.toroidal_angles[0],
-            360.0,
-        ):
-            continuous_360 = True
-        else:
-            continuous_360 = False
+            360.0
+        ))
 
         self._generate_pymoab_verts()
         self._generate_curved_surfaces_pydagmc(continuous_360=continuous_360)
