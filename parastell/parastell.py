@@ -356,6 +356,40 @@ class Stellarator(object):
             **kwargs,
         )
 
+    def check_port_magnet_interference(self, clearance=0.0, on_conflict="raise"):
+        """Implement `InVesselBuild.check_port_magnet_clearance()` to check
+        for any spatial overlap between `Port` bodies and magnets.
+
+        Arguments:
+            magnet_solids (list): list all CadQuery magnet `Solid` objects.
+            clearance (float, optional): padding clearance [cm] for acceptable
+                distance between a `Port` and a magnet.
+                (defaults to 0.0)
+            tol (float, optional): spatial tolerance for `Port`/magnet
+                intersection [cm^3].
+                (defaults to 1e-3)
+            on_conflicts (str, optional): setting for raising or warning if
+                `Port`/magnet intersection is found.
+                (defaults to 'raise')
+
+        Returns:
+            conflicts (list): list containing error messages for any `Port`/
+                magnet intersections. If `on_conflicts == 'raise'`, then any
+                conflicts will result in a `ValueError` being raised, rather
+                than the function returning.
+        """
+
+        if not (self.invessel_build and self.magnet_set):
+            raise RuntimeError(
+                "Both in-vessel build and magnets must be constructed."
+            )
+
+        return self.invessel_build.check_port_magnet_clearance(
+            self.magnet_set.all_coil_solids,
+            clearance=clearance,
+            on_conflict=on_conflict
+        )
+
     def export_magnets_step(self, filename="magnet_set", export_dir=""):
         """Export STEP file of magnet set.
 

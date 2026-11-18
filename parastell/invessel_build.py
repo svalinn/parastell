@@ -326,6 +326,1012 @@ class RibBasedSurface(ReferenceSurface):
         return np.array(coords) * scale
 
 
+class Port(object):
+    """An object to model a port that can cut through an `InVesselBuild`,
+    subject to the geometric constraints of pre-existing blanket
+    components. A `Port` is defined by three fundamental attributes:
+
+        1) Planar shape/parameter
+            - `Port`s are constructed as CadQuery `Solid` objects.
+            - Current support only exists for cylindrical ports, which
+                have circular faces.
+            - For a circular `Port`, a corresponding `radius` must be provided
+                (see Arguments).
+            - Future implementation will include support for other planar
+                shapes and corresponding defining parameters.
+
+        2) Orientation vector
+            - Vector defined by spherical polar and azimuthal angles in a
+                local coordinate frame at the `Port`'s base position.
+            - Spherical to Cartesian conversions are done in a local frame of
+                reference at a base position (see below) following this right-
+                handed convention:
+                * x: Positive along the stellarator's radial direction.
+                * y: Positive along the counter-clockwise toroidal
+                        direction.
+                * z: Coterminous with the stellarator's z-axis.
+            - By defining the coordinate system in a local frame, multiple
+                `Port`s with the same relative orientations at different
+                toroidal positions along the stellarator can be defined with
+                the same polar and azimuthal angles.
+            - If neither orientation angle is specified, the `Port` axis
+                defaults to the surface's outward unit normal.
+
+        3) Base position vector
+            - Position vector defining the intersection of the `Port` axis
+                with the plasma-facing reference surface.
+            - Defined by a toroidal and poloidal angle (phi, theta) to
+                determine position along the stellarator body.
+            - Radial position is calculated internally by producing the
+                minimum inset value such that the entirety of the `Port`
+                extends beyond the first wall into the plasma chamber for a
+                complete cut.
+            - Minimum inset value is dependent on the relationship between the
+                `Port`'s orientation, cross-sectional area, and local surface
+                topology.
+
+    Currently, support is limited to cylindrical `Port`s with circular cross-
+        sections. `Port` wall thickness and material are not modeled. Future
+        implementations will include:
+        * Ability to define `Port` wall thickness/material
+        * Additional geometries (elliptical planes, rectangular planes)
+
+    Arguments:
+        ref_surf (object): `ReferenceSurface` object. Must have a method
+            'angles_to_xyz(toroidal_angles, poloidal_angles, s, scale)' that
+            returns an Nx3 `numpy.array` of Cartesian coordinates for any
+            closed flux surface label, s, poloidal angle (theta), and
+            toroidal angle (phi).
+        wall_s (float): closed flux surface label extrapolation at wall.
+        base_toroidal_angle (float): toroidal angle of the `Port`'s interior
+            base. Taken with `base_poloidal_angle` to create a position vector
+            to define base location. Range [0, period] [deg].
+        base_poloidal_angle (float): poloidal angle of the `Port`'s interior
+            base. Taken with `base_toroidal_angle` to create a position vector
+            to define base location. Range [0, 360] [deg].
+
+    Optional attributes:
+        orientation_polar_angle (float or None): polar angle of the `Port`'s
+            orientation vector in spherical coordinates [deg]. The coordinate
+            system is defined in a local frame of reference relative to the
+            base point and a global z-axis, which corresponds to the
+            stellarator's cylindrical z-axis (see above explanation). If a
+            value is provided, must also supply one for
+            `orientation_azimuthal_angle`. Otherwise, they will default
+            together to correspond to the surface's outward normal unit
+            vector.
+            (defaults to None)
+        orientation_azimuthal_angle (float or None): azimuthal angle of the
+            `Port`'s orientation vector in spherical coordinates [deg].
+            Coordinate system defined in local frame of reference relative to
+            the base point and a global z-axis, which corresponds to the
+            stellarator's cylindrical z-axis (see above explanation). If a
+            value is provided, must also supply one for
+            `orientation_polar_angle`. Otherwise, they will default together
+            to correspond to the surface's outward normal unit vector.
+            (defaults to None)
+        length (float or str): length of the `Port` from the base point to the
+            end point [cm]. If a length is provided that is shorter than the
+            distance across the `InVesselBuild` at a given orientation, a
+            `ValueError` will be raised. If 'min' is provided, the minimum
+            length to have the `Port` extend entirely through the
+            `InVesselBuild` at a given orientation will be calculated. This
+            length does not include an inset addition, which is always added
+            inwardly from the base point.
+            (defaults to 'min')
+        extension (float): added to 'min' length [cm], or a fraction of the
+            blanket length if `relative_extension` is `True`.
+            (defaults to 0.0)
+        relative_extension (bool): tandem argument with `extension` to allow
+            for extensions in port length to be relative to blanket thickness,
+            rather than absolute.
+            (defaults to False)
+        scale (float): a scaling factor between input and output data.
+            (defaults to m2cm)
+        plane_shape (str): cross-sectional shape of the `Port`. Currently only
+            'circle' is accepted, corresponding to a cylindrical `Port`.
+            (defaults to 'circle')
+        radius (float or None): radius of a cylindrical `Port`. Required if
+            `plane_shape == 'circle`.
+            (defaults to None)
+        logger (object): logger object (defaults to None). If no logger is
+            supplied, a default logger will be instantiated.
+    """
+
+    EINSUM_SUBSCRIPTS = "ij,ij->i"
+
+    def __init__(
+        self,
+        ref_surf,
+        wall_s,
+        base_toroidal_angle,
+        base_poloidal_angle,
+        orientation_polar_angle=None,
+        orientation_azimuthal_angle=None,
+        length="min",
+        extension=0.0,
+        relative_extension=False,
+        scale=m2cm,
+        plane_shape="circle",
+        radius=None,
+        logger=None,
+    ):
+
+        self.logger = logger
+
+        if (orientation_polar_angle is None) != (
+            orientation_azimuthal_angle is None
+        ):
+            e = ValueError(
+                "Give both orientation angles, or neither (which uses the "
+                "outward surface normal)."
+            )
+            self._logger.error(e.args[0])
+            raise e
+
+        if orientation_polar_angle is not None and not (
+            0.0 <= orientation_polar_angle <= 180
+        ):
+            e = ValueError(
+                "orientation_polar_angle must be in [0, 180] degrees."
+            )
+            self._logger.error(e.args[0])
+            raise e
+
+        if not (isinstance(length, str) and length == "min") and not (
+            isinstance(length, (int, float)) and length > 0
+        ):
+            e = ValueError("length must be 'min' or a positive number.")
+            self._logger.error(e.args[0])
+            raise e
+
+        if extension < 0:
+            e = ValueError("extension must be finite and non-negative.")
+            self._logger.error(e.args[0])
+            raise e
+
+        if plane_shape.lower() == "circle":
+            self.plane_shape = plane_shape
+            if radius is None or radius <= 0 or not np.isfinite(radius):
+                e = ValueError(
+                    "Cylindrical port needs a finite positive radius."
+                )
+                self._logger.error(e.args[0])
+                raise e
+
+            else:
+                self.radius = radius
+
+        else:
+            e = NotImplementedError(
+                "Only cylindrical (circular) ports are currently supported."
+            )
+            self._logger.error(e.args[0])
+            raise e
+
+        self.ref_surf = ref_surf
+        self.wall_s = wall_s
+        self.base_toroidal_angle = base_toroidal_angle
+        self.base_poloidal_angle = base_poloidal_angle
+        self.orientation_polar_angle = orientation_polar_angle
+        self.orientation_azimuthal_angle = orientation_azimuthal_angle
+        self.length = length
+        self.extension = extension
+        self.relative_extension = relative_extension
+        self.scale = scale
+
+        self._tor = np.deg2rad(base_toroidal_angle)
+        self._pol = np.deg2rad(base_poloidal_angle)
+        self._base_cache = None
+        self._orientation = None
+
+        # Filled in by resolve()
+        self.inset = None
+        self.blanket_length = None
+        self.resolved_length = None
+
+        # Filled in by _set_origin_point()
+        self.origin = None
+
+    @property
+    def logger(self):
+        return self._logger
+
+    @logger.setter
+    def logger(self, logger_object):
+        self._logger = log.check_init(logger_object)
+
+    @staticmethod
+    def _full_period_linspace(n, endpoint=True):
+        """Generate evenly spaced angular samples over a full revolution.
+        (Internal function not intended to be called externally)
+
+        Arguments:
+            n (int): number of angular samples.
+            endpoint (bool, optional): option to include 2*pi.
+            (defaults to True)
+
+        Returns:
+            angles (numpy.ndarray): angular samples [rad] spanning [0, 2*pi]
+                (if `endpoint == True`) or [0, 2*pi) (if `endpoint == False`).
+        """
+
+        return np.linspace(0.0, 2 * np.pi, n, endpoint=endpoint)
+
+    ##### Base Point Geometry #####
+    def _xyz(self, toroidal, poloidal):
+        """Convert surface flux-coordinates to a vector of Cartesian
+        coordinates.
+        (Internal function not intended to be called externally)
+
+        Arguments:
+            toroidal (float): toroidal angle [rad].
+            poloidal (float): poloidal angle [rad].
+
+        Returns:
+            cartesian (numpy.ndarray): vector of Cartesian coordinates.
+        """
+
+        return self.ref_surf.angles_to_xyz(
+            toroidal, np.array([poloidal]), self.wall_s, self.scale
+        )[0]
+
+    @property
+    def base_point(self):
+        """Cache the Cartesian position on the reference surface."""
+        if self._base_cache is None:
+            self._base_cache = self._xyz(self._tor, self._pol)
+
+        return self._base_cache
+
+    def _calculate_tangents(self, delta=1e-4):
+        """Calculate a `Port`'s surface tangent angles by central difference.
+        (Internal function not intended to be called externally)
+
+        Arguments:
+            delta (float, optional): numerical delta for the central
+                difference calculation [rad].
+                (defaults to 1e-4)
+
+        Returns:
+            e_theta (numpy.ndarray): Cartesian vector of central difference
+                for the poloidal angle.
+            e_phi (numpy.ndarray): Cartesian vector of central difference
+                for the toroidal angle.
+        """
+
+        e_theta = (
+            self._xyz(self._tor, self._pol + delta)
+            - self._xyz(self._tor, self._pol - delta)
+        ) / (2.0 * delta)
+
+        e_phi = (
+            self._xyz(self._tor + delta, self._pol)
+            - self._xyz(self._tor - delta, self._pol)
+        ) / (2.0 * delta)
+
+        return e_theta, e_phi
+
+    def _orient_outward_normal(self, e_theta, e_phi):
+        """Calculate the outward unit normal vector for a given toroidal and
+        poloidal position on a reference surface.
+        (Internal function not intended to be called externally)
+
+        Arguments:
+            e_theta (numpy.ndarray): Cartesian vector of central difference
+                for the poloidal angle.
+            e_phi (numpy.ndarray): Cartesian vector of central difference
+                for the toroidal angle.
+
+        Returns:
+            normal (numpy.ndarray): outward surface normal vector at a given
+                position on a reference surface.
+        """
+
+        normal = normalize(np.cross(e_theta, e_phi))
+        ring = self.ref_surf.angles_to_xyz(
+            self._tor,
+            self._full_period_linspace(61)[:-1],
+            self.wall_s,
+            self.scale,
+        )
+
+        # Ensure outward orientation
+        if np.dot(normal, self.base_point - ring.mean(axis=0)) < 0:
+            normal *= -1
+
+        return normal
+
+    ##### Port Orientation Vector #####
+    @staticmethod
+    def _spherical_to_xyz(polar, azimuthal):
+        """Convert spherical to Cartesian coordinates.
+        (Internal function not intended to be called externally)
+
+        Arguments:
+            polar (float): spherical polar angle (theta) [rad].
+            azimuthal (float): spherical azimuthal angle (phi) [rad].
+
+        Returns:
+            coordinates (numpy.ndarray): Cartesian unit vector corresponding
+                to the supplied spherical angles.
+        """
+
+        return np.array(
+            [
+                np.sin(polar) * np.cos(azimuthal),
+                np.sin(polar) * np.sin(azimuthal),
+                np.cos(polar),
+            ]
+        )
+
+    def local_frame(self):
+        """Define a local right-handed orthonormal Cartesian coordinate frame
+        whose basis directions are expressed in global Cartesian coordinates
+        as:
+            * x: Positive along the stellarator's radial direction.
+            * y: Positive along the counter-clockwise toroidal
+                direction.
+            * z: Coterminous with the stellarator's z-axis.
+
+        Arguments:
+            None
+
+        Returns:
+            radial (numpy.ndarray): vector mapping the local radial direction
+                (x-axis) to a global frame.
+            toroidal (numpy.ndarray): vector mapping the local toroidal
+                direction (y-axis) to a global frame.
+            z (numpy.ndarray): global z-axis.
+        """
+
+        radial = np.array([np.cos(self._tor), np.sin(self._tor), 0.0])
+        toroidal = np.array([-np.sin(self._tor), np.cos(self._tor), 0.0])
+
+        return radial, toroidal, np.array([0.0, 0.0, 1.0])
+
+    @property
+    def orientation(self):
+        """Unit vector along the `Port` axis in a global Cartesian frame."""
+
+        if self._orientation is None:
+            if self.orientation_polar_angle is None:
+                self._orientation = self._orient_outward_normal(
+                    *self._calculate_tangents()
+                )
+
+            else:
+                x_hat, y_hat, z_hat = self.local_frame()
+                c = self._spherical_to_xyz(
+                    np.deg2rad(self.orientation_polar_angle),
+                    np.deg2rad(self.orientation_azimuthal_angle),
+                )
+                self._orientation = normalize(
+                    c[0] * x_hat + c[1] * y_hat + c[2] * z_hat
+                )
+
+        return self._orientation
+
+    ##### Port Cross-Section Helpers #####
+    @property
+    def section_extent(self):
+        """Largest in-plane distance from the axis to the section boundary."""
+
+        return self.radius
+
+    def _section_axes(self):
+        """Generate two orthonormal vectors that span the plane perpendicular
+        to the `Port` axis.
+        """
+
+        a = self.orientation
+        helper = (
+            np.array([0.0, 0.0, 1.0])  # global z-axis
+            if abs(a[2]) < 0.9
+            else np.array([1.0, 0.0, 0.0])  # global x-axis
+        )
+        u = normalize(np.cross(a, helper))
+
+        return u, np.cross(a, u)
+
+    def _in_section(self, lu, lv, tol=1.05):
+        """Mask of in-plane coordinates within the section.
+
+        Arguments:
+            lu (numpy.ndarray): coordinates along the first in-plane axis.
+            lv (numpy.ndarray): coordinates along the second in-plane axis.
+            tol (float, optional): multiplicative tolerance applied to the
+                section radius.
+                (defaults to 1.05)
+
+        Returns:
+            inside (numpy.ndarray): Boolean mask identifying points within the
+                cross-sectional boundary.
+        """
+
+        return np.hypot(lu, lv) <= self.radius * tol
+
+    ##### Plasma Chamber Inset #####
+    def compute_minimum_inset(
+        self,
+        n=15,
+        margin_frac=0.1,
+        min_margin=1,
+        pad=1.2,
+        pad_grow=1.5,
+        max_grow=4,
+        grazing=0.2,
+        footprint_grazing=0.05,
+    ):
+        """Calculate the minimum inward displacement [cm] of a `Port`'s origin
+        point, based on its orientation and the local curvature of the
+        reference surface, to ensure that the `Port` fully intersects the
+        plasma-facing surface.
+
+        Arguments:
+            n (int, optional): number of surface samples per angular
+                direction. Even values are automatically incremented by one so
+                that a sample always falls on a base point. Each attempt costs
+                n^2 evaluations of the reference surface.
+                (defaults to 15)
+            margin_frac (float, optional): safety margin added to the inset,
+                as a fraction of the cross-section extent, i.e., the largest
+                in-plane distance from the axis to the section boundary (the
+                radius, for a circular `Port`)
+                (defaults to 0.1)
+            min_margin (float, optional): minimum safety  margin added to the
+                inset, regardless of the `Port` size [cm]. The margin applied
+                is the larger of this and `margin_frac` multiplied by the
+                section extent.
+                (defaults to 1.0)
+            pad (float, optional): factor by which the sampled patch is
+                enlarged beyond the footprint predicted for a flat surface.
+                Must exceed 1.0 so that curvature does not push part of the
+                footprint outside the patch. It is grown automatically if the
+                footprint still reaches the patch edge.
+                (defaults to 1.2)
+            pad_grow (float, optional): factor by which to enlarge the pad
+                size after each successive attempt.
+                (defaults to 1.5)
+            max_grow (int, optional): maximum number of successive attempts to
+                enlarge the sampled surface patch by a factor of `pad_grow`
+                before raising a `RuntimeError`.
+                (defaults to 4)
+            grazing (float, optional): minimum cosine of the angle between the
+                `Port` axis and the outward surface normal at the base point.
+                Rejects axes that point inward or run nearly parallel to the
+                surface, where the footprint becomes very long.
+                (defaults to 0.2)
+            footprint_grazing (float, optional): minimum cosine of the angle
+                between the `Port` axis and the outward surface normal at every
+                sample inside the footprint. Catches `Port`s that start on a
+                favorable part of the surface but reach a region that is
+                parallel or back-facing to the axis.
+                (defaults to 0.05)
+
+        Returns:
+            inset (float): minimum inset to apply to the base point to ensure
+                no overlap between the `Port` body and local surface [cm].
+        """
+
+        if pad < 1:
+            e = ValueError(
+                "Padding factor must be at least 1, so as not to shrink the"
+                "sampled patch."
+            )
+            self._logger.error(e.args[0])
+            raise e
+
+        e_theta, e_phi = self._calculate_tangents()
+        normal = self._orient_outward_normal(e_theta, e_phi)
+        cos_a = np.dot(normal, self.orientation)
+        if cos_a < grazing:
+            deg_violation = np.degrees(np.arccos(np.clip(cos_a, -1, 1)))
+            deg_grazing = np.degrees(np.arccos(grazing))
+            e = ValueError(
+                f"Port axis is {deg_violation:.1f} degrees from the outward"
+                " surface normal at its base; it must be within "
+                f"{deg_grazing:.0f} degrees."
+            )
+            self._logger.error(e.args[0])
+            raise e
+
+        flip = np.sign(np.dot(np.cross(e_theta, e_phi), normal))
+        u, v = self._section_axes()
+
+        # Ensure even-valued n so that the base point is sampled exactly
+        if n % 2 == 0:
+            n += 1
+
+        for _ in range(max_grow):
+            half_theta = (
+                pad * self.section_extent / (cos_a * np.linalg.norm(e_theta))
+            )
+            half_phi = (
+                pad * self.section_extent / (cos_a * np.linalg.norm(e_phi))
+            )
+            thetas = self._pol + np.linspace(-half_theta, half_theta, n)
+            phis = self._tor + np.linspace(-half_phi, half_phi, n)
+
+            # P[i, j] = point at (phis[i], thetas[j])
+            P = np.array(
+                [
+                    self.ref_surf.angles_to_xyz(
+                        p, thetas, self.wall_s, self.scale
+                    )
+                    for p in phis
+                ]
+            )
+            rel = P - self.base_point
+            axial = rel @ self.orientation
+            inside = self._in_section(rel @ u, rel @ v)
+            touches_edge = (
+                inside[0].any()
+                or inside[-1].any()
+                or inside[:, 0].any()
+                or inside[:, -1].any()
+            )
+            if not touches_edge:
+                break
+
+            pad *= pad_grow
+
+        else:
+            e = RuntimeError(
+                "Port footprint is not enclosed by the sampled surface patch;"
+                " port is too oblique for the local surface curvature."
+            )
+            self._logger.error(e.args[0])
+            raise e
+
+        # Facing check across the whole footprint
+        nrm = flip * np.cross(np.gradient(P, axis=1), np.gradient(P, axis=0))
+        nrm /= np.linalg.norm(nrm, axis=-1, keepdims=True)
+        if ((nrm @ self.orientation)[inside] < footprint_grazing).any():
+            e = ValueError(
+                "Port footprint reaches a region where the first-wall "
+                "surface is parallel or back-facing to the axis."
+            )
+            self._logger.error(e.args[0])
+            raise e
+
+        return max(0.0, -axial[inside].min()) + max(
+            min_margin, margin_frac * self.section_extent
+        )
+
+    ##### Tools for Calculating Blanket Length along Port Axis #####
+    def _set_origin_point(self):
+        """Calculate and cache the `Port`'s interior origin point using the
+        base point and inset.
+        """
+
+        if self.inset is None:
+            self.inset = self.compute_minimum_inset()
+
+        self.origin = self.base_point - self.inset * self.orientation
+
+    @staticmethod
+    def _triangulate_loci(loci):
+        """Mesh a structured grid of outer-surface point-loci into triangles,
+        in the form needed by the Möller-Trumbore ray-triangle intersection
+        algorithm.
+        (Internal function not intended to be called externally)
+
+        Arguments:
+            loci (numpy.ndarray): array of outer-surface point-loci.
+
+        Returns:
+            triangles (numpy.ndarray): array containing positional vectors
+                for each triangle, with shape (num_triangles, 3, 3).
+        """
+
+        def _stack_triangles(a, b, c):
+            """Stack three corresponding arrays of triangle vertices into a
+            single array of triangles, flattening the leading grid dimensions.
+            """
+
+            return np.stack([a, b, c], axis=-2).reshape(-1, 3, 3)
+
+        p00, p01 = loci[:-1, :-1], loci[:-1, 1:]
+        p10, p11 = loci[1:, :-1], loci[1:, 1:]
+        t1 = _stack_triangles(p00, p01, p11)
+        t2 = _stack_triangles(p00, p11, p10)
+
+        return np.concatenate([t1, t2])
+
+    def _prepare_moller_trumbore_tri_vectors(self, triangles, eps=1e-12):
+        """Produce source-independent vectors and algebraic values for
+        application of the Möller-Trumbore ray-triangles intersection
+        algorithm. Called before iteration over each origin point for
+        computational efficiency.
+
+        Algorithm and variable naming conventions implemented from:
+        https://doi.org/10.1080/10867651.1997.10487468
+
+        (Internal function not intended to be called externally)
+
+        Arguments:
+            triangles (numpy.ndarray): array of triangle vertices produced
+                from outer-surface point-loci.
+            eps (float, optional): relative tolerance for rejecting triangles
+                that the ray cannot intersect at a single point. A triangle is
+                rejected if |det| <= eps * |E1| * |E2|, which catches rays
+                parallel to the triangle plane and degenerate triangles.
+                (defaults to 1e-12)
+
+        Returns:
+            V0 (numpy.ndarray): first vertex of each triangle.
+            E1 (numpy.ndarray): first edge of each triangle (V1 - V0).
+            E2 (numpy.ndarray): second edge of each triangle (V2 - V0).
+            P (numpy.ndarray): cross-product of the port-axis orientation unit
+                vector and E2.
+            inv_det (numpy.ndarray): array of the reciprocals of the
+                determinant for each triangle, zero for invalid triangles.
+            valid (numpy.ndarray): mask of the triangles who pass the
+                determinant test described above for `eps`.
+        """
+
+        V0, V1, V2 = triangles[:, 0], triangles[:, 1], triangles[:, 2]
+        E1 = V1 - V0
+        E2 = V2 - V0
+        P = np.cross(self.orientation, E2)
+        det = np.einsum(self.EINSUM_SUBSCRIPTS, E1, P)
+        scale = np.linalg.norm(E1, axis=1) * np.linalg.norm(E2, axis=1)
+        valid = np.abs(det) > eps * scale
+
+        inv_det = np.zeros_like(det)
+        inv_det[valid] = 1.0 / det[valid]
+
+        return V0, E1, E2, P, inv_det, valid
+
+    def _moller_trumbore_intersection(
+        self, start_point, origin_indep_MT_vals, slack=1e-9
+    ):
+        """Calculate ray-triangle intersections for a given ray origin using
+        the precomputed, origin-independent quantities from the Möller-
+        Trumbore algorithm. Current implementation limited to locally
+        convex surfaces; multiple hits possible for concave regions. Future
+        updates will handle this case.
+
+        Algorithm and variable naming conventions implemented from:
+        https://doi.org/10.1080/10867651.1997.10487468
+
+        (Internal function not intended to be called externally)
+
+        Arguments:
+            start_point (numpy.ndarray): position vector for a trial ray
+                origin.
+            origin_indep_MT_vals (tuple): collection of grouped source-
+                independent outputs of
+                `_prepare_moller_trumbore_tri_vectors()`.
+            slack (float, optional): numerical tolerance applied to the
+                barycentric coordinates (u,v) when determining whether an
+                intersection lies within a triangle.
+                (defaults to 1e-9)
+
+        Returns:
+            t (numpy.ndarray): distances [cm] from ray origin point to each
+                intersected triangle's plane.
+        """
+
+        # Triangle and matrix data calculate pre-iteration to maximize loop
+        # efficiency
+        V0, E1, E2, P, inv_det, valid = origin_indep_MT_vals
+        T = start_point - V0
+        u = np.einsum(self.EINSUM_SUBSCRIPTS, T, P) * inv_det
+        Q = np.cross(T, E1)
+        v = (Q @ self.orientation) * inv_det
+        t = np.einsum(self.EINSUM_SUBSCRIPTS, E2, Q) * inv_det
+        return t[
+            (
+                valid
+                & (u >= -slack)
+                & (v >= -slack)
+                & (u + v <= 1.0 + slack)
+                & (t > 0.0)
+            )
+        ]
+
+    def _compile_disk_sample_offsets(self, n_radial, n_angular):
+        """Generate a concentric sampling of points spanning the `Port`'s
+        cross-section, given the desired radial and angular resolutions.
+        (Internal function not intended to be called externally)
+
+        Arguments:
+            n_radial (int): number of radial samples to generate, spaced
+                evenly from 0 to `self.radius`.
+            n_angular (int): number of angular samples to generate, spaced
+                evenly from 0 to 360 degrees.
+
+        Returns:
+            offsets (numpy.ndarray): Array of Cartesian offset vectors [cm]
+                from the center of the `Port` cross-section.
+        """
+
+        u, v = self._section_axes()
+        radii = self.section_extent * np.linspace(0.0, 1.0, n_radial + 1)
+        angles = self._full_period_linspace(n_angular, endpoint=True)
+        offsets = [np.zeros((1, 3))]
+        offsets.extend(
+            r * (np.cos(angles)[:, None] * u + np.sin(angles)[:, None] * v)
+            for r in radii[1:]
+        )
+
+        return np.concatenate(offsets, axis=0)
+
+    def _calculate_ivb_length_along_port(
+        self,
+        outer_loci,
+        n_radial=4,
+        n_angular=16,
+        max_refinements=3,
+        atol=0.1,
+        rtol=1e-3,
+    ):
+        """Determine the maximum distance from the `Port`'s base point to the
+        first positive intersection of each sampled ray with the triangulated
+        outer surface of the `InVesselBuild`. Intersections calculated by the
+        Möller-Trumbore ray-triangle intersection algorithm.
+        (Internal function not intended to be called externally)
+
+        Arguments:
+            outer_loci (numpy.ndarray): array of point-loci defining the
+                outermost surface of the `InVesselBuild`.
+            n_radial (int, optional): number of radial samples at which to
+                generate concentric offsets, spaced evenly from 0 to
+                `self.radius`.
+                (defaults to 4)
+            n_angular (int, optional): number of angular samples at which to
+                generate concentric offsets, spaced evenly from 0 to 360
+                degrees.
+                (defaults to 16)
+            max_refinements (int, optional): number of grid refinements to
+                iteratively apply to (`n_radial`, `n_angular`) to check that
+                a particular intersection distance is not found as a result of
+                too coarse a grid. Iterates by 2^refinement.
+                (defaults to 3)
+            atol (float, optional): absolute tolerance [cm] for similarity
+                between each refinement iteration's calculated length and the
+                previous iteration. Used in `numpy.isclose()`.
+                (defaults to 0.1)
+            rtol (float, optional): relative tolerance for similarity between
+                each refinement iteration's calculated length and the previous
+                iteration. Used in `numpy.isclose()`.
+                (defaults to 1e-3)
+
+        Returns:
+            ivb_length (float): maximum distance across the `InVesselBuild` in
+                the space spanned by the `Port`.
+        """
+
+        self._set_origin_point()
+        origin_indep_MT_vals = self._prepare_moller_trumbore_tri_vectors(
+            self._triangulate_loci(np.asarray(outer_loci))
+        )
+
+        previous_length = None
+        for refinement in range(max_refinements + 1):
+            starts = self.origin + self._compile_disk_sample_offsets(
+                n_radial * 2**refinement, n_angular * 2**refinement
+            )
+            exits = []
+            for start in starts:
+                hits = self._moller_trumbore_intersection(
+                    start, origin_indep_MT_vals
+                )
+                if hits.size == 0:
+                    e = RuntimeError(
+                        "A ray from the port cross-section does not intersect"
+                        " the modeled outer surface. The port may leave "
+                        "through a toroidal segment end."
+                    )
+                    self._logger.error(e.args[0])
+                    raise e
+
+                exits.append(hits.min())
+
+            ivb_length = max(exits) - self.inset
+            if previous_length is not None:
+                if np.isclose(
+                    ivb_length, previous_length, atol=atol, rtol=rtol
+                ):
+                    return ivb_length
+
+            previous_length = ivb_length
+
+        e = RuntimeError(
+            f"Minimum port length did not converge after {max_refinements} "
+            f"refinements. Last estimate: {previous_length:.3f}."
+        )
+        self._logger.error(e.args[0])
+        raise e
+
+    @staticmethod
+    def _estimate_chord_sagitta(loci, min_sagitta=0.5):
+        """Estimate the chord sagitta of a surface curve using the small-angle
+        approximation (s ≈ second difference / 8), subject to a minimum
+        correction specified by `min_sagitta`.
+        (Internal function not intended to be called externally)
+
+        Arguments:
+            loci (numpy.ndarray): array of point-loci defining the outermost
+                surface of the `InVesselBuild`.
+            min_sagitta (float, optional): lower bound on the estimated
+                correction.
+
+        Returns:
+            chord_sagitta (float): sagitta distance [cm] to add to the
+                `InVesselBuild` length calculated by
+                `_calculate_ivb_length_along_port()` to account for local
+                curvature effects.
+        """
+
+        loci = np.asarray(loci)
+        d2_pol = np.linalg.norm(
+            loci[:, :-2] - 2 * loci[:, 1:-1] + loci[:, 2:], axis=-1
+        )
+        d2_tor = np.linalg.norm(loci[:-2] - 2 * loci[1:-1] + loci[2:], axis=-1)
+        max_second_difference = max(d2_pol.max(), d2_tor.max())
+
+        return max(max_second_difference / 8.0, min_sagitta)
+
+    def resolve(self, outer_loci):
+        """Resolve a `Port`'s length attributes to ensure sufficient extension
+        along its axis to traverse the associated `InVesselBuild`.
+
+        Arguments:
+            outer_loci (numpy.ndarray): array of point-loci defining the
+                outermost surface of the `InVesselBuild`.
+
+        Returns:
+            Port (object): resolved `Port` object.
+        """
+
+        if self.inset is None:
+            self.inset = self.compute_minimum_inset()
+
+        self.blanket_length = self._calculate_ivb_length_along_port(
+            outer_loci
+        ) + self._estimate_chord_sagitta(outer_loci)
+
+        if self.length == "min":
+            ext = (
+                self.extension * self.blanket_length
+                if self.relative_extension
+                else self.extension
+            )
+            self.resolved_length = self.blanket_length + ext
+
+        else:
+            self.resolved_length = float(self.length)
+            if self.resolved_length < self.blanket_length and not np.isclose(
+                self.resolved_length, self.blanket_length
+            ):
+                e = ValueError(
+                    f"Specified port length ({self.resolved_length:.3f} cm) "
+                    "is shorter than the minimum required length "
+                    f"({self.blanket_length:.3f} cm) to traverse the "
+                    "InVesselBuild."
+                )
+                self._logger.error(e.args[0])
+                raise e
+
+        return self
+
+    ##### Outputs #####
+    def generate_port(self, pad=0.0):
+        """Create a CadQuery solid object for a resolved `Port`.
+
+        Arguments:
+            pad (float, optional): optional radial clearance added to the
+                cylindrical cutting solid [cm]. Does not modify the stored
+                `Port` radius.
+
+        Returns:
+            port_solid (cadquery.Solid): oriented CadQuery `Solid` object
+                representing the `Port`, to be cut from other `InVesselBuild`
+                layers.
+        """
+
+        if self.resolved_length is None:
+            e = RuntimeError("Call resolve() before building the solid.")
+            self._logger.error(e.args[0])
+            raise e
+
+        if self.origin is None:
+            self._set_origin_point()
+
+        # Currently only "circle" allowed anyways, but conditional
+        # infrastructure in place to accomadate future implementations of
+        # other plane shapes
+        if self.plane_shape.lower() == "circle":
+            return cq.Solid.makeCylinder(
+                self.radius + pad,
+                self.resolved_length + self.inset,
+                cq.Vector(*self.origin),
+                cq.Vector(*self.orientation),
+            )
+
+    def compile_end_points(self, distance, n=15):
+        """Generate points spanning the `Port`'s cross-section at a specified
+        distance along its axis from the base point. The returned points
+        include the cross-section center and evenly spaced points around its
+        circular rim.
+
+        Arguments:
+            distance (float): distance [cm] from the base point along the
+                `Port`'s orientation vector.
+            n (int, optional): number of angular samples around the rim.
+                (defaults to 15)
+
+        Returns:
+            end_points (numpy.ndarray): array of 3D coordinates [cm] defining
+                the cross-section center and rim, with shape (n + 1, 3).
+        """
+
+        u, v = self._section_axes()
+        angles = self._full_period_linspace(n, endpoint=False)
+        center = self.base_point + distance * self.orientation
+        rim = center + self.section_extent * (
+            np.outer(np.cos(angles), u) + np.outer(np.sin(angles), v)
+        )
+
+        return np.vstack([center, rim])
+
+    def check_within_period(
+        self, period, reach=None, num_s=24, num_ang=16, eps=1e-9
+    ):
+        """Check whether the sampled points along the circumference of a
+            `Port` lie within the toroidal period bounds of the associated
+            `InVesselBuild`.
+
+        Arguments:
+            period (float): toroidal angular extent of the `InVesselBuild`
+                periodic segment [deg].
+            reach (float or None, optional): maximum length [cm] over which to
+                check `Port` containment. If None is provided, value
+                overridden by `self.resolved_length`.
+                (defaults to None)
+            num_s (int, optional): number of distances over which to iterate
+                between 0 and `reach`.
+                (defaults to 24)
+            num_ang (int, optional): number of angles over which to iterate,
+                spaced evenly between 0 and 360 degrees.
+                (defaults to 16)
+            eps (float, optional): relative tolerance for `Port` exceeding
+                periodic boundaries.
+                (defaults to 1e-9)
+
+        Returns:
+            None
+        """
+
+        if period >= 360.0:
+            return
+
+        if reach is None:
+            if self.resolved_length is None:
+                e = RuntimeError("Port length must be resolved first.")
+                self._logger.error(e.args[0])
+                raise e
+
+            reach = self.resolved_length + self.inset
+
+        if self.origin is None:
+            self._set_origin_point()
+
+        for s in np.linspace(0.0, reach, num_s):
+            pts = self.compile_end_points(s, n=num_ang)
+            phis = np.mod(np.rad2deg(np.arctan2(pts[:, 1], pts[:, 0])), 360.0)
+            if (phis < eps).any() or (phis > period + eps).any():
+                e = ValueError(
+                    "Port crosses a toroidal period boundary; move its base "
+                    "toward the middle of the period or reorient it."
+                )
+                self._logger.error(e.args[0])
+                raise e
+
+
 class InVesselBuild(object):
     """Parametrically models fusion stellarator in-vessel components using
     plasma equilibrium VMEC data and a user-defined radial build.
@@ -356,6 +1362,7 @@ class InVesselBuild(object):
             (defaults to m2cm = 100).
         use_pydagmc (bool): If True, generate components with pydagmc, rather
             than CadQuery (defaults to False).
+        ports (list): list of kwarg dictionaries for each desired `Port`.
     """
 
     def __init__(self, ref_surf, radial_build, logger=None, **kwargs):
@@ -369,6 +1376,8 @@ class InVesselBuild(object):
         self.num_rib_pts = 61
         self.scale = m2cm
         self.use_pydagmc = False
+        self.ports = []
+        self.port_solids = []
 
         if "scale" not in kwargs.keys():
             w = Warning(
@@ -390,6 +1399,9 @@ class InVesselBuild(object):
 
         self.Surfaces = {}
         self.Components = {}
+
+        for port_kwargs in kwargs.get("ports", []):
+            self.add_port(**port_kwargs)
 
     @property
     def ref_surf(self):
@@ -517,6 +1529,142 @@ class InVesselBuild(object):
 
         [surface.calculate_loci() for surface in self.Surfaces.values()]
 
+    def add_port(self, **port_kwargs):
+        """Generate and include a `Port` object to the `InVesselBuild`,
+        according to `port_kwargs`. Currently only compatible with CadQuery.
+        """
+
+        if self.use_pydagmc:
+            raise NotImplementedError("Ports are only supported for CadQuery.")
+
+        period = self.radial_build.toroidal_angles[-1]
+        tor = port_kwargs["base_toroidal_angle"]
+        if not 0.0 <= tor <= period:
+            raise ValueError(
+                f"Port base toroidal angle {tor} must lie within the period "
+                f"[0, {period}] degrees."
+            )
+
+        self.ports.append(
+            Port(
+                self.ref_surf,
+                self.radial_build.wall_s,
+                scale=self.scale,
+                **port_kwargs,
+            )
+        )
+
+    def _check_port_exits(self, outermost_solid, tol=1e-3):
+        """Ensure all `Port` objects fully traverse the `InVesselBuild`.
+        (Internal function not intended to be called externally)
+
+        Arguments:
+            outermost_solid (object): CadQuery object representing the
+                outermost modelled layer in the `InVesselBuild`.
+            tol (float, optional): relative tolerance for `Port` intersection
+                with outer surface.
+                (defaults to 1e-3)
+
+        Returns:
+            None
+        """
+
+        for idx, port in enumerate(self.ports):
+            pts = port.compile_end_points(port.resolved_length)
+            pts += tol * port.orientation
+
+            if any(outermost_solid.isInside(cq.Vector(*p)) for p in pts):
+                raise ValueError(
+                    f"Port {idx} does not fully exit the outermost component;"
+                    " increase its length."
+                )
+
+    def check_port_magnet_clearance(
+        self, magnet_solids, clearance=0.0, tol=1e-3, on_conflict="raise"
+    ):
+        """Ensure that `Port` objects do not interfere with magnet positions.
+
+        Arguments:
+            magnet_solids (list): list all CadQuery magnet `Solid` objects.
+            clearance (float, optional): padding clearance [cm] for acceptable
+                distance between a `Port` and a magnet.
+                (defaults to 0.0)
+            tol (float, optional): spatial tolerance for `Port`/magnet
+                intersection [cm^3].
+                (defaults to 1e-3)
+            on_conflicts (str, optional): setting for raising or warning if
+                `Port`/magnet intersection is found.
+                (defaults to 'raise')
+
+        Returns:
+            conflicts (list): list containing error messages for any `Port`/
+                magnet intersections. If `on_conflicts == 'raise'`, then any
+                conflicts will result in a `ValueError` being raised, rather
+                than the function returning.
+        """
+        
+        period = self.radial_build.toroidal_angles[-1]
+        conflicts = []
+        for p_idx, port in enumerate(self.ports):
+            base_tool = port.generate_port(pad=clearance)
+            for k in range(self._repeat + 1):
+                tool = base_tool.rotate((0, 0, 0), (0, 0, 1), k * period)
+                tb = tool.BoundingBox()
+                for m_idx, magnet in enumerate(magnet_solids):
+                    mb = magnet.BoundingBox()
+                    if (
+                        tb.xmax < mb.xmin or tb.xmin > mb.xmax
+                        or tb.ymax < mb.ymin or tb.ymin > mb.ymax
+                        or tb.zmax < mb.zmin or tb.zmin > mb.zmax
+                    ):
+                        continue
+
+                    vol = tool.intersect(magnet).Volume()
+                    if vol > tol:
+                        conflicts.append((p_idx, k, m_idx, vol))
+
+        if conflicts:
+            msg = (
+                "Port/magnet overlaps (port, period, magnet, cm^3): "
+                + "; ".join(
+                    f"({p}, {k}, {m}, {v:.1f})" for p, k, m, v in conflicts
+                )
+            )
+            if on_conflict == "raise":
+                e = ValueError(msg)
+                self._logger.error(e.args[0])
+                raise e
+
+            self._logger.warning(msg)
+
+        return conflicts
+
+    def resolve_ports(self, period):
+        """Attempt to resolve all `Port` lengths in the `InVesselBuild` using
+        `Port.resolve()`.
+
+        Arguments:
+            period (float): toroidal angular extent of the `InVesselBuild`
+                periodic segment [deg].
+
+        Returns:
+            None
+        """
+
+        outer_loci = list(self.Surfaces.values())[-1].get_loci()
+        for idx, port in enumerate(self.ports):
+            try:
+                port.compute_minimum_inset()
+                port.check_within_period(period, reach=0.0)
+
+                port.resolve(outer_loci)
+                port.check_within_period(period)
+
+            except (ValueError, RuntimeError) as err:
+                e = type(err)(f"Port {idx}: {err}")
+                self._logger.error(e.args[0])
+                raise e from err
+
     def generate_components(self):
         if self.use_pydagmc:
             self.generate_components_pydagmc()
@@ -534,11 +1682,11 @@ class InVesselBuild(object):
 
         interior_surface = None
 
-        segment_angles = np.linspace(
-            self.radial_build.toroidal_angles[-1],
-            self._repeat * self.radial_build.toroidal_angles[-1],
-            num=self._repeat,
-        )
+        period = self.radial_build.toroidal_angles[-1]
+        segment_angles = period * np.arange(1, self._repeat + 1)
+
+        self.resolve_ports(period)
+        self.port_solids = [port.generate_port() for port in self.ports]
 
         for name, surface in self.Surfaces.items():
             outer_surface = surface.generate_surface()
@@ -548,14 +1696,20 @@ class InVesselBuild(object):
             else:
                 segment = outer_surface
 
-            component = segment
+            if self.port_solids and name not in ("plasma", "chamber", "sol"):
+                for port_solid in self.port_solids:
+                    segment = segment.cut(port_solid)
 
+            component = segment
             for angle in segment_angles:
                 rot_segment = segment.rotate((0, 0, 0), (0, 0, 1), angle)
                 component = component.fuse(rot_segment)
 
             self.Components[name] = component
             interior_surface = outer_surface
+
+        if self.ports:
+            self._check_port_exits(outer_surface)
 
     def _connect_ribs_with_tris_moab(self, rib1, rib2, reverse=False):
         """Creat MBTRI elements add add them to a surface between two ribs.
