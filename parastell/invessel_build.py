@@ -1579,6 +1579,66 @@ class InVesselBuild(object):
                     " increase its length."
                 )
 
+    def check_port_magnet_clearance(
+        self, magnet_solids, clearance=0.0, tol=1e-3, on_conflict="raise"
+    ):
+        """Ensure that `Port` objects do not interfere with magnet positions.
+
+        Arguments:
+            magnet_solids (list): list all CadQuery magnet `Solid` objects.
+            clearance (float, optional): padding clearance [cm] for acceptable
+                distance between a `Port` and a magnet.
+                (defaults to 0.0)
+            tol (float, optional): spatial tolerance for `Port`/magnet
+                intersection [cm^3].
+                (defaults to 1e-3)
+            on_conflicts (str, optional): setting for raising or warning if
+                `Port`/magnet intersection is found.
+                (defaults to 'raise')
+
+        Returns:
+            conflicts (list): list containing error messages for any `Port`/
+                magnet intersections. If `on_conflicts == 'raise'`, then any
+                conflicts will result in a `ValueError` being raised, rather
+                than the function returning.
+        """
+        
+        period = self.radial_build.toroidal_angles[-1]
+        conflicts = []
+        for p_idx, port in enumerate(self.ports):
+            base_tool = port.generate_port(pad=clearance)
+            for k in range(self._repeat + 1):
+                tool = base_tool.rotate((0, 0, 0), (0, 0, 1), k * period)
+                tb = tool.BoundingBox()
+                for m_idx, magnet in enumerate(magnet_solids):
+                    mb = magnet.BoundingBox()
+                    if (
+                        tb.xmax < mb.xmin or tb.xmin > mb.xmax
+                        or tb.ymax < mb.ymin or tb.ymin > mb.ymax
+                        or tb.zmax < mb.zmin or tb.zmin > mb.zmax
+                    ):
+                        continue
+
+                    vol = tool.intersect(magnet).Volume()
+                    if vol > tol:
+                        conflicts.append((p_idx, k, m_idx, vol))
+
+        if conflicts:
+            msg = (
+                "Port/magnet overlaps (port, period, magnet, cm^3): "
+                + "; ".join(
+                    f"({p}, {k}, {m}, {v:.1f})" for p, k, m, v in conflicts
+                )
+            )
+            if on_conflict == "raise":
+                e = ValueError(msg)
+                self._logger.error(e.args[0])
+                raise e
+
+            self._logger.warning(msg)
+
+        return conflicts
+
     def resolve_ports(self, period):
         """Attempt to resolve all `Port` lengths in the `InVesselBuild` using
         `Port.resolve()`.

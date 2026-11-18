@@ -380,6 +380,12 @@ def build(ports, repeat=0, num_ribs=16, num_rib_pts=41, resolve=True):
 def _unresolved_build(ports):
     return build(ports, resolve=False)
 
+def _box(center, side=4.0):
+    h = side / 2.0
+    return cq.Solid.makeBox(
+        side, side, side, cq.Vector(*(np.asarray(center, dtype=float) - h))
+    )
+
 def _clearance_build(repeat=0):
     return build(
         [dict(
@@ -759,3 +765,69 @@ def test_ports_cut_in_every_repeated_period():
         R = rot_z(k * PERIOD)
         assert not blanket.isInside(cq.Vector(*(R @ on_axis))), f"no hole, k={k}"
         assert blanket.isInside(cq.Vector(*(R @ off_axis))), f"no solid, k={k}"
+
+# Magnet clearance
+def test_magnet_inside_port_exact_overlap(clearance_ivbuild):
+    ivbuild = clearance_ivbuild
+    magnet = _box(_on_axis(ivbuild.ports[0]))
+    conflicts = ivbuild.check_port_magnet_clearance(
+        [magnet], on_conflict="warn"
+    )
+
+    assert len(conflicts) == 1
+    p_idx, k, m_idx, vol = conflicts[0]
+    assert (p_idx, k, m_idx) == (0, 0, 0)
+    assert vol == pytest.approx(4.0**3, rel=1e-3)
+
+def test_conflict_raises_with_readable_message(clearance_ivbuild):
+    ivbuild = clearance_ivbuild
+    magnet = _box(_on_axis(ivbuild.ports[0]))
+    with pytest.raises(ValueError, match=r"Port/magnet overlaps*\(0, 0, 0, "):
+        ivbuild.check_port_magnet_clearance([magnet])
+
+def test_bbox_overlap_without_volume_overlap_is_not_a_conflict(
+    clearance_ivbuild
+):
+    ivbuild = clearance_ivbuild
+    port = ivbuild.ports[0]
+    bb = port.generate_port().BoundingBox()
+    center = np.array([bb.xmax, bb.ymax, bb.xmax]) - 1.5
+    assert not port.generate_port().isInside(cq.Vector(*center))
+    assert ivbuild.check_port_magnet_clearance([_box(center, side=2.0)]) == []
+
+@pytest.mark.parametrize(
+    "clearance,expect_conflict", [(0.0, False), (3.0, True)]
+)
+def test_clearance_widens_the_keep_out(
+    clearance_ivbuild, clearance, expect_conflict
+):
+    ivbuild = clearance_ivbuild
+    port = ivbuild.ports[0]
+    u, _ = port._section_axes()
+    magnet = _box(_on_axis(port) + 10.0 * u, side=2.0)
+
+    conflicts = ivbuild.check_port_magnet_clearance(
+        [magnet], clearance=clearance, on_conflict="warn"
+    )
+    assert bool(conflicts) is expect_conflict
+
+def test_conflict_found_in_repeated_period_only(clearance_ivbuild_repeat2):
+    ivbuild = clearance_ivbuild_repeat2
+    port = ivbuild.ports[0]
+    magnet = _box(rot_z(2 * PERIOD) @ _on_axis(port))
+    conflicts = ivbuild.check_port_magnet_clearance(
+        [magnet], on_conflict="warn"
+    )
+    assert [(c[0], c[1], c[2]) for c in conflicts] == [(0, 2, 0)]
+    assert conflicts[0][3] == pytest.approx(4.0**3, rel=1e-3)
+
+def test_reports_correct_magnet_index_and_ignores_distant_magnet(
+    clearance_ivbuild
+):
+    ivbuild = clearance_ivbuild
+    far = _box([0.0, 0.0, 300.0])
+    near = _box(_on_axis(ivbuild.ports[0]))
+    conflicts = ivbuild.check_port_magnet_clearance(
+        [far, near], on_conflict="warn"
+    )
+    assert [(c[0], c[1], c[2]) for c in conflicts] == [(0, 0, 1)]
