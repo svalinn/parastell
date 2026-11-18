@@ -43,9 +43,13 @@ radial_build_dict = {
         "mat_tag": "vac_vessel",
     },
 }
-# Construct in-vessel components
+# Construct in-vessel components, including ports
+common = dict(radius=15.0, orientation_polar_angle=80.0,
+              orientation_azimuthal_angle=0.0)
+ports = [dict(common, base_toroidal_angle=t, base_poloidal_angle=0.0)
+         for t in (15.0, 45.0, 75.0)]
 stellarator.construct_invessel_build(
-    toroidal_angles, poloidal_angles, wall_s, radial_build_dict
+    toroidal_angles, poloidal_angles, wall_s, radial_build_dict, ports=ports
 )
 # Export in-vessel component files
 stellarator.export_invessel_build_step(export_dir=export_dir)
