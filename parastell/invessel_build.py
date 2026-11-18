@@ -375,7 +375,7 @@ class Port(object):
         implementations will include:
         * Ability to define `Port` wall thickness/material
         * Additional geometries (elliptical planes, rectangular planes)
-    
+
     Arguments:
         ref_surf (object): `ReferenceSurface` object. Must have a method
             'angles_to_xyz(toroidal_angles, poloidal_angles, s, scale)' that
@@ -385,11 +385,11 @@ class Port(object):
         wall_s (float): closed flux surface label extrapolation at wall.
         base_toroidal_angle (float): toroidal angle of the `Port`'s interior
             base. Taken with `base_poloidal_angle` to create a position vector
-            to define base location. Range [0, period] [deg]. 
+            to define base location. Range [0, period] [deg].
         base_poloidal_angle (float): poloidal angle of the `Port`'s interior
             base. Taken with `base_toroidal_angle` to create a position vector
             to define base location. Range [0, 360] [deg].
-        
+
     Optional attributes:
         orientation_polar_angle (float or None): polar angle of the `Port`'s
             orientation vector in spherical coordinates [deg]. The coordinate
@@ -442,7 +442,7 @@ class Port(object):
 
     def __init__(
         self,
-        ref_surf, 
+        ref_surf,
         wall_s,
         base_toroidal_angle,
         base_poloidal_angle,
@@ -454,7 +454,7 @@ class Port(object):
         scale=m2cm,
         plane_shape="circle",
         radius=None,
-        logger=None
+        logger=None,
     ):
 
         self.logger = logger
@@ -490,7 +490,7 @@ class Port(object):
             self._logger.error(e.args[0])
             raise e
 
-        if plane_shape.lower() == 'circle':
+        if plane_shape.lower() == "circle":
             self.plane_shape = plane_shape
             if radius is None or radius <= 0 or not np.isfinite(radius):
                 e = ValueError(
@@ -529,7 +529,7 @@ class Port(object):
         self.inset = None
         self.blanket_length = None
         self.resolved_length = None
-        
+
         # Filled in by _set_origin_point()
         self.origin = None
 
@@ -581,7 +581,7 @@ class Port(object):
         """Cache the Cartesian position on the reference surface."""
         if self._base_cache is None:
             self._base_cache = self._xyz(self._tor, self._pol)
-        
+
         return self._base_cache
 
     def _calculate_tangents(self, delta=1e-4):
@@ -633,7 +633,7 @@ class Port(object):
             self._tor,
             self._full_period_linspace(61)[:-1],
             self.wall_s,
-            self.scale
+            self.scale,
         )
 
         # Ensure outward orientation
@@ -657,11 +657,13 @@ class Port(object):
                 to the supplied spherical angles.
         """
 
-        return np.array([
-            np.sin(polar) * np.cos(azimuthal),
-            np.sin(polar) * np.sin(azimuthal),
-            np.cos(polar)
-        ])
+        return np.array(
+            [
+                np.sin(polar) * np.cos(azimuthal),
+                np.sin(polar) * np.sin(azimuthal),
+                np.cos(polar),
+            ]
+        )
 
     def local_frame(self):
         """Define a local right-handed orthonormal Cartesian coordinate frame
@@ -674,13 +676,13 @@ class Port(object):
 
         Arguments:
             None
-        
+
         Returns:
             radial (numpy.ndarray): vector mapping the local radial direction
                 (x-axis) to a global frame.
             toroidal (numpy.ndarray): vector mapping the local toroidal
                 direction (y-axis) to a global frame.
-            z (numpy.ndarray): global z-axis. 
+            z (numpy.ndarray): global z-axis.
         """
 
         radial = np.array([np.cos(self._tor), np.sin(self._tor), 0.0])
@@ -702,7 +704,7 @@ class Port(object):
                 x_hat, y_hat, z_hat = self.local_frame()
                 c = self._spherical_to_xyz(
                     np.deg2rad(self.orientation_polar_angle),
-                    np.deg2rad(self.orientation_azimuthal_angle)
+                    np.deg2rad(self.orientation_azimuthal_angle),
                 )
                 self._orientation = normalize(
                     c[0] * x_hat + c[1] * y_hat + c[2] * z_hat
@@ -724,9 +726,9 @@ class Port(object):
 
         a = self.orientation
         helper = (
-            np.array([0.0, 0.0, 1.0]) # global z-axis
+            np.array([0.0, 0.0, 1.0])  # global z-axis
             if abs(a[2]) < 0.9
-            else np.array([1.0, 0.0, 0.0]) # global x-axis
+            else np.array([1.0, 0.0, 0.0])  # global x-axis
         )
         u = normalize(np.cross(a, helper))
 
@@ -734,14 +736,14 @@ class Port(object):
 
     def _in_section(self, lu, lv, tol=1.05):
         """Mask of in-plane coordinates within the section.
-        
+
         Arguments:
             lu (numpy.ndarray): coordinates along the first in-plane axis.
             lv (numpy.ndarray): coordinates along the second in-plane axis.
             tol (float, optional): multiplicative tolerance applied to the
                 section radius.
                 (defaults to 1.05)
-        
+
         Returns:
             inside (numpy.ndarray): Boolean mask identifying points within the
                 cross-sectional boundary.
@@ -759,7 +761,7 @@ class Port(object):
         pad_grow=1.5,
         max_grow=4,
         grazing=0.2,
-        footprint_grazing=0.05
+        footprint_grazing=0.05,
     ):
         """Calculate the minimum inward displacement [cm] of a `Port`'s origin
         point, based on its orientation and the local curvature of the
@@ -852,12 +854,14 @@ class Port(object):
             phis = self._tor + np.linspace(-half_phi, half_phi, n)
 
             # P[i, j] = point at (phis[i], thetas[j])
-            P = np.array([
-                self.ref_surf.angles_to_xyz(
-                    p, thetas, self.wall_s, self.scale
-                )
-                for p in phis
-            ])
+            P = np.array(
+                [
+                    self.ref_surf.angles_to_xyz(
+                        p, thetas, self.wall_s, self.scale
+                    )
+                    for p in phis
+                ]
+            )
             rel = P - self.base_point
             axial = rel @ self.orientation
             inside = self._in_section(rel @ u, rel @ v)
@@ -891,9 +895,8 @@ class Port(object):
             self._logger.error(e.args[0])
             raise e
 
-        return (
-            max(0.0, -axial[inside].min())
-            + max(min_margin, margin_frac * self.section_extent)
+        return max(0.0, -axial[inside].min()) + max(
+            min_margin, margin_frac * self.section_extent
         )
 
     ##### Tools for Calculating Blanket Length along Port Axis #####
@@ -939,9 +942,9 @@ class Port(object):
     def _prepare_moller_trumbore_tri_vectors(self, triangles, eps=1e-12):
         """Produce source-independent vectors and algebraic values for
         application of the Möller-Trumbore ray-triangles intersection
-        algorithm. Called before iteration over each origin point for 
+        algorithm. Called before iteration over each origin point for
         computational efficiency.
-        
+
         Algorithm and variable naming conventions implemented from:
         https://doi.org/10.1080/10867651.1997.10487468
 
@@ -989,7 +992,7 @@ class Port(object):
         Trumbore algorithm. Current implementation limited to locally
         convex surfaces; multiple hits possible for concave regions. Future
         updates will handle this case.
-        
+
         Algorithm and variable naming conventions implemented from:
         https://doi.org/10.1080/10867651.1997.10487468
 
@@ -999,7 +1002,7 @@ class Port(object):
             start_point (numpy.ndarray): position vector for a trial ray
                 origin.
             origin_indep_MT_vals (tuple): collection of grouped source-
-                independent outputs of 
+                independent outputs of
                 `_prepare_moller_trumbore_tri_vectors()`.
             slack (float, optional): numerical tolerance applied to the
                 barycentric coordinates (u,v) when determining whether an
@@ -1015,17 +1018,19 @@ class Port(object):
         # efficiency
         V0, E1, E2, P, inv_det, valid = origin_indep_MT_vals
         T = start_point - V0
-        u = np.einsum(self.EINSUM_SUBSCRIPTS, T, P) * inv_det 
+        u = np.einsum(self.EINSUM_SUBSCRIPTS, T, P) * inv_det
         Q = np.cross(T, E1)
         v = (Q @ self.orientation) * inv_det
         t = np.einsum(self.EINSUM_SUBSCRIPTS, E2, Q) * inv_det
-        return t[(
-            valid
-            & (u >= -slack) 
-            & (v >= -slack)
-            & (u + v <= 1.0 + slack)
-            & (t > 0.0)
-        )]
+        return t[
+            (
+                valid
+                & (u >= -slack)
+                & (v >= -slack)
+                & (u + v <= 1.0 + slack)
+                & (t > 0.0)
+            )
+        ]
 
     def _compile_disk_sample_offsets(self, n_radial, n_angular):
         """Generate a concentric sampling of points spanning the `Port`'s
@@ -1061,14 +1066,14 @@ class Port(object):
         n_angular=16,
         max_refinements=3,
         atol=0.1,
-        rtol=1e-3
+        rtol=1e-3,
     ):
         """Determine the maximum distance from the `Port`'s base point to the
         first positive intersection of each sampled ray with the triangulated
         outer surface of the `InVesselBuild`. Intersections calculated by the
         Möller-Trumbore ray-triangle intersection algorithm.
         (Internal function not intended to be called externally)
-        
+
         Arguments:
             outer_loci (numpy.ndarray): array of point-loci defining the
                 outermost surface of the `InVesselBuild`.
@@ -1096,7 +1101,7 @@ class Port(object):
 
         Returns:
             ivb_length (float): maximum distance across the `InVesselBuild` in
-                the space spanned by the `Port`. 
+                the space spanned by the `Port`.
         """
 
         self._set_origin_point()
@@ -1147,7 +1152,7 @@ class Port(object):
         approximation (s ≈ second difference / 8), subject to a minimum
         correction specified by `min_sagitta`.
         (Internal function not intended to be called externally)
-        
+
         Arguments:
             loci (numpy.ndarray): array of point-loci defining the outermost
                 surface of the `InVesselBuild`.
@@ -1165,9 +1170,7 @@ class Port(object):
         d2_pol = np.linalg.norm(
             loci[:, :-2] - 2 * loci[:, 1:-1] + loci[:, 2:], axis=-1
         )
-        d2_tor = np.linalg.norm(
-            loci[:-2] - 2 * loci[1:-1] + loci[2:], axis=-1
-        )
+        d2_tor = np.linalg.norm(loci[:-2] - 2 * loci[1:-1] + loci[2:], axis=-1)
         max_second_difference = max(d2_pol.max(), d2_tor.max())
 
         return max(max_second_difference / 8.0, min_sagitta)
@@ -1175,11 +1178,11 @@ class Port(object):
     def resolve(self, outer_loci):
         """Resolve a `Port`'s length attributes to ensure sufficient extension
         along its axis to traverse the associated `InVesselBuild`.
-        
+
         Arguments:
             outer_loci (numpy.ndarray): array of point-loci defining the
                 outermost surface of the `InVesselBuild`.
-            
+
         Returns:
             Port (object): resolved `Port` object.
         """
@@ -1187,10 +1190,9 @@ class Port(object):
         if self.inset is None:
             self.inset = self.compute_minimum_inset()
 
-        self.blanket_length = (
-            self._calculate_ivb_length_along_port(outer_loci)
-            + self._estimate_chord_sagitta(outer_loci)
-        )
+        self.blanket_length = self._calculate_ivb_length_along_port(
+            outer_loci
+        ) + self._estimate_chord_sagitta(outer_loci)
 
         if self.length == "min":
             ext = (
@@ -1202,9 +1204,8 @@ class Port(object):
 
         else:
             self.resolved_length = float(self.length)
-            if (
-                self.resolved_length < self.blanket_length
-                and not np.isclose(self.resolved_length, self.blanket_length)
+            if self.resolved_length < self.blanket_length and not np.isclose(
+                self.resolved_length, self.blanket_length
             ):
                 e = ValueError(
                     f"Specified port length ({self.resolved_length:.3f} cm) "
@@ -1229,7 +1230,7 @@ class Port(object):
         Returns:
             port_solid (cadquery.Solid): oriented CadQuery `Solid` object
                 representing the `Port`, to be cut from other `InVesselBuild`
-                layers. 
+                layers.
         """
 
         if self.resolved_length is None:
@@ -1243,12 +1244,12 @@ class Port(object):
         # Currently only "circle" allowed anyways, but conditional
         # infrastructure in place to accomadate future implementations of
         # other plane shapes
-        if self.plane_shape.lower() == 'circle':
+        if self.plane_shape.lower() == "circle":
             return cq.Solid.makeCylinder(
                 self.radius + pad,
                 self.resolved_length + self.inset,
                 cq.Vector(*self.origin),
-                cq.Vector(*self.orientation)
+                cq.Vector(*self.orientation),
             )
 
     def compile_end_points(self, distance, n=15):
@@ -1530,7 +1531,7 @@ class InVesselBuild(object):
 
     def add_port(self, **port_kwargs):
         """Generate and include a `Port` object to the `InVesselBuild`,
-        according to `port_kwargs`. Currently only compatible with CadQuery.        
+        according to `port_kwargs`. Currently only compatible with CadQuery.
         """
 
         if self.use_pydagmc:
@@ -1544,12 +1545,14 @@ class InVesselBuild(object):
                 f"[0, {period}] degrees."
             )
 
-        self.ports.append(Port(
-            self.ref_surf,
-            self.radial_build.wall_s,
-            scale=self.scale,
-            **port_kwargs
-        ))
+        self.ports.append(
+            Port(
+                self.ref_surf,
+                self.radial_build.wall_s,
+                scale=self.scale,
+                **port_kwargs,
+            )
+        )
 
     def _check_port_exits(self, outermost_solid, tol=1e-3):
         """Ensure all `Port` objects fully traverse the `InVesselBuild`.
